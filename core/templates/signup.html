@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - EduLog</title>
+</head>
+<body>
+    <h1>Sign Up</h1>
+    
+    {% if messages %}
+        <ul>
+            {% for message in messages %}
+                <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div>
+            <label for="role">Sign up as:</label>
+            <select id="role" name="role" required onchange="updateFormFields()">
+                <option value="">Select role</option>
+                <option value="teacher">Teacher</option>
+                <option value="student">Student</option>
+                <option value="parent">Parent</option>
+            </select>
+        </div>
+        
+        <div>
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+        
+        <div>
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        
+        <div>
+            <label for="first_name">First Name:</label>
+            <input type="text" id="first_name" name="first_name">
+        </div>
+        
+        <div>
+            <label for="last_name">Last Name:</label>
+            <input type="text" id="last_name" name="last_name">
+        </div>
+        
+        <div>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        
+        <div>
+            <label for="password_confirm">Confirm Password:</label>
+            <input type="password" id="password_confirm" name="password_confirm" required>
+        </div>
+        
+        <!-- Teacher specific fields -->
+        <div id="teacher-fields" style="display: none;">
+            <div>
+                <label for="department">Department:</label>
+                <input type="text" id="department" name="department">
+            </div>
+        </div>
+        
+        <!-- Student specific fields -->
+        <div id="student-fields" style="display: none;">
+            <div>
+                <label for="course">Course:</label>
+                <input type="text" id="course" name="course">
+            </div>
+            <div>
+                <label for="year_level">Year Level:</label>
+                <input type="text" id="year_level" name="year_level">
+            </div>
+        </div>
+        
+        <!-- Parent specific fields -->
+        <div id="parent-fields" style="display: none;">
+            <div>
+                <label for="contact_number">Contact Number:</label>
+                <input type="text" id="contact_number" name="contact_number">
+            </div>
+        </div>
+        
+        <div>
+            <button type="submit">Sign Up</button>
+        </div>
+    </form>
+    
+    <div>
+        <p>Already have an account? <a href="{% url 'login' %}">Login here</a></p>
+    </div>
+    
+    <script>
+        function updateFormFields() {
+            var role = document.getElementById('role').value;
+            var teacherFields = document.getElementById('teacher-fields');
+            var studentFields = document.getElementById('student-fields');
+            var parentFields = document.getElementById('parent-fields');
+            
+            // Hide all fields first
+            teacherFields.style.display = 'none';
+            studentFields.style.display = 'none';
+            parentFields.style.display = 'none';
+            
+            // Show relevant fields based on role
+            if (role === 'teacher') {
+                teacherFields.style.display = 'block';
+            } else if (role === 'student') {
+                studentFields.style.display = 'block';
+            } else if (role === 'parent') {
+                parentFields.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
+

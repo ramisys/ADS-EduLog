@@ -4,7 +4,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from datetime import datetime
-from .models import TeacherProfile, StudentProfile, ParentProfile, User, Subject, Attendance, Grade, Notification
+from .models import TeacherProfile, StudentProfile, ParentProfile, User, Subject, Attendance, Grade, Notification, ClassSection
 
 def check_password_with_plaintext(user, password):
     """
@@ -201,4 +201,81 @@ def login_view(request):
                 messages.error(request, 'Invalid username, ID, email or password.')
     
     return render(request, 'login.html')
+
+def signup_view(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        password = request.POST.get('password', '')
+        password_confirm = request.POST.get('password_confirm', '')
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        role = request.POST.get('role')
+        
+        # Validate required fields
+        if not username or not email or not password or not password_confirm or not role:
+            messages.error(request, 'Please fill in all required fields.')
+            return render(request, 'signup.html')
+        
+        # Check if passwords match
+        if password != password_confirm:
+            messages.error(request, 'Passwords do not match.')
+            return render(request, 'signup.html')
+        
+        # Check if username already exists
+        if User.objects.filter(username=username).exists():
+            messages.error(request, 'Username already exists.')
+            return render(request, 'signup.html')
+        
+        # Check if email already exists
+        if User.objects.filter(email=email).exists():
+            messages.error(request, 'Email already exists.')
+            return render(request, 'signup.html')
+        
+        # Create user
+        try:
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+                role=role
+            )
+            
+            # Create profile based on role
+            if role == 'teacher':
+                department = request.POST.get('department', '').strip()
+                if not department:
+                    user.delete()
+                    messages.error(request, 'Department is required for teachers.')
+                    return render(request, 'signup.html')
+                TeacherProfile.objects.create(user=user, department=department)
+                
+            elif role == 'student':
+                course = request.POST.get('course', '').strip()
+                year_level = request.POST.get('year_level', '').strip()
+                if not course or not year_level:
+                    user.delete()
+                    messages.error(request, 'Course and year level are required for students.')
+                    return render(request, 'signup.html')
+                StudentProfile.objects.create(user=user, course=course, year_level=year_level)
+                
+            elif role == 'parent':
+                contact_number = request.POST.get('contact_number', '').strip()
+                ParentProfile.objects.create(user=user, contact_number=contact_number)
+            
+            messages.success(request, 'Account created successfully! Please login.')
+            return redirect('login')
+            
+        except Exception as e:
+            messages.error(request, f'An error occurred: {str(e)}')
+            return render(request, 'signup.html')
+    
+    # Get sections for student signup (optional)
+    sections = ClassSection.objects.all()
+    return render(request, 'signup.html', {'sections': sections})
    

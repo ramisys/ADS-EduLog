@@ -47,6 +47,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'core.middleware.AdminAccessMiddleware',  # Redirect non-staff users from admin
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -123,3 +124,13 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'core.User'
+
+# Authentication backends - custom backend handles plain text passwords
+AUTHENTICATION_BACKENDS = [
+    'core.backends.PlainTextPasswordBackend',  # Custom backend for plain text passwords
+    'django.contrib.auth.backends.ModelBackend',  # Default backend as fallback
+]
+
+# Login settings
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/dashboard/'

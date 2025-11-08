@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - EduLog</title>
+</head>
+<body>
+    <h1>Login</h1>
+    
+    {% if messages %}
+        <ul>
+            {% for message in messages %}
+                <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div>
+            <label for="role">Login as:</label>
+            <select id="role" name="role" required onchange="updateIdentifierLabel()">
+                <option value="">Select role</option>
+                <option value="teacher">Teacher</option>
+                <option value="student">Student</option>
+                <option value="parent">Parent</option>
+            </select>
+        </div>
+        
+        <div>
+            <label id="identifier-label" for="identifier">Username, ID or Email:</label>
+            <input type="text" id="identifier" name="identifier" required>
+        </div>
+        
+        <div>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        
+        <div>
+            <button type="submit">Login</button>
+        </div>
+    </form>
+    
+    <script>
+        function updateIdentifierLabel() {
+            var role = document.getElementById('role').value;
+            var label = document.getElementById('identifier-label');
+            var input = document.getElementById('identifier');
+            
+            if (role === 'parent') {
+                label.textContent = 'Email:';
+                input.type = 'email';
+            } else if (role === 'teacher' || role === 'student') {
+                label.textContent = 'Username, ID or Email:';
+                input.type = 'text';
+            } else {
+                label.textContent = 'Username, ID or Email:';
+                input.type = 'text';
+            }
+        }
+    </script>
+</body>
+</html>
+

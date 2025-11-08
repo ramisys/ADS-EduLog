@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - EduLog</title>
+</head>
+<body>
+    <h1>Dashboard</h1>
+    
+    <div>
+        <p>Welcome, {{ user.get_full_name|default:user.username }}!</p>
+        <p>Role: {{ user.get_role_display }}</p>
+        <a href="{% url 'logout' %}">Logout</a>
+    </div>
+    
+    {% if messages %}
+        <ul>
+            {% for message in messages %}
+                <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+    
+    {% if user.role == 'teacher' %}
+        <h2>Teacher Dashboard</h2>
+        {% if teacher_profile %}
+            <div>
+                <h3>Profile Information</h3>
+                <p>Teacher ID: {{ teacher_profile.teacher_id }}</p>
+                <p>Department: {{ teacher_profile.department }}</p>
+            </div>
+        {% endif %}
+        
+        {% if sections %}
+            <div>
+                <h3>Advised Sections</h3>
+                <ul>
+                    {% for section in sections %}
+                        <li>{{ section.name }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+        
+        {% if subjects %}
+            <div>
+                <h3>Subjects Teaching</h3>
+                <ul>
+                    {% for subject in subjects %}
+                        <li>{{ subject.code }} - {{ subject.name }} ({{ subject.section.name }})</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% else %}
+            <p>No subjects assigned yet.</p>
+        {% endif %}
+        
+    {% elif user.role == 'student' %}
+        <h2>Student Dashboard</h2>
+        {% if student_profile %}
+            <div>
+                <h3>Profile Information</h3>
+                <p>Student ID: {{ student_profile.student_id }}</p>
+                <p>Course: {{ student_profile.course }}</p>
+                <p>Year Level: {{ student_profile.year_level }}</p>
+                {% if student_profile.section %}
+                    <p>Section: {{ student_profile.section.name }}</p>
+                {% endif %}
+            </div>
+        {% endif %}
+        
+        {% if subjects %}
+            <div>
+                <h3>Enrolled Subjects</h3>
+                <ul>
+                    {% for subject in subjects %}
+                        <li>{{ subject.code }} - {{ subject.name }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+        
+        {% if attendance_records %}
+            <div>
+                <h3>Recent Attendance</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Subject</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attendance in attendance_records %}
+                            <tr>
+                                <td>{{ attendance.date }}</td>
+                                <td>{{ attendance.subject.code }}</td>
+                                <td>{{ attendance.get_status_display }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+        
+        {% if grades %}
+            <div>
+                <h3>Recent Grades</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Term</th>
+                            <th>Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for grade in grades %}
+                            <tr>
+                                <td>{{ grade.subject.code }}</td>
+                                <td>{{ grade.term }}</td>
+                                <td>{{ grade.grade }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+        
+    {% elif user.role == 'parent' %}
+        <h2>Parent Dashboard</h2>
+        {% if parent_profile %}
+            <div>
+                <h3>Profile Information</h3>
+                <p>Parent ID: {{ parent_profile.parent_id }}</p>
+                {% if parent_profile.contact_number %}
+                    <p>Contact Number: {{ parent_profile.contact_number }}</p>
+                {% endif %}
+            </div>
+        {% endif %}
+        
+        {% if children %}
+            <div>
+                <h3>Children</h3>
+                <ul>
+                    {% for child in children %}
+                        <li>
+                            {{ child.student_id }} - {{ child.user.get_full_name|default:child.user.username }}
+                            ({{ child.course }}, Year {{ child.year_level }})
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% else %}
+            <p>No children registered.</p>
+        {% endif %}
+        
+    {% endif %}
+    
+    {% if notifications %}
+        <div>
+            <h3>Notifications</h3>
+            <ul>
+                {% for notification in notifications %}
+                    <li>
+                        <strong>{{ notification.created_at|date:"Y-m-d H:i" }}</strong>
+                        <p>{{ notification.message }}</p>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+    
+</body>
+</html>
+

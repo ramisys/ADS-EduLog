@@ -165,7 +165,7 @@ class Grade(models.Model):
     grade = models.DecimalField(max_digits=5, decimal_places=2)
 
     def __str__(self):
-        return f"{self.student.custom_id} - {self.subject.code}: {self.grade}"
+        return f"{self.student.student_id} - {self.subject.code}: {self.grade}"
 
 
 # ===== NOTIFICATION =====

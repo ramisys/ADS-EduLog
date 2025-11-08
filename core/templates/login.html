@@ -1,71 +1,161 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - EduLog</title>
-</head>
-<body>
-    <h1>Login</h1>
-    
-    {% if messages %}
-        <ul>
-            {% for message in messages %}
-                <li>{{ message }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-    
-    <form method="post">
-        {% csrf_token %}
-        
-        <div>
-            <label for="role">Login as:</label>
-            <select id="role" name="role" required onchange="updateIdentifierLabel()">
-                <option value="">Select role</option>
-                <option value="teacher">Teacher</option>
-                <option value="student">Student</option>
-                <option value="parent">Parent</option>
-            </select>
-        </div>
-        
-        <div>
-            <label id="identifier-label" for="identifier">Username, ID or Email:</label>
-            <input type="text" id="identifier" name="identifier" required>
-        </div>
-        
-        <div>
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-        </div>
-        
-        <div>
-            <button type="submit">Login</button>
-        </div>
-    </form>
-    
-    <div>
-        <p>Don't have an account? <a href="{% url 'signup' %}">Sign up here</a></p>
-    </div>
-    
-    <script>
-        function updateIdentifierLabel() {
-            var role = document.getElementById('role').value;
-            var label = document.getElementById('identifier-label');
-            var input = document.getElementById('identifier');
+{% extends 'base.html' %}
+
+{% block title %}Login - EduLog{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: var(--background-gradient);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .login-card {
+        max-width: 450px;
+        width: 100%;
+        border-radius: var(--border-radius);
+        box-shadow: var(--card-shadow);
+        border: 1px solid #e0e0e0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="login-card card">
+        <div class="card-body p-5">
+            <!-- Logo -->
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <i class="bi bi-mortarboard"></i>
+                </div>
+            </div>
             
-            if (role === 'parent') {
-                label.textContent = 'Email:';
-                input.type = 'email';
-            } else if (role === 'teacher' || role === 'student') {
-                label.textContent = 'Username, ID or Email:';
-                input.type = 'text';
-            } else {
-                label.textContent = 'Username, ID or Email:';
-                input.type = 'text';
-            }
-        }
-    </script>
-</body>
-</html>
+            <h2 class="text-center text-primary mb-2">Welcome to EduLog</h2>
+            <p class="text-center text-muted mb-4">Sign in to your account</p>
+            
+            <!-- Messages -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <!-- Tabs -->
+            <ul class="nav nav-tabs" id="roleTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="teacher-tab" data-bs-toggle="tab" data-bs-target="#teacher" type="button" role="tab">Teacher</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="student-tab" data-bs-toggle="tab" data-bs-target="#student" type="button" role="tab">Student</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="parent-tab" data-bs-toggle="tab" data-bs-target="#parent" type="button" role="tab">Parent</button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="roleTabContent">
+                <!-- Teacher Form -->
+                <div class="tab-pane fade show active" id="teacher" role="tabpanel">
+                    <form method="post" id="teacher-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="role" value="teacher">
+                        
+                        <div class="mb-3">
+                            <label for="teacher-identifier" class="form-label">Email, Username or Teacher ID</label>
+                            <div class="input-group-icon">
+                                <i class="bi bi-envelope"></i>
+                                <input type="text" class="form-control" id="teacher-identifier" name="identifier" placeholder="teacher@school.edu, username or T12345" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="teacher-password" class="form-label">Password</label>
+                            <div class="input-group-icon">
+                                <i class="bi bi-lock"></i>
+                                <input type="password" class="form-control" id="teacher-password" name="password" placeholder="••••••••" required>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-end mb-3">
+                            <a href="#" class="forgot-password-link">Forgot password?</a>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">Sign In</button>
+                    </form>
+                </div>
+                
+                <!-- Student Form -->
+                <div class="tab-pane fade" id="student" role="tabpanel">
+                    <form method="post" id="student-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="role" value="student">
+                        
+                        <div class="mb-3">
+                            <label for="student-identifier" class="form-label">Email, Username or Student ID</label>
+                            <div class="input-group-icon">
+                                <i class="bi bi-envelope"></i>
+                                <input type="text" class="form-control" id="student-identifier" name="identifier" placeholder="student@school.edu, username or S12345" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="student-password" class="form-label">Password</label>
+                            <div class="input-group-icon">
+                                <i class="bi bi-lock"></i>
+                                <input type="password" class="form-control" id="student-password" name="password" placeholder="••••••••" required>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-end mb-3">
+                            <a href="#" class="forgot-password-link">Forgot password?</a>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">Sign In</button>
+                    </form>
+                </div>
+                
+                <!-- Parent Form -->
+                <div class="tab-pane fade" id="parent" role="tabpanel">
+                    <form method="post" id="parent-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="role" value="parent">
+                        
+                        <div class="mb-3">
+                            <label for="parent-identifier" class="form-label">Email</label>
+                            <div class="input-group-icon">
+                                <i class="bi bi-envelope"></i>
+                                <input type="email" class="form-control" id="parent-identifier" name="identifier" placeholder="parent@email.com" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="parent-password" class="form-label">Password</label>
+                            <div class="input-group-icon">
+                                <i class="bi bi-lock"></i>
+                                <input type="password" class="form-control" id="parent-password" name="password" placeholder="••••••••" required>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-end mb-3">
+                            <a href="#" class="forgot-password-link">Forgot password?</a>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">Sign In</button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Toggle to Signup -->
+            <div class="text-center mt-4">
+                <a href="{% url 'signup' %}" class="toggle-link">
+                    Don't have an account? <span>Sign Up</span>
+                </a>
+            </div>
+        </div>
+    </div>
+{% endblock %}
 

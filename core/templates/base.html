@@ -25,6 +25,11 @@
             --border-radius-pill: 9999px;
         }
         
+        html, body {
+            margin: 0;
+            padding: 0;
+        }
+        
         body {
             min-height: 100vh;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -40,6 +45,21 @@
         
         .btn-primary:hover {
             background: var(--primary-hover);
+        }
+        
+        .btn-outline-primary {
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            background: transparent;
+            border-radius: var(--border-radius-sm);
+            padding: 12px;
+            font-weight: 500;
+        }
+        
+        .btn-outline-primary:hover {
+            background: #eff6ff;
+            border-color: var(--primary-color);
+            color: var(--primary-color);
         }
         
         .form-label {
@@ -168,15 +188,255 @@
         .forgot-password-link:hover {
             text-decoration: underline;
         }
+        
+        /* Navbar Styles */
+        .navbar {
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            width: 100%;
+            margin: 0;
+        }
+        
+        .navbar-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 32px;
+            width: 100%;
+        }
+        
+        .navbar-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 64px;
+            width: 100%;
+            flex: 1;
+        }
+        
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            color: #1e3a8a;
+            font-weight: 600;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+        
+        .navbar-nav-desktop {
+            flex-shrink: 0;
+        }
+        
+        .navbar-brand:hover {
+            color: var(--primary-color);
+        }
+        
+        .navbar-logo {
+            background: var(--primary-color);
+            padding: 8px;
+            border-radius: 8px;
+            color: white;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+        }
+        
+        .navbar-nav-desktop {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-shrink: 0;
+        }
+        
+        .navbar-link {
+            color: #374151;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+            white-space: nowrap;
+        }
+        
+        .navbar-link:hover {
+            color: var(--primary-color);
+        }
+        
+        .navbar-link.active {
+            color: var(--primary-color);
+        }
+        
+        .navbar-toggler {
+            border: none;
+            background: transparent;
+            padding: 8px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .navbar-toggler:hover {
+            background: #f3f4f6;
+        }
+        
+        .navbar-toggler i {
+            font-size: 24px;
+            color: #374151;
+        }
+        
+        .navbar-mobile {
+            display: none;
+        }
+        
+        @media (max-width: 767px) {
+            .navbar-nav-desktop {
+                display: none;
+            }
+            
+            .navbar-mobile {
+                display: block;
+            }
+            
+            .navbar-nav-mobile {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                padding: 16px 0;
+                border-top: 1px solid #e5e7eb;
+            }
+            
+            .navbar-nav-mobile .navbar-link {
+                padding: 8px 16px;
+                border-radius: 8px;
+                width: 100%;
+                text-align: left;
+                display: block;
+            }
+            
+            .navbar-nav-mobile .navbar-link:hover {
+                background: #f3f4f6;
+            }
+            
+            .navbar-nav-mobile .navbar-link.active {
+                background: #eff6ff;
+            }
+        }
     </style>
     
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-content">
+                <!-- Logo -->
+                <a href="{% url 'index' %}" class="navbar-brand">
+                    <div class="navbar-logo">
+                        <i class="bi bi-mortarboard"></i>
+                    </div>
+                    <span>EduLog</span>
+                </a>
+                
+                <!-- Desktop Navigation -->
+                <div class="navbar-nav-desktop">
+                    {% if user.is_authenticated %}
+                        <a href="{% url 'dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                            Dashboard
+                        </a>
+                        <a href="#" class="navbar-link">
+                            Reports
+                        </a>
+                        <a href="#" class="navbar-link">
+                            About
+                        </a>
+                        <a href="{% url 'logout' %}" class="btn btn-outline-primary">
+                            Logout
+                        </a>
+                    {% else %}
+                        <a href="{% url 'index' %}" class="navbar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+                            Home
+                        </a>
+                        <a href="#about" class="navbar-link">
+                            About
+                        </a>
+                        <a href="{% url 'login' %}" class="btn btn-primary">
+                            Login
+                        </a>
+                    {% endif %}
+                </div>
+                
+                <!-- Mobile menu button -->
+                <button class="navbar-toggler navbar-mobile" type="button" data-bs-toggle="collapse" data-bs-target="#mobileNav" aria-controls="mobileNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <i class="bi bi-list" id="mobileMenuIcon"></i>
+                </button>
+            </div>
+            
+            <!-- Mobile Navigation -->
+            <div class="collapse navbar-mobile" id="mobileNav">
+                <div class="navbar-nav-mobile">
+                    {% if user.is_authenticated %}
+                        <a href="{% url 'dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                            Dashboard
+                        </a>
+                        <a href="#" class="navbar-link">
+                            Reports
+                        </a>
+                        <a href="#" class="navbar-link">
+                            About
+                        </a>
+                        <a href="{% url 'logout' %}" class="btn btn-outline-primary w-100">
+                            Logout
+                        </a>
+                    {% else %}
+                        <a href="{% url 'index' %}" class="navbar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+                            Home
+                        </a>
+                        <a href="#" class="navbar-link">
+                            About
+                        </a>
+                        <a href="{% url 'login' %}" class="btn btn-primary w-100">
+                            Login
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+    
     {% block content %}{% endblock %}
     
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Toggle mobile menu icon
+        document.addEventListener('DOMContentLoaded', function() {
+            const mobileNav = document.getElementById('mobileNav');
+            const mobileMenuIcon = document.getElementById('mobileMenuIcon');
+            
+            if (mobileNav && mobileMenuIcon) {
+                mobileNav.addEventListener('show.bs.collapse', function() {
+                    mobileMenuIcon.classList.remove('bi-list');
+                    mobileMenuIcon.classList.add('bi-x');
+                });
+                
+                mobileNav.addEventListener('hide.bs.collapse', function() {
+                    mobileMenuIcon.classList.remove('bi-x');
+                    mobileMenuIcon.classList.add('bi-list');
+                });
+            }
+        });
+    </script>
     
     {% block extra_js %}{% endblock %}
 </body>

@@ -6,10 +6,17 @@
 <style>
     body {
         background: var(--background-gradient);
+        margin: 0;
+        padding: 0;
+        padding-top: 64px;
+    }
+    .login-wrapper {
+        min-height: calc(100vh - 64px);
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 20px;
+        margin: 0;
     }
     .login-card {
         max-width: 450px;
@@ -22,7 +29,8 @@
 {% endblock %}
 
 {% block content %}
-    <div class="login-card card">
+    <div class="login-wrapper">
+        <div class="login-card card">
         <div class="card-body p-5">
             <!-- Logo -->
             <div class="logo-container">
@@ -156,6 +164,7 @@
                 </a>
             </div>
         </div>
+    </div>
     </div>
 {% endblock %}
 

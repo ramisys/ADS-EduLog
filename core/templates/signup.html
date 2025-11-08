@@ -6,10 +6,17 @@
 <style>
     body {
         background: var(--background-gradient);
+        margin: 0;
+        padding: 0;
+        padding-top: 64px;
+    }
+    .signup-wrapper {
+        min-height: calc(100vh - 64px);
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 20px;
+        margin: 0;
     }
     .signup-card {
         max-width: 450px;
@@ -25,7 +32,8 @@
 {% endblock %}
 
 {% block content %}
-    <div class="signup-card card">
+    <div class="signup-wrapper">
+        <div class="signup-card card">
         <div class="card-body p-5">
             <!-- Logo -->
             <div class="logo-container">
@@ -275,6 +283,7 @@
                 </a>
             </div>
         </div>
+    </div>
     </div>
 {% endblock %}
 

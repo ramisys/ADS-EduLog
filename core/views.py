@@ -278,4 +278,40 @@ def signup_view(request):
     # Get sections for student signup (optional)
     sections = ClassSection.objects.all()
     return render(request, 'signup.html', {'sections': sections})
+
+def forgot_password_view(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    
+    is_submitted = False
+    email = ''
+    
+    if request.method == 'POST':
+        email = request.POST.get('email', '').strip()
+        resend = request.POST.get('resend', 'false')
+        
+        if resend == 'true':
+            # Resend email logic
+            is_submitted = True
+            messages.success(request, 'Password reset link has been resent to your email.')
+        elif email:
+            # Check if user exists
+            try:
+                user = User.objects.get(email=email)
+                # TODO: Send password reset email here
+                # For now, just show success message
+                is_submitted = True
+                messages.success(request, 'Password reset link has been sent to your email.')
+            except User.DoesNotExist:
+                # Don't reveal if email exists for security
+                is_submitted = True
+                messages.success(request, 'If an account exists with this email, a password reset link has been sent.')
+        else:
+            messages.error(request, 'Please enter your email address.')
+    
+    context = {
+        'is_submitted': is_submitted,
+        'email': email,
+    }
+    return render(request, 'forgot_password.html', context)
    

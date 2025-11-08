@@ -29,7 +29,7 @@ def check_password_with_plaintext(user, password):
     return False
 
 def index(request):
-    return HttpResponse(f"EduLog system is working successfully in {datetime.now()}.")
+    return render(request, 'index.html')
 
 @login_required
 def dashboard(request):

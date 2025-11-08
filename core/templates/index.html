@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduLog - Education Management System</title>
+</head>
+<body>
+    <header>
+        <h1>EduLog</h1>
+        <p>Education Management System</p>
+    </header>
+    
+    <nav>
+        <a href="{% url 'login' %}">Login</a>
+        <a href="{% url 'signup' %}">Sign Up</a>
+    </nav>
+    
+    <main>
+        <section>
+            <h2>Welcome to EduLog</h2>
+            <p>Your comprehensive education management system for teachers, students, and parents.</p>
+        </section>
+        
+        <section>
+            <h3>Features</h3>
+            <ul>
+                <li>Teacher Dashboard - Manage classes and subjects</li>
+                <li>Student Portal - View attendance and grades</li>
+                <li>Parent Access - Monitor your child's progress</li>
+                <li>Attendance Tracking</li>
+                <li>Grade Management</li>
+                <li>Notifications System</li>
+            </ul>
+        </section>
+        
+        <section>
+            <h3>Get Started</h3>
+            <p>Choose your role to begin:</p>
+            <div>
+                <a href="{% url 'signup' %}?role=teacher">Sign up as Teacher</a>
+                <a href="{% url 'signup' %}?role=student">Sign up as Student</a>
+                <a href="{% url 'signup' %}?role=parent">Sign up as Parent</a>
+            </div>
+        </section>
+        
+        <section>
+            <h3>Already have an account?</h3>
+            <p><a href="{% url 'login' %}">Login here</a></p>
+        </section>
+    </main>
+    
+    <footer>
+        <p>&copy; 2025 EduLog. All rights reserved.</p>
+    </footer>
+</body>
+</html>
+

@@ -1,0 +1,408 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Teacher Dashboard - EduLog{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-container {
+        margin-top: 80px;
+        padding: 32px;
+        max-width: 1400px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .dashboard-header {
+        margin-bottom: 32px;
+    }
+    
+    .dashboard-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1e3a8a;
+        margin-bottom: 8px;
+    }
+    
+    .dashboard-header p {
+        color: #6b7280;
+        font-size: 1rem;
+    }
+    
+    .stats-card {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 24px;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .stats-card h3 {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+    }
+    
+    .stats-card .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1e3a8a;
+    }
+    
+    .stats-card .stat-icon {
+        font-size: 2.5rem;
+        color: #2563eb;
+        margin-bottom: 12px;
+    }
+    
+    .card {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 24px;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .card-header h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1e3a8a;
+        margin: 0;
+    }
+    
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .table th {
+        text-align: left;
+        padding: 12px;
+        font-weight: 600;
+        color: #374151;
+        border-bottom: 2px solid #e5e7eb;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .table td {
+        padding: 12px;
+        border-bottom: 1px solid #e5e7eb;
+        color: #6b7280;
+    }
+    
+    .table tbody tr:hover {
+        background-color: #f9fafb;
+    }
+    
+    .badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .badge-present {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    
+    .badge-absent {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .badge-late {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    
+    .notification-item {
+        padding: 12px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .notification-item:last-child {
+        border-bottom: none;
+    }
+    
+    .notification-item:hover {
+        background-color: #f9fafb;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 48px 24px;
+        color: #6b7280;
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        color: #d1d5db;
+        margin-bottom: 16px;
+    }
+    
+    .subject-card {
+        background: #f9fafb;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .subject-card h4 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1e3a8a;
+        margin-bottom: 8px;
+    }
+    
+    .subject-card p {
+        font-size: 0.875rem;
+        color: #6b7280;
+        margin: 4px 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1>Welcome back, {{ teacher_profile.user.get_full_name|default:teacher_profile.user.username }}!</h1>
+        <p>Teacher ID: {{ teacher_profile.teacher_id }} | Department: {{ teacher_profile.department }}</p>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stats-card text-center">
+                <div class="stat-icon">
+                    <i class="bi bi-book"></i>
+                </div>
+                <h3>Subjects</h3>
+                <div class="stat-value">{{ subjects|length }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card text-center">
+                <div class="stat-icon">
+                    <i class="bi bi-people"></i>
+                </div>
+                <h3>Students</h3>
+                <div class="stat-value">{{ student_count }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card text-center">
+                <div class="stat-icon">
+                    <i class="bi bi-award"></i>
+                </div>
+                <h3>Avg Grade</h3>
+                <div class="stat-value">{{ average_grade }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card text-center">
+                <div class="stat-icon">
+                    <i class="bi bi-bell"></i>
+                </div>
+                <h3>Notifications</h3>
+                <div class="stat-value">{{ notifications|length }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Subjects -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-journal-bookmark"></i> My Subjects</h2>
+                </div>
+                {% if subjects %}
+                <div>
+                    {% for subject in subjects %}
+                    <div class="subject-card">
+                        <h4>{{ subject.code }} - {{ subject.name }}</h4>
+                        <p><strong>Section:</strong> {{ subject.section.name }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-book"></i>
+                    <p>No subjects assigned yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Advised Sections -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-mortarboard"></i> Advised Sections</h2>
+                </div>
+                {% if advised_sections %}
+                <div>
+                    {% for section in advised_sections %}
+                    <div class="subject-card">
+                        <h4>{{ section.name }}</h4>
+                        <p>Class Adviser</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-mortarboard"></i>
+                    <p>No sections assigned as adviser</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Subject Statistics -->
+    {% if subject_stats %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-bar-chart"></i> Subject Statistics</h2>
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Section</th>
+                            <th>Students</th>
+                            <th>Average Grade</th>
+                            <th>Grades Recorded</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in subject_stats %}
+                        <tr>
+                            <td><strong>{{ stat.subject.code }} - {{ stat.subject.name }}</strong></td>
+                            <td>{{ stat.subject.section.name }}</td>
+                            <td>{{ stat.student_count }}</td>
+                            <td><strong>{{ stat.average_grade }}</strong></td>
+                            <td>{{ stat.grades_count }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Recent Attendance -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-calendar-check"></i> Recent Attendance Records</h2>
+                </div>
+                {% if recent_attendance %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Student</th>
+                            <th>Subject</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attendance in recent_attendance %}
+                        <tr>
+                            <td>{{ attendance.date|date:"M d, Y" }}</td>
+                            <td>{{ attendance.student.user.get_full_name|default:attendance.student.user.username }}</td>
+                            <td>{{ attendance.subject.code }}</td>
+                            <td>
+                                {% if attendance.status == 'present' %}
+                                <span class="badge badge-present">Present</span>
+                                {% elif attendance.status == 'absent' %}
+                                <span class="badge badge-absent">Absent</span>
+                                {% elif attendance.status == 'late' %}
+                                <span class="badge badge-late">Late</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-calendar"></i>
+                    <p>No attendance records yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Attendance Statistics -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-pie-chart"></i> Attendance Overview</h2>
+                </div>
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="stat-value" style="color: #065f46;">{{ present_count }}</div>
+                        <p style="color: #6b7280;">Present</p>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-value" style="color: #991b1b;">{{ absent_count }}</div>
+                        <p style="color: #6b7280;">Absent</p>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-value" style="color: #92400e;">{{ late_count }}</div>
+                        <p style="color: #6b7280;">Late</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notifications -->
+    {% if notifications %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-bell"></i> Notifications</h2>
+                </div>
+                {% for notification in notifications %}
+                <div class="notification-item">
+                    <p style="margin: 0; color: #374151;">{{ notification.message }}</p>
+                    <small style="color: #9ca3af;">{{ notification.created_at|date:"M d, Y H:i" }}</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

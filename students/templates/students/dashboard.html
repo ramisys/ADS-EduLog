@@ -1,0 +1,383 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Student Dashboard - EduLog{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-container {
+        margin-top: 80px;
+        padding: 32px;
+        max-width: 1400px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .dashboard-header {
+        margin-bottom: 32px;
+    }
+    
+    .dashboard-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1e3a8a;
+        margin-bottom: 8px;
+    }
+    
+    .dashboard-header p {
+        color: #6b7280;
+        font-size: 1rem;
+    }
+    
+    .stats-card {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 24px;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .stats-card h3 {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+    }
+    
+    .stats-card .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1e3a8a;
+    }
+    
+    .stats-card .stat-icon {
+        font-size: 2.5rem;
+        color: #2563eb;
+        margin-bottom: 12px;
+    }
+    
+    .card {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 24px;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .card-header h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1e3a8a;
+        margin: 0;
+    }
+    
+    .table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .table th {
+        text-align: left;
+        padding: 12px;
+        font-weight: 600;
+        color: #374151;
+        border-bottom: 2px solid #e5e7eb;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .table td {
+        padding: 12px;
+        border-bottom: 1px solid #e5e7eb;
+        color: #6b7280;
+    }
+    
+    .table tbody tr:hover {
+        background-color: #f9fafb;
+    }
+    
+    .badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .badge-present {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    
+    .badge-absent {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .badge-late {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    
+    .notification-item {
+        padding: 12px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .notification-item:last-child {
+        border-bottom: none;
+    }
+    
+    .notification-item:hover {
+        background-color: #f9fafb;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 48px 24px;
+        color: #6b7280;
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        color: #d1d5db;
+        margin-bottom: 16px;
+    }
+    
+    .progress-bar {
+        height: 8px;
+        background-color: #e5e7eb;
+        border-radius: 9999px;
+        overflow: hidden;
+        margin-top: 8px;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        background-color: #2563eb;
+        transition: width 0.3s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1>Welcome back, {{ student_profile.user.get_full_name|default:student_profile.user.username }}!</h1>
+        <p>Student ID: {{ student_profile.student_id }} | {{ student_profile.course }} - Year {{ student_profile.year_level }}{% if student_profile.section %} | Section: {{ student_profile.section.name }}{% endif %}</p>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stats-card text-center">
+                <div class="stat-icon">
+                    <i class="bi bi-award"></i>
+                </div>
+                <h3>Average Grade</h3>
+                <div class="stat-value">{{ average_grade }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card text-center">
+                <div class="stat-icon">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <h3>Attendance Rate</h3>
+                <div class="stat-value">{{ attendance_percentage }}%</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ attendance_percentage }}%"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card text-center">
+                <div class="stat-icon">
+                    <i class="bi bi-book"></i>
+                </div>
+                <h3>Subjects</h3>
+                <div class="stat-value">{{ subjects|length }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card text-center">
+                <div class="stat-icon">
+                    <i class="bi bi-bell"></i>
+                </div>
+                <h3>Notifications</h3>
+                <div class="stat-value">{{ notifications|length }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Recent Grades -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-clipboard-data"></i> Recent Grades</h2>
+                </div>
+                {% if recent_grades %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Term</th>
+                            <th>Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for grade in recent_grades %}
+                        <tr>
+                            <td>{{ grade.subject.code }} - {{ grade.subject.name }}</td>
+                            <td>{{ grade.term }}</td>
+                            <td><strong>{{ grade.grade }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-clipboard"></i>
+                    <p>No grades available yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Recent Attendance -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-calendar-check"></i> Recent Attendance</h2>
+                </div>
+                {% if recent_attendance %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Subject</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attendance in recent_attendance %}
+                        <tr>
+                            <td>{{ attendance.date|date:"M d, Y" }}</td>
+                            <td>{{ attendance.subject.code }}</td>
+                            <td>
+                                {% if attendance.status == 'present' %}
+                                <span class="badge badge-present">Present</span>
+                                {% elif attendance.status == 'absent' %}
+                                <span class="badge badge-absent">Absent</span>
+                                {% elif attendance.status == 'late' %}
+                                <span class="badge badge-late">Late</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-calendar"></i>
+                    <p>No attendance records yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Grades by Subject -->
+    {% if grades_by_subject %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-journal-text"></i> Grades by Subject</h2>
+                </div>
+                <div class="row">
+                    {% for subject, data in grades_by_subject.items %}
+                    <div class="col-md-6 mb-4">
+                        <div class="stats-card">
+                            <h3>{{ subject.code }} - {{ subject.name }}</h3>
+                            <div class="stat-value">{{ data.average|floatformat:2 }}</div>
+                            <p class="mb-2" style="color: #6b7280; font-size: 0.875rem;">Average Grade</p>
+                            <div style="margin-top: 12px;">
+                                {% for grade in data.grades %}
+                                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb;">
+                                    <span>{{ grade.term }}</span>
+                                    <strong>{{ grade.grade }}</strong>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Notifications -->
+    {% if notifications %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-bell"></i> Notifications</h2>
+                </div>
+                {% for notification in notifications %}
+                <div class="notification-item">
+                    <p style="margin: 0; color: #374151;">{{ notification.message }}</p>
+                    <small style="color: #9ca3af;">{{ notification.created_at|date:"M d, Y H:i" }}</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Attendance Statistics -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="bi bi-bar-chart"></i> Attendance Statistics</h2>
+                </div>
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="stat-value" style="color: #065f46;">{{ present_count }}</div>
+                        <p style="color: #6b7280;">Present</p>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-value" style="color: #991b1b;">{{ absent_count }}</div>
+                        <p style="color: #6b7280;">Absent</p>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stat-value" style="color: #92400e;">{{ late_count }}</div>
+                        <p style="color: #6b7280;">Late</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

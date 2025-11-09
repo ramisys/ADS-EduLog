@@ -34,55 +34,15 @@ def index(request):
 @login_required
 def dashboard(request):
     user = request.user
-    context = {
-        'user': user,
-    }
-    
+
     if user.role == 'teacher':
-        try:
-            teacher_profile = TeacherProfile.objects.get(user=user)
-            context['teacher_profile'] = teacher_profile
-            # Get subjects taught by this teacher
-            subjects = Subject.objects.filter(teacher=teacher_profile)
-            context['subjects'] = subjects
-            # Get sections where teacher is adviser
-            sections = teacher_profile.classsection_set.all()
-            context['sections'] = sections
-        except TeacherProfile.DoesNotExist:
-            pass
-            
+        return redirect('teachers:dashboard')
     elif user.role == 'student':
-        try:
-            student_profile = StudentProfile.objects.get(user=user)
-            context['student_profile'] = student_profile
-            # Get attendance records
-            attendance_records = Attendance.objects.filter(student=student_profile).order_by('-date')[:10]
-            context['attendance_records'] = attendance_records
-            # Get grades
-            grades = Grade.objects.filter(student=student_profile).order_by('-id')[:10]
-            context['grades'] = grades
-            # Get subjects for the student's section
-            if student_profile.section:
-                subjects = Subject.objects.filter(section=student_profile.section)
-                context['subjects'] = subjects
-        except StudentProfile.DoesNotExist:
-            pass
-            
+        return redirect('students:dashboard')
     elif user.role == 'parent':
-        try:
-            parent_profile = ParentProfile.objects.get(user=user)
-            context['parent_profile'] = parent_profile
-            # Get children (students)
-            children = StudentProfile.objects.filter(parent=parent_profile)
-            context['children'] = children
-        except ParentProfile.DoesNotExist:
-            pass
-    
-    # Get unread notifications for all users
-    notifications = Notification.objects.filter(recipient=user, is_read=False).order_by('-created_at')[:10]
-    context['notifications'] = notifications
-    
-    return render(request, 'dashboard.html', context)
+        return redirect('parents:dashboard')
+    else:
+        return redirect('login')  # fallback
 
 def logout_view(request):
     logout(request)
@@ -190,7 +150,6 @@ def login_view(request):
                 # Set backend attribute for login() when multiple backends are configured
                 user.backend = 'core.backends.PlainTextPasswordBackend'
                 login(request, user)
-                messages.success(request, f'Welcome, {user.username}!')
                 return redirect('dashboard')
             else:
                 messages.error(request, f'Invalid role. You are registered as {user.get_role_display()}.')

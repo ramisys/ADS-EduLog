@@ -381,9 +381,23 @@
                 <!-- Desktop Navigation -->
                 <div class="navbar-nav-desktop">
                     {% if user.is_authenticated %}
+                        {% if user.role == 'student' %}
+                        <a href="{% url 'students:dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                            Dashboard
+                        </a>
+                        {% elif user.role == 'teacher' %}
+                        <a href="{% url 'teachers:dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                            Dashboard
+                        </a>
+                        {% elif user.role == 'parent' %}
+                        <a href="{% url 'parents:dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                            Dashboard
+                        </a>
+                        {% else %}
                         <a href="{% url 'dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                             Dashboard
                         </a>
+                        {% endif %}
                         <a href="#" class="navbar-link">
                             Reports
                         </a>
@@ -416,9 +430,23 @@
             <div class="collapse navbar-mobile" id="mobileNav">
                 <div class="navbar-nav-mobile">
                     {% if user.is_authenticated %}
+                        {% if user.role == 'student' %}
+                        <a href="{% url 'students:dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                            Dashboard
+                        </a>
+                        {% elif user.role == 'teacher' %}
+                        <a href="{% url 'teachers:dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                            Dashboard
+                        </a>
+                        {% elif user.role == 'parent' %}
+                        <a href="{% url 'parents:dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                            Dashboard
+                        </a>
+                        {% else %}
                         <a href="{% url 'dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                             Dashboard
                         </a>
+                        {% endif %}
                         <a href="#" class="navbar-link">
                             Reports
                         </a>

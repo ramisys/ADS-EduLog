@@ -1,0 +1,75 @@
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.db.models import Avg
+from core.models import ParentProfile, StudentProfile, Grade, Attendance, Notification
+
+@login_required
+def dashboard(request):
+    # Ensure user is a parent
+    if request.user.role != 'parent':
+        return redirect('dashboard')
+    
+    try:
+        parent_profile = ParentProfile.objects.get(user=request.user)
+    except ParentProfile.DoesNotExist:
+        return redirect('dashboard')
+    
+    # Get all children (students) of this parent
+    children = StudentProfile.objects.filter(parent=parent_profile)
+    
+    # Get grades for all children
+    children_grades = Grade.objects.filter(student__in=children).select_related('student', 'subject').order_by('-id')[:10]
+    
+    # Get attendance for all children
+    children_attendance = Attendance.objects.filter(student__in=children).select_related('student', 'subject').order_by('-date')[:10]
+    
+    # Get unread notifications
+    notifications = Notification.objects.filter(recipient=request.user, is_read=False).order_by('-created_at')[:5]
+    
+    # Statistics for each child
+    children_stats = []
+    for child in children:
+        child_grades = Grade.objects.filter(student=child)
+        child_avg = child_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+        
+        child_attendance = Attendance.objects.filter(student=child)
+        present_count = child_attendance.filter(status='present').count()
+        absent_count = child_attendance.filter(status='absent').count()
+        late_count = child_attendance.filter(status='late').count()
+        total_attendance = child_attendance.count()
+        attendance_percentage = (present_count / total_attendance * 100) if total_attendance > 0 else 0
+        
+        children_stats.append({
+            'child': child,
+            'average_grade': round(child_avg, 2),
+            'grades_count': child_grades.count(),
+            'present_count': present_count,
+            'absent_count': absent_count,
+            'late_count': late_count,
+            'attendance_percentage': round(attendance_percentage, 1),
+            'total_attendance': total_attendance,
+        })
+    
+    # Overall statistics
+    all_grades = Grade.objects.filter(student__in=children)
+    overall_avg = all_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+    
+    all_attendance = Attendance.objects.filter(student__in=children)
+    total_present = all_attendance.filter(status='present').count()
+    total_absent = all_attendance.filter(status='absent').count()
+    total_late = all_attendance.filter(status='late').count()
+    
+    context = {
+        'parent_profile': parent_profile,
+        'children': children,
+        'children_grades': children_grades,
+        'children_attendance': children_attendance,
+        'notifications': notifications,
+        'children_stats': children_stats,
+        'overall_avg': round(overall_avg, 2),
+        'total_present': total_present,
+        'total_absent': total_absent,
+        'total_late': total_late,
+    }
+    
+    return render(request, 'parents/dashboard.html', context)

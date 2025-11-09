@@ -154,7 +154,7 @@ class Attendance(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
 
     def __str__(self):
-        return f"{self.student.custom_id} - {self.subject.code} ({self.status})"
+        return f"{self.student.student_id} - {self.subject.code} ({self.status})"
 
 
 # ===== GRADE =====

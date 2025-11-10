@@ -10,14 +10,22 @@
     
     .hero-section {
         padding: 220px 0 64px;
+        overflow: visible;
     }
     
     .hero-title {
         font-size: 3rem;
         font-weight: 700;
         color: #1e3a8a;
-        line-height: 1.2;
+        line-height: 1.4;
         margin-bottom: 24px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+        display: block;
+        width: 100%;
+        overflow: visible;
+        max-width: 100%;
     }
     
     .hero-description {
@@ -156,7 +164,18 @@
     
     @media (max-width: 768px) {
         .hero-title {
-            font-size: 2rem;
+            font-size: 1.75rem;
+            line-height: 1.4;
+            margin-bottom: 20px;
+            max-width: 100%;
+            box-sizing: border-box;
+            word-break: break-word;
+            hyphens: auto;
+        }
+        
+        .hero-description {
+            font-size: 1rem;
+            margin-bottom: 24px;
         }
         
         .section-title,
@@ -165,7 +184,47 @@
         }
         
         .hero-section {
-            padding: 48px 0 32px;
+            padding: 120px 0 32px;
+        }
+        
+        .btn-hero,
+        .btn-hero-outline {
+            padding: 12px 24px;
+            font-size: 1rem;
+            width: 100%;
+            text-align: center;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .hero-title {
+            font-size: 1.5rem;
+            line-height: 1.5;
+            margin-bottom: 16px;
+            word-break: break-word;
+            hyphens: auto;
+        }
+        
+        .hero-description {
+            font-size: 0.9375rem;
+        }
+        
+        .hero-section {
+            padding: 100px 0 24px;
+        }
+    }
+    
+    @media (max-width: 400px) {
+        .hero-title {
+            font-size: 1.375rem;
+            line-height: 1.5;
+        }
+    }
+    
+    @media (max-width: 992px) and (min-width: 769px) {
+        .hero-title {
+            font-size: 2.5rem;
+            line-height: 1.35;
         }
     }
 </style>

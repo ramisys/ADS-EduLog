@@ -3,88 +3,11 @@
 {% block title %}Login - EduLog{% endblock %}
 
 {% block extra_css %}
-<style>
-    body {
-        background: var(--background-gradient);
-        margin: 0;
-        padding: 0;
-        padding-top: 64px;
-    }
-    .login-wrapper {
-        min-height: calc(100vh - 64px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        margin: 0;
-    }
-    .login-card {
-        max-width: 450px;
-        width: 100%;
-        border-radius: var(--border-radius);
-        box-shadow: var(--card-shadow);
-        border: 1px solid #e0e0e0;
-    }
-    .messages-container {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-    .messages-container .alert {
-        margin-bottom: 0 !important;
-        position: relative;
-    }
-    
-    /* Mobile adjustments for tabs */
-    @media (max-width: 576px) {
-        .login-card .card-body {
-            padding: 1.5rem !important;
-        }
-        
-        /* Make tabs more compact on mobile */
-        .nav-tabs {
-            padding: 2px;
-            margin-bottom: 20px;
-            flex-wrap: nowrap; /* Prevent wrapping */
-            gap: 2px;
-        }
-        
-        .nav-tabs .nav-item {
-            flex: 1 1 0; /* Equal width, allow shrinking */
-            min-width: 0;
-        }
-        
-        .nav-tabs .nav-link {
-            padding: 10px 8px;
-            font-size: 13px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            border-radius: 8px;
-        }
-    }
-    
-    /* Extra small mobile devices */
-    @media (max-width: 375px) {
-        .login-card .card-body {
-            padding: 1.25rem !important;
-        }
-        
-        .nav-tabs {
-            padding: 2px;
-            gap: 1px;
-        }
-        
-        .nav-tabs .nav-link {
-            padding: 8px 6px;
-            font-size: 12px;
-        }
-    }
-</style>
 {% endblock %}
 
 {% block content %}
-    <div class="login-wrapper">
+    <div class="login-page-wrapper">
+        <div class="login-wrapper">
         <div class="login-card card">
         <div class="card-body p-5">
             <!-- Logo -->
@@ -238,6 +161,7 @@
                 </a>
             </div>
         </div>
+    </div>
     </div>
     </div>
 {% endblock %}

@@ -3,234 +3,10 @@
 {% block title %}EduLog - Streamline Student Attendance & Performance Monitoring{% endblock %}
 
 {% block extra_css %}
-<style>
-    body {
-        background: linear-gradient(to bottom, #e3f2fd, #ffffff);
-    }
-    
-    .hero-section {
-        padding: 220px 0 64px;
-        overflow: visible;
-    }
-    
-    .hero-title {
-        font-size: 3rem;
-        font-weight: 700;
-        color: #1e3a8a;
-        line-height: 1.4;
-        margin-bottom: 24px;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        hyphens: auto;
-        display: block;
-        width: 100%;
-        overflow: visible;
-        max-width: 100%;
-    }
-    
-    .hero-description {
-        font-size: 1.125rem;
-        color: #4b5563;
-        margin-bottom: 32px;
-        line-height: 1.6;
-    }
-    
-    .hero-image {
-        border-radius: 20px;
-        overflow: hidden;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-    }
-    
-    .hero-image img {
-        width: 100%;
-        height: auto;
-        display: block;
-    }
-    
-    .btn-hero {
-        padding: 14px 32px;
-        font-size: 1.125rem;
-        font-weight: 500;
-        border-radius: 8px;
-    }
-    
-    .btn-hero-outline {
-        border: 2px solid var(--primary-color);
-        color: var(--primary-color);
-        background: transparent;
-        padding: 14px 32px;
-        font-size: 1.125rem;
-        font-weight: 500;
-        border-radius: 8px;
-    }
-    
-    .btn-hero-outline:hover {
-        background: #eff6ff;
-        border-color: var(--primary-color);
-        color: var(--primary-color);
-    }
-    
-    .features-section {
-        padding: 64px 0;
-    }
-    
-    .section-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #1e3a8a;
-        margin-bottom: 16px;
-    }
-    
-    .section-subtitle {
-        font-size: 1.125rem;
-        color: #4b5563;
-        max-width: 42rem;
-        margin: 0 auto;
-    }
-    
-    .feature-card {
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 24px;
-        height: 100%;
-        transition: all 0.3s ease;
-        background: white;
-    }
-    
-    .feature-card:hover {
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        transform: translateY(-4px);
-    }
-    
-    .feature-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 16px;
-    }
-    
-    .feature-icon i {
-        font-size: 24px;
-    }
-    
-    .feature-title {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #1e3a8a;
-        margin-bottom: 8px;
-    }
-    
-    .feature-description {
-        color: #4b5563;
-        line-height: 1.6;
-    }
-    
-    .cta-section {
-        background: var(--primary-color);
-        color: white;
-        padding: 64px 0;
-    }
-    
-    .cta-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 16px;
-    }
-    
-    .cta-description {
-        font-size: 1.125rem;
-        color: #bfdbfe;
-        max-width: 42rem;
-        margin: 0 auto 32px;
-    }
-    
-    .btn-cta {
-        background: white;
-        color: var(--primary-color);
-        padding: 14px 32px;
-        font-size: 1.125rem;
-        font-weight: 500;
-        border-radius: 8px;
-        border: none;
-    }
-    
-    .btn-cta:hover {
-        background: #f3f4f6;
-        color: var(--primary-color);
-    }
-    
-    @media (max-width: 768px) {
-        .hero-title {
-            font-size: 1.75rem;
-            line-height: 1.4;
-            margin-bottom: 20px;
-            max-width: 100%;
-            box-sizing: border-box;
-            word-break: break-word;
-            hyphens: auto;
-        }
-        
-        .hero-description {
-            font-size: 1rem;
-            margin-bottom: 24px;
-        }
-        
-        .section-title,
-        .cta-title {
-            font-size: 2rem;
-        }
-        
-        .hero-section {
-            padding: 120px 0 32px;
-        }
-        
-        .btn-hero,
-        .btn-hero-outline {
-            padding: 12px 24px;
-            font-size: 1rem;
-            width: 100%;
-            text-align: center;
-        }
-    }
-    
-    @media (max-width: 576px) {
-        .hero-title {
-            font-size: 1.5rem;
-            line-height: 1.5;
-            margin-bottom: 16px;
-            word-break: break-word;
-            hyphens: auto;
-        }
-        
-        .hero-description {
-            font-size: 0.9375rem;
-        }
-        
-        .hero-section {
-            padding: 100px 0 24px;
-        }
-    }
-    
-    @media (max-width: 400px) {
-        .hero-title {
-            font-size: 1.375rem;
-            line-height: 1.5;
-        }
-    }
-    
-    @media (max-width: 992px) and (min-width: 769px) {
-        .hero-title {
-            font-size: 2.5rem;
-            line-height: 1.35;
-        }
-    }
-</style>
 {% endblock %}
 
 {% block content %}
+<div class="index-page-wrapper">
 <!-- Hero Section -->
 <section class="hero-section" id="home">
     <div class="container">
@@ -277,7 +53,7 @@
             <!-- Feature 1: Real-Time Attendance -->
             <div class="col-md-6 col-lg-4">
                 <div class="feature-card">
-                    <div class="feature-icon" style="background: #dbeafe;">
+                    <div class="feature-icon feature-icon-blue">
                         <i class="bi bi-clock text-primary"></i>
                     </div>
                     <h3 class="feature-title">Real-Time Attendance</h3>
@@ -290,7 +66,7 @@
             <!-- Feature 2: Performance Analytics -->
             <div class="col-md-6 col-lg-4">
                 <div class="feature-card">
-                    <div class="feature-icon" style="background: #d1fae5;">
+                    <div class="feature-icon feature-icon-green">
                         <i class="bi bi-bar-chart text-success"></i>
                     </div>
                     <h3 class="feature-title">Performance Analytics</h3>
@@ -303,7 +79,7 @@
             <!-- Feature 3: Parent Portal -->
             <div class="col-md-6 col-lg-4">
                 <div class="feature-card">
-                    <div class="feature-icon" style="background: #fef3c7;">
+                    <div class="feature-icon feature-icon-yellow">
                         <i class="bi bi-people text-warning"></i>
                     </div>
                     <h3 class="feature-title">Parent Portal</h3>
@@ -316,7 +92,7 @@
             <!-- Feature 4: Detailed Reports -->
             <div class="col-md-6 col-lg-4">
                 <div class="feature-card">
-                    <div class="feature-icon" style="background: #dbeafe;">
+                    <div class="feature-icon feature-icon-blue">
                         <i class="bi bi-file-text text-primary"></i>
                     </div>
                     <h3 class="feature-title">Detailed Reports</h3>
@@ -329,7 +105,7 @@
             <!-- Feature 5: Easy Integration -->
             <div class="col-md-6 col-lg-4">
                 <div class="feature-card">
-                    <div class="feature-icon" style="background: #d1fae5;">
+                    <div class="feature-icon feature-icon-green">
                         <i class="bi bi-check-circle text-success"></i>
                     </div>
                     <h3 class="feature-title">Easy Integration</h3>
@@ -342,7 +118,7 @@
             <!-- Feature 6: Secure & Private -->
             <div class="col-md-6 col-lg-4">
                 <div class="feature-card">
-                    <div class="feature-icon" style="background: #fef3c7;">
+                    <div class="feature-icon feature-icon-yellow">
                         <i class="bi bi-shield-check text-warning"></i>
                     </div>
                     <h3 class="feature-title">Secure & Private</h3>
@@ -368,7 +144,8 @@
             </a>
         </div>
     </div>
-</section>
+    </section>
+</div>
 {% endblock %}
 
 {% block extra_js %}

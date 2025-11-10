@@ -3,266 +3,16 @@
 {% block title %}About - EduLog{% endblock %}
 
 {% block extra_css %}
-<style>
-    body {
-        background: white;
-        padding-top: 64px;
-    }
-    
-    .about-hero {
-        background: linear-gradient(to bottom right, #2563eb, #1e40af);
-        color: white;
-        padding: 80px 0;
-    }
-    
-    .about-hero-icon {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        width: 80px;
-        height: 80px;
-        border-radius: 16px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 24px;
-    }
-    
-    .about-hero-icon i {
-        font-size: 40px;
-    }
-    
-    .about-hero h1 {
-        font-size: 3rem;
-        font-weight: 700;
-        margin-bottom: 24px;
-    }
-    
-    .about-hero p {
-        color: rgba(255, 255, 255, 0.9);
-        font-size: 1.125rem;
-    }
-    
-    .about-section {
-        padding: 64px 0;
-    }
-    
-    .about-card {
-        border-radius: 16px;
-        border: 1px solid #e5e7eb;
-        padding: 32px;
-        height: 100%;
-        transition: box-shadow 0.3s ease;
-    }
-    
-    .about-card:hover {
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    }
-    
-    .about-icon-container {
-        width: 64px;
-        height: 64px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 24px;
-    }
-    
-    .about-icon-container i {
-        font-size: 32px;
-    }
-    
-    .about-icon-blue {
-        background: #dbeafe;
-    }
-    
-    .about-icon-blue i {
-        color: #2563eb;
-    }
-    
-    .about-icon-green {
-        background: #d1fae5;
-    }
-    
-    .about-icon-green i {
-        color: #10b981;
-    }
-    
-    .about-icon-yellow {
-        background: #fef3c7;
-    }
-    
-    .about-icon-yellow i {
-        color: #f59e0b;
-    }
-    
-    .about-icon-purple {
-        background: #e9d5ff;
-    }
-    
-    .about-icon-purple i {
-        color: #8b5cf6;
-    }
-    
-    .about-card h2 {
-        color: #1e3a8a;
-        font-size: 1.5rem;
-        font-weight: 600;
-        margin-bottom: 16px;
-    }
-    
-    .about-card h3 {
-        color: #1e3a8a;
-        font-size: 1.25rem;
-        font-weight: 600;
-        margin-bottom: 8px;
-    }
-    
-    .about-card p {
-        color: #6b7280;
-        line-height: 1.75;
-    }
-    
-    .about-value-card {
-        border-radius: 12px;
-        border: 1px solid #e5e7eb;
-        padding: 24px;
-        text-align: center;
-        height: 100%;
-        transition: box-shadow 0.3s ease;
-    }
-    
-    .about-value-card:hover {
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    }
-    
-    .about-value-icon {
-        width: 56px;
-        height: 56px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 16px;
-    }
-    
-    .about-value-icon i {
-        font-size: 28px;
-    }
-    
-    .about-image {
-        border-radius: 16px;
-        overflow: hidden;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    }
-    
-    .about-image img {
-        width: 100%;
-        height: auto;
-        display: block;
-    }
-    
-    .about-stats {
-        text-align: center;
-    }
-    
-    .about-stats-icon {
-        width: 64px;
-        height: 64px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 16px;
-    }
-    
-    .about-stats-icon i {
-        font-size: 32px;
-    }
-    
-    .about-stats-number {
-        color: #1e3a8a;
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 8px;
-    }
-    
-    .about-stats-label {
-        color: #6b7280;
-    }
-    
-    .about-cta {
-        background: #2563eb;
-        color: white;
-        padding: 64px 0;
-    }
-    
-    .about-cta h2 {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 16px;
-    }
-    
-    .about-cta p {
-        color: rgba(255, 255, 255, 0.9);
-        font-size: 1.125rem;
-        margin-bottom: 32px;
-    }
-    
-    .about-cta .btn-white {
-        background: white;
-        color: #2563eb;
-        border: none;
-        padding: 12px 24px;
-        font-weight: 500;
-    }
-    
-    .about-cta .btn-white:hover {
-        background: #f3f4f6;
-    }
-    
-    .about-cta .btn-outline-white {
-        border: 2px solid white;
-        color: white;
-        background: transparent;
-        padding: 12px 24px;
-        font-weight: 500;
-    }
-    
-    .about-cta .btn-outline-white:hover {
-        background: rgba(255, 255, 255, 0.1);
-        border-color: white;
-        color: white;
-    }
-    
-    @media (max-width: 768px) {
-        .about-hero {
-            padding: 60px 0;
-        }
-        
-        .about-hero h1 {
-            font-size: 2rem;
-        }
-        
-        .about-section {
-            padding: 48px 0;
-        }
-        
-        .about-cta h2 {
-            font-size: 2rem;
-        }
-    }
-</style>
 {% endblock %}
 
 {% block content %}
-<div class="min-vh-100">
+<div class="about-page-wrapper">
     <!-- Hero Section -->
     <section class="about-hero">
         <div class="container">
             <div class="row">
                 <div class="col-12">
-                    <div class="text-center mx-auto" style="max-width: 768px;">
+                    <div class="text-center mx-auto about-hero-content">
                         <div class="about-hero-icon">
                             <i class="bi bi-mortarboard"></i>
                         </div>
@@ -316,8 +66,8 @@
         <div class="container">
             <div class="row">
                 <div class="col-12 text-center mb-5">
-                    <h2 class="text-primary mb-3" style="color: #1e3a8a;">Our Core Values</h2>
-                    <p class="text-muted text-lg" style="max-width: 600px; margin: 0 auto;">
+                    <h2 class="text-primary mb-3 about-section-title">Our Core Values</h2>
+                    <p class="text-muted text-lg about-section-subtitle">
                         The principles that guide everything we do
                     </p>
                 </div>
@@ -376,7 +126,7 @@
         <div class="container">
             <div class="row g-5 align-items-center">
                 <div class="col-md-6">
-                    <h2 class="text-primary mb-4" style="color: #1e3a8a;">Our Story</h2>
+                    <h2 class="text-primary mb-4 about-section-title">Our Story</h2>
                     <div class="mb-4">
                         <p class="text-muted">
                             EduLog was founded in 2020 by a team of educators and technologists who witnessed firsthand
@@ -416,7 +166,7 @@
         <div class="container">
             <div class="row">
                 <div class="col-12 text-center mb-5">
-                    <h2 class="text-primary mb-3" style="color: #1e3a8a;">Impact by Numbers</h2>
+                    <h2 class="text-primary mb-3 about-section-title">Impact by Numbers</h2>
                     <p class="text-muted text-lg">Making a difference in education worldwide</p>
                 </div>
             </div>
@@ -467,7 +217,7 @@
             <div class="row">
                 <div class="col-12 text-center">
                     <h2>Join the EduLog Community</h2>
-                    <p style="max-width: 600px; margin: 0 auto 32px;">
+                    <p class="about-cta-content">
                         Experience the difference data-driven student monitoring can make in your institution
                     </p>
                     <div class="d-flex flex-wrap gap-3 justify-content-center">

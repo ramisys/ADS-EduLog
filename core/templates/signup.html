@@ -28,6 +28,52 @@
     .role-specific-fields {
         display: none;
     }
+    
+    /* Mobile adjustments for tabs */
+    @media (max-width: 576px) {
+        .signup-card .card-body {
+            padding: 1.5rem !important;
+        }
+        
+        /* Make tabs more compact on mobile */
+        .nav-tabs {
+            padding: 2px;
+            margin-bottom: 20px;
+            flex-wrap: nowrap; /* Prevent wrapping */
+            gap: 2px;
+        }
+        
+        .nav-tabs .nav-item {
+            flex: 1 1 0; /* Equal width, allow shrinking */
+            min-width: 0;
+        }
+        
+        .nav-tabs .nav-link {
+            padding: 10px 8px;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border-radius: 8px;
+        }
+    }
+    
+    /* Extra small mobile devices */
+    @media (max-width: 375px) {
+        .signup-card .card-body {
+            padding: 1.25rem !important;
+        }
+        
+        .nav-tabs {
+            padding: 2px;
+            gap: 1px;
+        }
+        
+        .nav-tabs .nav-link {
+            padding: 8px 6px;
+            font-size: 12px;
+        }
+    }
 </style>
 {% endblock %}
 

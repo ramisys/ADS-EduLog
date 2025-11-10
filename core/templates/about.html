@@ -1,0 +1,487 @@
+{% extends 'base.html' %}
+
+{% block title %}About - EduLog{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: white;
+        padding-top: 64px;
+    }
+    
+    .about-hero {
+        background: linear-gradient(to bottom right, #2563eb, #1e40af);
+        color: white;
+        padding: 80px 0;
+    }
+    
+    .about-hero-icon {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        width: 80px;
+        height: 80px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 24px;
+    }
+    
+    .about-hero-icon i {
+        font-size: 40px;
+    }
+    
+    .about-hero h1 {
+        font-size: 3rem;
+        font-weight: 700;
+        margin-bottom: 24px;
+    }
+    
+    .about-hero p {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 1.125rem;
+    }
+    
+    .about-section {
+        padding: 64px 0;
+    }
+    
+    .about-card {
+        border-radius: 16px;
+        border: 1px solid #e5e7eb;
+        padding: 32px;
+        height: 100%;
+        transition: box-shadow 0.3s ease;
+    }
+    
+    .about-card:hover {
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+    
+    .about-icon-container {
+        width: 64px;
+        height: 64px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 24px;
+    }
+    
+    .about-icon-container i {
+        font-size: 32px;
+    }
+    
+    .about-icon-blue {
+        background: #dbeafe;
+    }
+    
+    .about-icon-blue i {
+        color: #2563eb;
+    }
+    
+    .about-icon-green {
+        background: #d1fae5;
+    }
+    
+    .about-icon-green i {
+        color: #10b981;
+    }
+    
+    .about-icon-yellow {
+        background: #fef3c7;
+    }
+    
+    .about-icon-yellow i {
+        color: #f59e0b;
+    }
+    
+    .about-icon-purple {
+        background: #e9d5ff;
+    }
+    
+    .about-icon-purple i {
+        color: #8b5cf6;
+    }
+    
+    .about-card h2 {
+        color: #1e3a8a;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 16px;
+    }
+    
+    .about-card h3 {
+        color: #1e3a8a;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    
+    .about-card p {
+        color: #6b7280;
+        line-height: 1.75;
+    }
+    
+    .about-value-card {
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        padding: 24px;
+        text-align: center;
+        height: 100%;
+        transition: box-shadow 0.3s ease;
+    }
+    
+    .about-value-card:hover {
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+    
+    .about-value-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+    }
+    
+    .about-value-icon i {
+        font-size: 28px;
+    }
+    
+    .about-image {
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .about-image img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    
+    .about-stats {
+        text-align: center;
+    }
+    
+    .about-stats-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+    }
+    
+    .about-stats-icon i {
+        font-size: 32px;
+    }
+    
+    .about-stats-number {
+        color: #1e3a8a;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+    
+    .about-stats-label {
+        color: #6b7280;
+    }
+    
+    .about-cta {
+        background: #2563eb;
+        color: white;
+        padding: 64px 0;
+    }
+    
+    .about-cta h2 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 16px;
+    }
+    
+    .about-cta p {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 1.125rem;
+        margin-bottom: 32px;
+    }
+    
+    .about-cta .btn-white {
+        background: white;
+        color: #2563eb;
+        border: none;
+        padding: 12px 24px;
+        font-weight: 500;
+    }
+    
+    .about-cta .btn-white:hover {
+        background: #f3f4f6;
+    }
+    
+    .about-cta .btn-outline-white {
+        border: 2px solid white;
+        color: white;
+        background: transparent;
+        padding: 12px 24px;
+        font-weight: 500;
+    }
+    
+    .about-cta .btn-outline-white:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: white;
+        color: white;
+    }
+    
+    @media (max-width: 768px) {
+        .about-hero {
+            padding: 60px 0;
+        }
+        
+        .about-hero h1 {
+            font-size: 2rem;
+        }
+        
+        .about-section {
+            padding: 48px 0;
+        }
+        
+        .about-cta h2 {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-vh-100">
+    <!-- Hero Section -->
+    <section class="about-hero">
+        <div class="container">
+            <div class="row">
+                <div class="col-12">
+                    <div class="text-center mx-auto" style="max-width: 768px;">
+                        <div class="about-hero-icon">
+                            <i class="bi bi-mortarboard"></i>
+                        </div>
+                        <h1>About EduLog</h1>
+                        <p class="text-lg">
+                            Empowering educational institutions with cutting-edge attendance and performance monitoring solutions
+                            to enhance student success and streamline administrative workflows.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Mission & Vision -->
+    <section class="about-section bg-light">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="about-card">
+                        <div class="about-icon-container about-icon-blue">
+                            <i class="bi bi-bullseye"></i>
+                        </div>
+                        <h2>Our Mission</h2>
+                        <p>
+                            To revolutionize student monitoring by providing intuitive, data-driven tools that enable educators
+                            to identify trends, address challenges proactively, and celebrate student achievements. We believe
+                            every student deserves personalized attention and support to reach their full potential.
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="about-card">
+                        <div class="about-icon-container about-icon-green">
+                            <i class="bi bi-eye"></i>
+                        </div>
+                        <h2>Our Vision</h2>
+                        <p>
+                            To become the world's most trusted education technology partner, transforming how schools monitor,
+                            analyze, and improve student outcomes. We envision a future where data-informed decisions lead to
+                            measurable improvements in student engagement, attendance, and academic excellence.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Core Values -->
+    <section class="about-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 text-center mb-5">
+                    <h2 class="text-primary mb-3" style="color: #1e3a8a;">Our Core Values</h2>
+                    <p class="text-muted text-lg" style="max-width: 600px; margin: 0 auto;">
+                        The principles that guide everything we do
+                    </p>
+                </div>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-6 col-lg-3">
+                    <div class="about-value-card">
+                        <div class="about-value-icon about-icon-blue">
+                            <i class="bi bi-heart-fill"></i>
+                        </div>
+                        <h3>Student-Centered</h3>
+                        <p class="small">
+                            Every feature is designed with student success and wellbeing at the forefront.
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="about-value-card">
+                        <div class="about-value-icon about-icon-green">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <h3>Data Privacy</h3>
+                        <p class="small">
+                            We maintain the highest standards of security and confidentiality for all student data.
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="about-value-card">
+                        <div class="about-value-icon about-icon-yellow">
+                            <i class="bi bi-lightning-fill"></i>
+                        </div>
+                        <h3>Innovation</h3>
+                        <p class="small">
+                            Continuously improving our platform with the latest educational technology advances.
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="about-value-card">
+                        <div class="about-value-icon about-icon-purple">
+                            <i class="bi bi-people-fill"></i>
+                        </div>
+                        <h3>Collaboration</h3>
+                        <p class="small">
+                            Fostering strong partnerships between teachers, students, and parents.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Story Section -->
+    <section class="about-section bg-light">
+        <div class="container">
+            <div class="row g-5 align-items-center">
+                <div class="col-md-6">
+                    <h2 class="text-primary mb-4" style="color: #1e3a8a;">Our Story</h2>
+                    <div class="mb-4">
+                        <p class="text-muted">
+                            EduLog was founded in 2020 by a team of educators and technologists who witnessed firsthand
+                            the challenges schools faced in tracking student attendance and performance efficiently.
+                        </p>
+                        <p class="text-muted">
+                            What started as a simple attendance tracking tool has evolved into a comprehensive platform
+                            used by over 500 schools worldwide, serving more than 100,000 students and their families.
+                        </p>
+                        <p class="text-muted">
+                            Today, we continue to innovate and expand our capabilities, working closely with educators
+                            to ensure our platform meets the evolving needs of modern education.
+                        </p>
+                    </div>
+                    <div class="mt-4">
+                        <a href="{% url 'login' %}" class="btn btn-primary me-3">
+                            Get Started
+                        </a>
+                        <a href="#contact" class="btn btn-outline-primary">
+                            Contact Us
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="about-image">
+                        <img src="https://images.unsplash.com/photo-1758522275261-4ab586242ce0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWFjaGVyJTIwc3R1ZGVudCUyMGNvbGxhYm9yYXRpb258ZW58MXx8fHwxNzYyNDcxNDE3fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral" 
+                             alt="Teacher and student collaboration" 
+                             class="img-fluid">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="about-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 text-center mb-5">
+                    <h2 class="text-primary mb-3" style="color: #1e3a8a;">Impact by Numbers</h2>
+                    <p class="text-muted text-lg">Making a difference in education worldwide</p>
+                </div>
+            </div>
+            <div class="row g-4">
+                <div class="col-6 col-md-3">
+                    <div class="about-stats">
+                        <div class="about-stats-icon about-icon-blue">
+                            <i class="bi bi-people-fill"></i>
+                        </div>
+                        <div class="about-stats-number">500+</div>
+                        <div class="about-stats-label">Schools Worldwide</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="about-stats">
+                        <div class="about-stats-icon about-icon-green">
+                            <i class="bi bi-mortarboard"></i>
+                        </div>
+                        <div class="about-stats-number">100K+</div>
+                        <div class="about-stats-label">Active Students</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="about-stats">
+                        <div class="about-stats-icon about-icon-yellow">
+                            <i class="bi bi-trophy-fill"></i>
+                        </div>
+                        <div class="about-stats-number">95%</div>
+                        <div class="about-stats-label">Satisfaction Rate</div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="about-stats">
+                        <div class="about-stats-icon about-icon-purple">
+                            <i class="bi bi-bullseye"></i>
+                        </div>
+                        <div class="about-stats-number">15%</div>
+                        <div class="about-stats-label">Avg. Attendance Increase</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="about-cta">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 text-center">
+                    <h2>Join the EduLog Community</h2>
+                    <p style="max-width: 600px; margin: 0 auto 32px;">
+                        Experience the difference data-driven student monitoring can make in your institution
+                    </p>
+                    <div class="d-flex flex-wrap gap-3 justify-content-center">
+                        <a href="{% url 'login' %}" class="btn btn-white btn-lg">
+                            Start Free Trial
+                        </a>
+                        <a href="#contact" class="btn btn-outline-white btn-lg">
+                            Schedule Demo
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+

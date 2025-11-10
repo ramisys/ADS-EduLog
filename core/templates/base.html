@@ -401,7 +401,7 @@
                         <a href="#" class="navbar-link">
                             Reports
                         </a>
-                        <a href="#" class="navbar-link">
+                        <a href="{% url 'about' %}" class="navbar-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">
                             About
                         </a>
                         <a href="{% url 'logout' %}" class="btn btn-outline-primary">
@@ -411,7 +411,7 @@
                         <a href="{% url 'index' %}" class="navbar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
                             Home
                         </a>
-                        <a href="#about" class="navbar-link">
+                        <a href="{% url 'about' %}" class="navbar-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">
                             About
                         </a>
                         <a href="{% url 'login' %}" class="btn btn-primary">
@@ -450,7 +450,7 @@
                         <a href="#" class="navbar-link">
                             Reports
                         </a>
-                        <a href="#" class="navbar-link">
+                        <a href="{% url 'about' %}" class="navbar-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">
                             About
                         </a>
                         <a href="{% url 'logout' %}" class="btn btn-outline-primary w-100">
@@ -460,7 +460,7 @@
                         <a href="{% url 'index' %}" class="navbar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
                             Home
                         </a>
-                        <a href="#" class="navbar-link">
+                        <a href="{% url 'about' %}" class="navbar-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">
                             About
                         </a>
                         <a href="{% url 'login' %}" class="btn btn-primary w-100">

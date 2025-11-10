@@ -31,6 +31,9 @@ def check_password_with_plaintext(user, password):
 def index(request):
     return render(request, 'index.html')
 
+def about(request):
+    return render(request, 'about.html')
+
 @login_required
 def dashboard(request):
     user = request.user

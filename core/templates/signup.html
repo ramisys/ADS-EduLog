@@ -281,54 +281,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-        function updateFormFields(role) {
-            // Hide all role-specific fields
-            var teacherFields = document.getElementById('teacher-specific');
-            var studentFields = document.querySelectorAll('.student-specific-field');
-            var parentFields = document.getElementById('parent-specific');
-            
-            // Hide all first
-            if (teacherFields) teacherFields.style.display = 'none';
-            if (studentFields) {
-                studentFields.forEach(function(field) {
-                    field.style.display = 'none';
-                });
-            }
-            if (parentFields) parentFields.style.display = 'none';
-            
-            // Show relevant fields based on role
-            if (role === 'teacher' && teacherFields) {
-                teacherFields.style.display = 'block';
-            } else if (role === 'student' && studentFields) {
-                studentFields.forEach(function(field) {
-                    field.style.display = 'block';
-                });
-            } else if (role === 'parent' && parentFields) {
-                parentFields.style.display = 'block';
-            }
-        }
-        
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            // Show teacher fields by default since teacher tab is active
-            updateFormFields('teacher');
-            
-            // Listen for tab changes
-            var tabButtons = document.querySelectorAll('#roleTabs button');
-            tabButtons.forEach(function(button) {
-                button.addEventListener('shown.bs.tab', function(event) {
-                    var targetId = event.target.getAttribute('data-bs-target');
-                    if (targetId === '#teacher') {
-                        updateFormFields('teacher');
-                    } else if (targetId === '#student') {
-                        updateFormFields('student');
-                    } else if (targetId === '#parent') {
-                        updateFormFields('parent');
-                    }
-                });
-            });
-        });
-</script>
 {% endblock %}
 

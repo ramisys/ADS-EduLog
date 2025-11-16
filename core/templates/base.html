@@ -1,23 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    
+
     <title>{% block title %}EduLog{% endblock %}</title>
-    
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
     <!-- Custom CSS -->
     {% load static %}
     <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
-    
+
     {% block extra_css %}{% endblock %}
 </head>
+
 <body>
     <!-- Navbar -->
     <nav class="navbar">
@@ -30,110 +33,143 @@
                     </div>
                     <span>EduLog</span>
                 </a>
-                
+
                 <!-- Desktop Navigation -->
                 <div class="navbar-nav-desktop">
                     {% if user.is_authenticated %}
-                        {% if user.role == 'student' %}
-                        <a href="{% url 'students:dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                            Dashboard
-                        </a>
-                        {% elif user.role == 'teacher' %}
-                        <a href="{% url 'teachers:dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                            Dashboard
-                        </a>
-                        {% elif user.role == 'parent' %}
-                        <a href="{% url 'parents:dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                            Dashboard
-                        </a>
-                        {% else %}
-                        <a href="{% url 'dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                            Dashboard
-                        </a>
-                        {% endif %}
-                        <a href="#" class="navbar-link">
-                            Reports
-                        </a>
-                        <a href="{% url 'about' %}" class="navbar-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">
-                            About
-                        </a>
-                        <a href="{% url 'logout' %}" class="btn btn-outline-primary">
-                            Logout
-                        </a>
+                    <!-- Avatar Dropdown -->
+                    <div class="dropdown">
+                        <button type="button" class="avatar dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" id="avatarButton">
+                            {% with user.get_full_name as name %}
+                            {% if name %}
+                                {{ name|first|upper }}{% if " " in name %}{% with name|slice:"1:" as rest %}{{ rest|first|upper }}{% endwith %}{% endif %}
+                            {% else %}
+                                {{ user.username|first|upper }}
+                            {% endif %}
+                            {% endwith %}
+                        </button>
+
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li class="dropdown-item">
+                                <strong>{{ user.get_full_name|default:user.username }}</strong><br>
+                                <small class="text-muted">{{ user.role|title }} Account</small>
+                            </li>
+
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center gap-2">
+                                    <i data-lucide="user"></i> Account Settings
+                                </a>
+                            </li>
+
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+
+                            <li>
+                                <a class="dropdown-item text-danger d-flex align-items-center gap-2"
+                                    href="{% url 'logout' %}">
+                                    <i data-lucide="log-out"></i> Logout
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
                     {% else %}
-                        <a href="{% url 'index' %}" class="navbar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
-                            Home
-                        </a>
-                        <a href="{% url 'about' %}" class="navbar-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">
-                            About
-                        </a>
-                        <a href="{% url 'login' %}" class="btn btn-primary">
-                            Login
-                        </a>
+                    <a href="{% url 'index' %}"
+                        class="navbar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+                        Home
+                    </a>
+                    <a href="{% url 'about' %}"
+                        class="navbar-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">
+                        About
+                    </a>
+                    <a href="{% url 'login' %}" class="btn btn-primary">
+                        Login
+                    </a>
                     {% endif %}
                 </div>
-                
+
                 <!-- Mobile menu button -->
-                <button class="navbar-toggler navbar-mobile" type="button" data-bs-toggle="collapse" data-bs-target="#mobileNav" aria-controls="mobileNav" aria-expanded="false" aria-label="Toggle navigation">
+                <button class="navbar-toggler navbar-mobile" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#mobileNav" aria-controls="mobileNav" aria-expanded="false"
+                    aria-label="Toggle navigation">
                     <i class="bi bi-list" id="mobileMenuIcon"></i>
                 </button>
             </div>
-            
+
             <!-- Mobile Navigation -->
             <div class="collapse navbar-mobile" id="mobileNav">
                 <div class="navbar-nav-mobile">
                     {% if user.is_authenticated %}
-                        {% if user.role == 'student' %}
-                        <a href="{% url 'students:dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                            Dashboard
-                        </a>
-                        {% elif user.role == 'teacher' %}
-                        <a href="{% url 'teachers:dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                            Dashboard
-                        </a>
-                        {% elif user.role == 'parent' %}
-                        <a href="{% url 'parents:dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                            Dashboard
-                        </a>
-                        {% else %}
-                        <a href="{% url 'dashboard' %}" class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                            Dashboard
-                        </a>
-                        {% endif %}
-                        <a href="#" class="navbar-link">
-                            Reports
-                        </a>
-                        <a href="{% url 'about' %}" class="navbar-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">
-                            About
-                        </a>
-                        <a href="{% url 'logout' %}" class="btn btn-outline-primary w-100">
-                            Logout
-                        </a>
+                    {% if user.role == 'student' %}
+                    <a href="{% url 'students:dashboard' %}"
+                        class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        Dashboard
+                    </a>
+                    {% elif user.role == 'teacher' %}
+                    <a href="{% url 'teachers:dashboard' %}"
+                        class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        Dashboard
+                    </a>
+                    {% elif user.role == 'parent' %}
+                    <a href="{% url 'parents:dashboard' %}"
+                        class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        Dashboard
+                    </a>
                     {% else %}
-                        <a href="{% url 'index' %}" class="navbar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
-                            Home
-                        </a>
-                        <a href="{% url 'about' %}" class="navbar-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">
-                            About
-                        </a>
-                        <a href="{% url 'login' %}" class="btn btn-primary w-100">
-                            Login
-                        </a>
+                    <a href="{% url 'dashboard' %}"
+                        class="navbar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        Dashboard
+                    </a>
+                    {% endif %}
+                    <a href="#" class="navbar-link">
+                        Reports
+                    </a>
+                    <a href="{% url 'about' %}"
+                        class="navbar-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">
+                        About
+                    </a>
+                    <a href="{% url 'logout' %}" class="btn btn-outline-primary w-100">
+                        Logout
+                    </a>
+                    {% else %}
+                    <a href="{% url 'index' %}"
+                        class="navbar-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+                        Home
+                    </a>
+                    <a href="{% url 'about' %}"
+                        class="navbar-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}">
+                        About
+                    </a>
+                    <a href="{% url 'login' %}" class="btn btn-primary w-100">
+                        Login
+                    </a>
                     {% endif %}
                 </div>
             </div>
         </div>
     </nav>
-    
+
     {% block content %}{% endblock %}
-    
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <!-- Custom JS -->
     <script src="{% static 'core/js/main.js' %}"></script>
+
+    <script>
+        lucide.createIcons();
     
+        function toggleMobileMenu() {
+            document.getElementById("mobileMenu").classList.toggle("d-none");
+        }
+    </script>
+
     {% block extra_js %}{% endblock %}
 </body>
-</html>
 
+</html>

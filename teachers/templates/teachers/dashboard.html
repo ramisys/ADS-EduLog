@@ -8,12 +8,6 @@
 
 {% block content %}
 <div class="dashboard-container">
-    <!-- Dashboard Header -->
-    <div class="dashboard-header">
-        <h1>Welcome back, {{ teacher_profile.user.get_full_name|default:teacher_profile.user.username }}!</h1>
-        <p>Teacher ID: {{ teacher_profile.teacher_id }} | Department: {{ teacher_profile.department }}</p>
-    </div>
-    
     <!-- Statistics Cards -->
     <div class="row">
         <div class="col-md-3">

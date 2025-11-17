@@ -39,12 +39,14 @@
                     {% if user.is_authenticated %}
                     <!-- Avatar Dropdown -->
                     <div class="dropdown">
-                        <button type="button" class="avatar dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" id="avatarButton">
+                        <button type="button" class="avatar dropdown-toggle" data-bs-toggle="dropdown"
+                            aria-expanded="false" id="avatarButton">
                             {% with user.get_full_name as name %}
                             {% if name %}
-                                {{ name|first|upper }}{% if " " in name %}{% with name|slice:"1:" as rest %}{{ rest|first|upper }}{% endwith %}{% endif %}
+                            {{ name|first|upper }}{% if " " in name %}{% with name|slice:"1:" as rest %}{{
+                            rest|first|upper }}{% endwith %}{% endif %}
                             {% else %}
-                                {{ user.username|first|upper }}
+                            {{ user.username|first|upper }}
                             {% endif %}
                             {% endwith %}
                         </button>
@@ -152,6 +154,82 @@
             </div>
         </div>
     </nav>
+    <nav class="below-nav">
+        <div class="dashboard-header">
+            {% if user.is_authenticated %}
+            <button id="openSidebarBtn">
+                <i class="bi bi-list"></i>
+            </button>
+            <div>
+                <h5 class="dashboard-title">Dashboard</h5>
+                <p class="dashboard-subtitle">
+                    Welcome, {{ user.get_full_name|default:user.username }}!
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+    <nav id="sidebar">
+        {% if user.is_authenticated %}
+        <button class="btn btn-light m-3" id="closeSidebarBtn">
+            <i class="bi bi-x-lg"></i>
+        </button>
+
+        <div class="p-3">
+            <ul class="list-unstyled mt-3">
+                <li>
+                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="layout-dashboard"></i>
+                        Dashboard
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="book-open"></i>
+                        Subjects
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="users"></i>
+                        Sections
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="graduation-cap"></i>
+                        Students
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="clipboard-check"></i>
+                        Attendance
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="trending-up"></i>
+                        Grades
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="file-text"></i>
+                        Reports
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="bell"></i>
+                        Notifications
+                    </a>
+                </li>
+            </ul>
+        </div>
+        {% endif %}
+    </nav>
+    <div id="overlay"></div>
 
     {% block content %}{% endblock %}
 
@@ -163,10 +241,28 @@
 
     <script>
         lucide.createIcons();
-    
+
         function toggleMobileMenu() {
             document.getElementById("mobileMenu").classList.toggle("d-none");
         }
+
+        const sidebar = document.getElementById("sidebar");
+        const overlay = document.getElementById("overlay");
+
+        document.getElementById("openSidebarBtn").onclick = () => {
+            sidebar.style.transform = "translateX(0)";
+            overlay.style.display = "block";
+        };
+
+        document.getElementById("closeSidebarBtn").onclick = () => {
+            sidebar.style.transform = "translateX(-100%)";
+            overlay.style.display = "none";
+        };
+
+        overlay.onclick = () => {
+            sidebar.style.transform = "translateX(-100%)";
+            overlay.style.display = "none";
+        };
     </script>
 
     {% block extra_js %}{% endblock %}

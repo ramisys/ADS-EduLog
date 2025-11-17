@@ -15,7 +15,8 @@
 /* ========================================
    Base Styles
    ======================================== */
-html, body {
+html,
+body {
     margin: 0;
     padding: 0;
 }
@@ -542,15 +543,104 @@ button.avatar.dropdown-toggle,
     justify-content: center;
 }
 
+/* Dashboard Header */
+.below-nav {
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    position: sticky;
+    top: 80px;
+    left: 0;
+    right: 0;
+    z-index: 45;
+    padding: 0 56px;
+}
+
+.dashboard-header {
+    padding: 20px 25px;
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.dashboard-title {
+    font-size: 1.3rem;
+    color: #1a3e8a;
+    margin-bottom: 0;
+}
+
+.dashboard-subtitle {
+    margin: 0;
+    color: #6c757d;
+}
+
+/* Hamburger */
+#openSidebarBtn {
+    font-size: 22px;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+#openSidebarBtn:hover {
+    opacity: .7;
+}
+
+/* Sidebar */
+#sidebar {
+    width: 260px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    background: white;
+    border-right: 1px solid #ddd;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 1000;
+}
+
+#sidebar.open {
+    transform: translateX(0);
+}
+
+#overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+}
+
+.sidebar-link {
+    width: 100%;
+    padding: 12px 18px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: none;
+    border: none;
+    text-align: left;
+    font-size: 15px;
+    color: #555;
+    transition: 0.2s;
+    padding: 0 40px;
+}
+
+.sidebar-link:hover {
+    background: #f3f4f6;
+}
+
 @media (max-width: 767px) {
     .navbar-nav-desktop {
         display: none;
     }
-    
+
     .navbar-mobile {
         display: block;
     }
-    
+
     .navbar-nav-mobile {
         display: flex;
         flex-direction: column;
@@ -558,7 +648,7 @@ button.avatar.dropdown-toggle,
         padding: 16px 0;
         border-top: 1px solid #e5e7eb;
     }
-    
+
     .navbar-nav-mobile .navbar-link {
         padding: 8px 16px;
         border-radius: 8px;
@@ -566,11 +656,11 @@ button.avatar.dropdown-toggle,
         text-align: left;
         display: block;
     }
-    
+
     .navbar-nav-mobile .navbar-link:hover {
         background: #f3f4f6;
     }
-    
+
     .navbar-nav-mobile .navbar-link.active {
         background: #eff6ff;
     }
@@ -1290,21 +1380,21 @@ button.avatar.dropdown-toggle,
         word-break: break-word;
         hyphens: auto;
     }
-    
+
     .hero-description {
         font-size: 1rem;
         margin-bottom: 24px;
     }
-    
+
     .section-title,
     .cta-title {
         font-size: 2rem;
     }
-    
+
     .hero-section {
         padding: 120px 0 32px;
     }
-    
+
     .btn-hero,
     .btn-hero-outline {
         padding: 12px 24px;
@@ -1312,19 +1402,19 @@ button.avatar.dropdown-toggle,
         width: 100%;
         text-align: center;
     }
-    
+
     .about-hero {
         padding: 60px 0;
     }
-    
+
     .about-hero h1 {
         font-size: 2rem;
     }
-    
+
     .about-section {
         padding: 48px 0;
     }
-    
+
     .about-cta h2 {
         font-size: 2rem;
     }
@@ -1338,32 +1428,32 @@ button.avatar.dropdown-toggle,
         word-break: break-word;
         hyphens: auto;
     }
-    
+
     .hero-description {
         font-size: 0.9375rem;
     }
-    
+
     .hero-section {
         padding: 100px 0 24px;
     }
-    
+
     .login-card .card-body,
     .signup-card .card-body {
         padding: 1.5rem !important;
     }
-    
+
     .nav-tabs {
         padding: 2px;
         margin-bottom: 20px;
         flex-wrap: nowrap;
         gap: 2px;
     }
-    
+
     .nav-tabs .nav-item {
         flex: 1 1 0;
         min-width: 0;
     }
-    
+
     .nav-tabs .nav-link {
         padding: 10px 8px;
         font-size: 13px;
@@ -1389,19 +1479,19 @@ button.avatar.dropdown-toggle,
 }
 
 @media (max-width: 375px) {
+
     .login-card .card-body,
     .signup-card .card-body {
         padding: 1.25rem !important;
     }
-    
+
     .nav-tabs {
         padding: 2px;
         gap: 1px;
     }
-    
+
     .nav-tabs .nav-link {
         padding: 8px 6px;
         font-size: 12px;
     }
 }
-

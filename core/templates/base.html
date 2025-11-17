@@ -177,6 +177,7 @@
 
         <div class="p-3">
             <ul class="list-unstyled mt-3">
+                {% block sidebar_links %}
                 <li>
                     <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
                         <i data-lucide="layout-dashboard"></i>
@@ -225,6 +226,7 @@
                         Notifications
                     </a>
                 </li>
+                {% endblock %}
             </ul>
         </div>
         {% endif %}

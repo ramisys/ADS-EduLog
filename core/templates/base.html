@@ -41,13 +41,14 @@
                     <div class="dropdown">
                         <button type="button" class="avatar dropdown-toggle" data-bs-toggle="dropdown"
                             aria-expanded="false" id="avatarButton">
-                            {% with user.get_full_name as name %}
-                            {% if name %}
-                            {{ name|first|upper }}{% if " " in name %}{% with name|slice:"1:" as rest %}{{
-                            rest|first|upper }}{% endwith %}{% endif %}
+                            {% with user.first_name|default_if_none:'' as first %}
+                            {% with user.last_name|default_if_none:'' as last %}
+                            {% if first or last %}
+                            {{ first|slice:":1"|upper }}{{ last|slice:":1"|upper }}
                             {% else %}
-                            {{ user.username|first|upper }}
+                            {{ user.username|slice:":2"|upper }}
                             {% endif %}
+                            {% endwith %}
                             {% endwith %}
                         </button>
 

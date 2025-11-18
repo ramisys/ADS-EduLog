@@ -1,227 +1,169 @@
-{% extends 'base.html' %}
-{% load static %}
+{% extends "base.html" %}
 
-{% block title %}Teacher Dashboard - EduLog{% endblock %}
-
-{% block extra_css %}
-{% endblock %}
+{% block title %}Teacher Dashboard | EduLog{% endblock %}
 
 {% block content %}
-<div class="dashboard-container">
-    <!-- Statistics Cards -->
-    <div class="row">
-        <div class="col-md-3">
-            <div class="stats-card text-center">
-                <div class="stat-icon">
-                    <i class="bi bi-book"></i>
-                </div>
-                <h3>Subjects</h3>
-                <div class="stat-value">{{ subjects|length }}</div>
-            </div>
+<div class="dashboard-container container py-4">
+
+  <!-- Quick Stats -->
+  <div class="row g-4 mb-4">
+    <!-- Total Students -->
+    <div class="col-12 col-md-6 col-lg-3">
+      <div class="card border rounded-3 p-3">
+        <div class="d-flex justify-content-between">
+          <div>
+            <p class="text-muted small mb-1">Total Students</p>
+            <h5 class="text-primary mb-2">{{ student_count }}</h5>
+            <span class="badge bg-success-subtle text-success">Across your sections</span>
+          </div>
+          <div class="bg-primary-subtle p-3 rounded">
+            <i class="bi bi-people-fill text-primary fs-4"></i>
+          </div>
         </div>
-        <div class="col-md-3">
-            <div class="stats-card text-center">
-                <div class="stat-icon">
-                    <i class="bi bi-people"></i>
-                </div>
-                <h3>Students</h3>
-                <div class="stat-value">{{ student_count }}</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card text-center">
-                <div class="stat-icon">
-                    <i class="bi bi-award"></i>
-                </div>
-                <h3>Avg Grade</h3>
-                <div class="stat-value">{{ average_grade }}</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card text-center">
-                <div class="stat-icon">
-                    <i class="bi bi-bell"></i>
-                </div>
-                <h3>Notifications</h3>
-                <div class="stat-value">{{ notifications|length }}</div>
-            </div>
-        </div>
+      </div>
     </div>
-    
-    <div class="row">
-        <!-- Subjects -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="bi bi-journal-bookmark"></i> My Subjects</h2>
-                </div>
-                {% if subjects %}
-                <div>
-                    {% for subject in subjects %}
-                    <div class="subject-card">
-                        <h4>{{ subject.code }} - {{ subject.name }}</h4>
-                        <p><strong>Section:</strong> {{ subject.section.name }}</p>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="empty-state">
-                    <i class="bi bi-book"></i>
-                    <p>No subjects assigned yet</p>
-                </div>
-                {% endif %}
-            </div>
+
+    <!-- Avg Attendance -->
+    <div class="col-12 col-md-6 col-lg-3">
+      <div class="card border rounded-3 p-3">
+        <div class="d-flex justify-content-between">
+          <div>
+            <p class="text-muted small mb-1">Avg Attendance</p>
+            <h5 class="text-primary mb-2">{{ avg_attendance_percentage }}%</h5>
+            <span class="badge bg-success-subtle text-success">
+              Present: {{ present_count }} | Absent: {{ absent_count }} | Late: {{ late_count }}
+            </span>
+          </div>
+          <div class="bg-success-subtle p-3 rounded">
+            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+          </div>
         </div>
-        
-        <!-- Advised Sections -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="bi bi-mortarboard"></i> Advised Sections</h2>
-                </div>
-                {% if advised_sections %}
-                <div>
-                    {% for section in advised_sections %}
-                    <div class="subject-card">
-                        <h4>{{ section.name }}</h4>
-                        <p>Class Adviser</p>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="empty-state">
-                    <i class="bi bi-mortarboard"></i>
-                    <p>No sections assigned as adviser</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
+      </div>
     </div>
-    
-    <!-- Subject Statistics -->
-    {% if subject_stats %}
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="bi bi-bar-chart"></i> Subject Statistics</h2>
-                </div>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Subject</th>
-                            <th>Section</th>
-                            <th>Students</th>
-                            <th>Average Grade</th>
-                            <th>Grades Recorded</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for stat in subject_stats %}
-                        <tr>
-                            <td><strong>{{ stat.subject.code }} - {{ stat.subject.name }}</strong></td>
-                            <td>{{ stat.subject.section.name }}</td>
-                            <td>{{ stat.student_count }}</td>
-                            <td><strong>{{ stat.average_grade }}</strong></td>
-                            <td>{{ stat.grades_count }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+
+    <!-- Class Average -->
+    <div class="col-12 col-md-6 col-lg-3">
+      <div class="card border rounded-3 p-3">
+        <div class="d-flex justify-content-between">
+          <div>
+            <p class="text-muted small mb-1">Class Average</p>
+            <h5 class="text-primary mb-2">{{ average_grade }}%</h5>
+            <span class="badge bg-warning-subtle text-warning">
+              Based on {{ grades_count }} grades
+            </span>
+          </div>
+          <div class="bg-warning-subtle p-3 rounded">
+            <i class="bi bi-graph-up-arrow text-warning fs-4"></i>
+          </div>
         </div>
+      </div>
     </div>
-    {% endif %}
-    
-    <!-- Recent Attendance -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="bi bi-calendar-check"></i> Recent Attendance Records</h2>
-                </div>
-                {% if recent_attendance %}
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Student</th>
-                            <th>Subject</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for attendance in recent_attendance %}
-                        <tr>
-                            <td>{{ attendance.date|date:"M d, Y" }}</td>
-                            <td>{{ attendance.student.user.get_full_name|default:attendance.student.user.username }}</td>
-                            <td>{{ attendance.subject.code }}</td>
-                            <td>
-                                {% if attendance.status == 'present' %}
-                                <span class="badge badge-present">Present</span>
-                                {% elif attendance.status == 'absent' %}
-                                <span class="badge badge-absent">Absent</span>
-                                {% elif attendance.status == 'late' %}
-                                <span class="badge badge-late">Late</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <div class="empty-state">
-                    <i class="bi bi-calendar"></i>
-                    <p>No attendance records yet</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    
-    <!-- Attendance Statistics -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="bi bi-pie-chart"></i> Attendance Overview</h2>
-                </div>
-                <div class="row text-center">
-                    <div class="col-md-4">
-                        <div class="stat-value stat-present">{{ present_count }}</div>
-                        <p style="color: #6b7280;">Present</p>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="stat-value stat-absent">{{ absent_count }}</div>
-                        <p style="color: #6b7280;">Absent</p>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="stat-value stat-late">{{ late_count }}</div>
-                        <p style="color: #6b7280;">Late</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
+
     <!-- Notifications -->
-    {% if notifications %}
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="bi bi-bell"></i> Notifications</h2>
-                </div>
-                {% for notification in notifications %}
-                <div class="notification-item">
-                    <p>{{ notification.message }}</p>
-                    <small>{{ notification.created_at|date:"M d, Y H:i" }}</small>
-                </div>
-                {% endfor %}
-            </div>
+    <div class="col-12 col-md-6 col-lg-3">
+      <div class="card border rounded-3 p-3">
+        <div class="d-flex justify-content-between">
+          <div>
+            <p class="text-muted small mb-1">Notifications</p>
+            <h5 class="text-primary mb-2">{{ unread_notifications_count }}</h5>
+            <span class="badge bg-danger-subtle text-danger">
+              {% if unread_notifications_count %}Unread notifications{% else %}All caught up{% endif %}
+            </span>
+          </div>
+          <div class="bg-danger-subtle p-3 rounded">
+            <i class="bi bi-exclamation-circle-fill text-danger fs-4"></i>
+          </div>
         </div>
+      </div>
     </div>
-    {% endif %}
+  </div>
+
+  <!-- Charts Section -->
+  <div class="row g-4 mb-4">
+    <!-- Weekly Attendance -->
+    <div class="col-lg-6">
+      <div class="card border rounded-3 p-4">
+        <div class="d-flex justify-content-between mb-3">
+          <div>
+            <h5 class="text-primary mb-1">Weekly Attendance</h5>
+            <p class="text-muted small mb-0">Last 5 days overview</p>
+          </div>
+          <i class="bi bi-calendar text-secondary"></i>
+        </div>
+        <div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 250px;">
+          <span class="text-muted">[Bar Chart Placeholder]</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subject Performance -->
+    <div class="col-lg-6">
+      <div class="card border rounded-3 p-4">
+        <div class="d-flex justify-content-between mb-3">
+          <div>
+            <h5 class="text-primary mb-1">Subject Performance</h5>
+            <p class="text-muted small mb-0">Average scores by subject</p>
+          </div>
+          <i class="bi bi-graph-up text-secondary"></i>
+        </div>
+        <div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 250px;">
+          <span class="text-muted">[Line Chart Placeholder]</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grade Distribution -->
+  <div class="card border rounded-3 p-4 mb-4">
+    <h5 class="text-primary mb-1">Grade Distribution</h5>
+    <p class="text-muted small mb-4">Class performance breakdown</p>
+
+    <div class="row g-4">
+      <div class="col-md-6 d-flex align-items-center justify-content-center">
+        <div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 250px; width: 100%;">
+          <span class="text-muted">[Pie Chart Placeholder]</span>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="d-flex flex-column gap-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+              <div class="rounded-circle" style="width:16px; height:16px; background:#3b82f6;"></div>
+              <span class="text-muted">Excellent</span>
+            </div>
+            <span class="text-primary">{{ excellent_count }} students</span>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+              <div class="rounded-circle" style="width:16px; height:16px; background:#10b981;"></div>
+              <span class="text-muted">Good</span>
+            </div>
+            <span class="text-primary">{{ good_count }} students</span>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+              <div class="rounded-circle" style="width:16px; height:16px; background:#f59e0b;"></div>
+              <span class="text-muted">Average</span>
+            </div>
+            <span class="text-primary">{{ average_count }} students</span>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+              <div class="rounded-circle" style="width:16px; height:16px; background:#ef4444;"></div>
+              <span class="text-muted">Poor</span>
+            </div>
+            <span class="text-primary">{{ poor_count }} students</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
+
 

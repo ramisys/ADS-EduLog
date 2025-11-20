@@ -33,6 +33,10 @@ def dashboard(request):
     present_count = total_attendance.filter(status='present').count()
     absent_count = total_attendance.filter(status='absent').count()
     late_count = total_attendance.filter(status='late').count()
+    total_attendance_count = total_attendance.count()
+    
+    # Calculate average attendance percentage
+    avg_attendance_percentage = (present_count / total_attendance_count * 100) if total_attendance_count > 0 else 0
     
     # Get grades statistics
     total_grades = Grade.objects.filter(subject__teacher=teacher_profile)
@@ -41,6 +45,28 @@ def dashboard(request):
     
     # Get unread notifications
     notifications = Notification.objects.filter(recipient=request.user, is_read=False).order_by('-created_at')[:5]
+    unread_notifications_count = Notification.objects.filter(recipient=request.user, is_read=False).count()
+    
+    # Calculate grade distribution
+    # Get all students in teacher's sections and their average grades
+    students_in_sections = StudentProfile.objects.filter(section__in=subjects.values_list('section', flat=True).distinct())
+    excellent_count = 0
+    good_count = 0
+    average_count = 0
+    poor_count = 0
+    
+    for student in students_in_sections:
+        student_grades = Grade.objects.filter(student=student, subject__teacher=teacher_profile)
+        if student_grades.exists():
+            student_avg = student_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+            if student_avg >= 90:
+                excellent_count += 1
+            elif student_avg >= 80:
+                good_count += 1
+            elif student_avg >= 70:
+                average_count += 1
+            else:
+                poor_count += 1
     
     # Get subject statistics
     subject_stats = []
@@ -64,10 +90,16 @@ def dashboard(request):
         'present_count': present_count,
         'absent_count': absent_count,
         'late_count': late_count,
+        'avg_attendance_percentage': round(avg_attendance_percentage, 1),
         'average_grade': round(average_grade, 2),
         'grades_count': grades_count,
         'notifications': notifications,
+        'unread_notifications_count': unread_notifications_count,
         'subject_stats': subject_stats,
+        'excellent_count': excellent_count,
+        'good_count': good_count,
+        'average_count': average_count,
+        'poor_count': poor_count,
     }
     
     return render(request, 'teachers/dashboard.html', context)

@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.db.models import Avg
+from django.db.models import Avg, Count, Q
+from django.utils import timezone
+from datetime import timedelta
 from core.models import TeacherProfile, Subject, ClassSection, StudentProfile, Attendance, Grade, Notification
 
 @login_required
@@ -81,6 +83,44 @@ def dashboard(request):
             'grades_count': subject_grades.count()
         })
     
+    # Calculate weekly attendance data (last 5 days)
+    today = timezone.now().date()
+    weekly_attendance_data = []
+    weekly_attendance_labels = []
+    
+    for i in range(4, -1, -1):  # Last 5 days (4 days ago to today)
+        date = today - timedelta(days=i)
+        date_attendance = Attendance.objects.filter(
+            subject__teacher=teacher_profile,
+            date=date
+        )
+        present = date_attendance.filter(status='present').count()
+        absent = date_attendance.filter(status='absent').count()
+        late = date_attendance.filter(status='late').count()
+        
+        weekly_attendance_data.append({
+            'present': present,
+            'absent': absent,
+            'late': late,
+            'total': present + absent + late
+        })
+        # Format date as "Mon DD" or "Today"
+        if i == 0:
+            weekly_attendance_labels.append('Today')
+        else:
+            weekly_attendance_labels.append(date.strftime('%a %d'))
+    
+    # Calculate subject performance data (average grades per subject)
+    subject_performance_data = []
+    subject_performance_labels = []
+    
+    for subject in subjects:
+        subject_grades = Grade.objects.filter(subject=subject)
+        if subject_grades.exists():
+            subject_avg = subject_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+            subject_performance_data.append(round(subject_avg, 2))
+            subject_performance_labels.append(subject.code)
+    
     context = {
         'teacher_profile': teacher_profile,
         'subjects': subjects,
@@ -100,6 +140,10 @@ def dashboard(request):
         'good_count': good_count,
         'average_count': average_count,
         'poor_count': poor_count,
+        'weekly_attendance_data': weekly_attendance_data,
+        'weekly_attendance_labels': weekly_attendance_labels,
+        'subject_performance_data': subject_performance_data,
+        'subject_performance_labels': subject_performance_labels,
     }
     
     return render(request, 'teachers/dashboard.html', context)

@@ -82,46 +82,46 @@
   <div class="row g-4 mb-4">
     <!-- Weekly Attendance -->
     <div class="col-lg-6">
-      <div class="card border rounded-3 p-4">
-        <div class="d-flex justify-content-between mb-3">
+      <div class="card border rounded-3 p-3">
+        <div class="d-flex justify-content-between mb-2">
           <div>
-            <h5 class="text-primary mb-1">Weekly Attendance</h5>
+            <h5 class="text-primary mb-0" style="font-size: 1rem;">Weekly Attendance</h5>
             <p class="text-muted small mb-0">Last 5 days overview</p>
           </div>
           <i class="bi bi-calendar text-secondary"></i>
         </div>
-        <div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 250px;">
-          <span class="text-muted">[Bar Chart Placeholder]</span>
+        <div style="height: 180px; position: relative;">
+          <canvas id="weeklyAttendanceChart"></canvas>
         </div>
       </div>
     </div>
 
     <!-- Subject Performance -->
     <div class="col-lg-6">
-      <div class="card border rounded-3 p-4">
-        <div class="d-flex justify-content-between mb-3">
+      <div class="card border rounded-3 p-3">
+        <div class="d-flex justify-content-between mb-2">
           <div>
-            <h5 class="text-primary mb-1">Subject Performance</h5>
+            <h5 class="text-primary mb-0" style="font-size: 1rem;">Subject Performance</h5>
             <p class="text-muted small mb-0">Average scores by subject</p>
           </div>
           <i class="bi bi-graph-up text-secondary"></i>
         </div>
-        <div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 250px;">
-          <span class="text-muted">[Line Chart Placeholder]</span>
+        <div style="height: 180px; position: relative;">
+          <canvas id="subjectPerformanceChart"></canvas>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Grade Distribution -->
-  <div class="card border rounded-3 p-4 mb-4">
+  <div class="card border rounded-3 p-3 mb-4">
     <h5 class="text-primary mb-1">Grade Distribution</h5>
-    <p class="text-muted small mb-4">Class performance breakdown</p>
+    <p class="text-muted small mb-3">Class performance breakdown</p>
 
     <div class="row g-4">
       <div class="col-md-6 d-flex align-items-center justify-content-center">
-        <div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 250px; width: 100%;">
-          <span class="text-muted">[Pie Chart Placeholder]</span>
+        <div style="height: 250px; width: 100%; position: relative; max-width: 300px;">
+          <canvas id="gradeDistributionChart"></canvas>
         </div>
       </div>
 
@@ -129,16 +129,16 @@
         <div class="d-flex flex-column gap-3">
           <div class="d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center gap-2">
-              <div class="rounded-circle" style="width:16px; height:16px; background:#3b82f6;"></div>
-              <span class="text-muted">Excellent</span>
+              <div class="rounded-circle" style="width:16px; height:16px; background:#10b981;"></div>
+              <span class="text-muted">Excellent (90-100)</span>
             </div>
             <span class="text-primary">{{ excellent_count }} students</span>
           </div>
 
           <div class="d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center gap-2">
-              <div class="rounded-circle" style="width:16px; height:16px; background:#10b981;"></div>
-              <span class="text-muted">Good</span>
+              <div class="rounded-circle" style="width:16px; height:16px; background:#3b82f6;"></div>
+              <span class="text-muted">Good (80-89)</span>
             </div>
             <span class="text-primary">{{ good_count }} students</span>
           </div>
@@ -146,7 +146,7 @@
           <div class="d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center gap-2">
               <div class="rounded-circle" style="width:16px; height:16px; background:#f59e0b;"></div>
-              <span class="text-muted">Average</span>
+              <span class="text-muted">Average (70-79)</span>
             </div>
             <span class="text-primary">{{ average_count }} students</span>
           </div>
@@ -154,7 +154,7 @@
           <div class="d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center gap-2">
               <div class="rounded-circle" style="width:16px; height:16px; background:#ef4444;"></div>
-              <span class="text-muted">Poor</span>
+              <span class="text-muted">Needs Improvement (&lt;70)</span>
             </div>
             <span class="text-primary">{{ poor_count }} students</span>
           </div>
@@ -164,6 +164,196 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+{{ weekly_attendance_data|json_script:"weekly-attendance-data" }}
+{{ weekly_attendance_labels|json_script:"weekly-attendance-labels" }}
+{{ subject_performance_data|json_script:"subject-performance-data" }}
+{{ subject_performance_labels|json_script:"subject-performance-labels" }}
+{{ excellent_count|json_script:"excellent-count" }}
+{{ good_count|json_script:"good-count" }}
+{{ average_count|json_script:"average-count" }}
+{{ poor_count|json_script:"poor-count" }}
+
+<script>
+  // Weekly Attendance Chart (Bar Chart)
+  const weeklyAttendanceCtx = document.getElementById('weeklyAttendanceChart');
+  if (weeklyAttendanceCtx) {
+    const weeklyAttendanceData = JSON.parse(document.getElementById('weekly-attendance-data').textContent);
+    const weeklyAttendanceLabels = JSON.parse(document.getElementById('weekly-attendance-labels').textContent);
+    
+    new Chart(weeklyAttendanceCtx, {
+      type: 'bar',
+      data: {
+        labels: weeklyAttendanceLabels,
+        datasets: [
+          {
+            label: 'Present',
+            data: weeklyAttendanceData.map(d => d.present),
+            backgroundColor: 'rgba(34, 197, 94, 0.8)',
+            borderColor: 'rgba(34, 197, 94, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Absent',
+            data: weeklyAttendanceData.map(d => d.absent),
+            backgroundColor: 'rgba(239, 68, 68, 0.8)',
+            borderColor: 'rgba(239, 68, 68, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Late',
+            data: weeklyAttendanceData.map(d => d.late),
+            backgroundColor: 'rgba(245, 158, 11, 0.8)',
+            borderColor: 'rgba(245, 158, 11, 1)',
+            borderWidth: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              stepSize: 1
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Subject Performance Chart (Line Chart)
+  const subjectPerformanceCtx = document.getElementById('subjectPerformanceChart');
+  if (subjectPerformanceCtx) {
+    const subjectPerformanceData = JSON.parse(document.getElementById('subject-performance-data').textContent);
+    const subjectPerformanceLabels = JSON.parse(document.getElementById('subject-performance-labels').textContent);
+    
+    if (subjectPerformanceData.length === 0) {
+      subjectPerformanceCtx.parentElement.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100"><span class="text-muted">No grade data available</span></div>';
+    } else {
+      new Chart(subjectPerformanceCtx, {
+      type: 'line',
+      data: {
+        labels: subjectPerformanceLabels,
+        datasets: [{
+          label: 'Average Grade',
+          data: subjectPerformanceData,
+          borderColor: 'rgba(59, 130, 246, 1)',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              label: function(context) {
+                return 'Average: ' + context.parsed.y.toFixed(2);
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            min: 0,
+            max: 100,
+            ticks: {
+              callback: function(value) {
+                return value;
+              }
+            }
+          }
+        }
+      }
+    });
+    }
+  }
+
+  // Grade Distribution Chart (Donut Chart)
+  const gradeDistributionCtx = document.getElementById('gradeDistributionChart');
+  if (gradeDistributionCtx) {
+    const excellentCount = parseInt(JSON.parse(document.getElementById('excellent-count').textContent));
+    const goodCount = parseInt(JSON.parse(document.getElementById('good-count').textContent));
+    const averageCount = parseInt(JSON.parse(document.getElementById('average-count').textContent));
+    const poorCount = parseInt(JSON.parse(document.getElementById('poor-count').textContent));
+    
+    const total = excellentCount + goodCount + averageCount + poorCount;
+    
+    if (total > 0) {
+      new Chart(gradeDistributionCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Excellent (90-100)', 'Good (80-89)', 'Average (70-79)', 'Needs Improvement (<70)'],
+          datasets: [{
+            data: [excellentCount, goodCount, averageCount, poorCount],
+            backgroundColor: [
+              'rgba(16, 185, 129, 1)',  // Green for Excellent
+              'rgba(59, 130, 246, 1)',  // Blue for Good
+              'rgba(245, 158, 11, 1)',  // Orange for Average
+              'rgba(239, 68, 68, 1)'    // Red for Needs Improvement
+            ],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.parsed || 0;
+                  const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                  return label + ': ' + value + ' students (' + percentage + '%)';
+                }
+              }
+            }
+          },
+          cutout: '60%'
+        }
+      });
+    } else {
+      gradeDistributionCtx.parentElement.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100"><span class="text-muted">No grade data available</span></div>';
+    }
+  }
+</script>
 {% endblock %}
 
 

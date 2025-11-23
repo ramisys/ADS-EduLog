@@ -1,5 +1,105 @@
 {% extends "base.html" %}
 {% block title %}Teacher Subjects | EduLog{% endblock %}
 {% block content %}
-{% include "teachers/coming_soon.html" %}
+<div class="dashboard-container container py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h2 class="text-primary">Manage Subjects</h2>
+        <p class="text-muted small">View and manage your teaching subjects</p>
+      </div>
+  
+      <!-- Add Subject Button -->
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
+        <i class="bi bi-plus"></i> Add Subject
+      </button>
+    </div>
+  
+    <!-- Add Subject Modal -->
+    <div class="modal fade" id="addSubjectModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          
+          <div class="modal-header">
+            <h5 class="modal-title">Add New Subject</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+  
+          <div class="modal-body">
+            <p class="text-muted">Enter the details for the new subject</p>
+  
+            <form id="addSubjectForm">
+              <div class="mb-3">
+                <label class="form-label">Subject Name</label>
+                <input type="text" class="form-control" placeholder="e.g., Mathematics" required>
+              </div>
+  
+              <div class="mb-3">
+                <label class="form-label">Subject Code</label>
+                <input type="text" class="form-control" placeholder="e.g., MATH101" required>
+              </div>
+  
+              <button type="submit" class="btn btn-primary w-100">Add Subject</button>
+            </form>
+  
+          </div>
+        </div>
+      </div>
+    </div>
+  
+    <!-- SUBJECT LIST -->
+    {% if subjects %}
+    <div class="row g-4">
+      {% for item in subjects %}
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card border rounded-3 p-3 h-100">
+          
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <div class="d-flex align-items-center gap-3 flex-grow-1">
+              <div class="bg-primary p-3 rounded" style="min-width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-book text-white fs-5"></i>
+              </div>
+              <div class="flex-grow-1">
+                <h5 class="text-primary mb-1">{{ item.subject.name }}</h5>
+                <small class="text-muted">{{ item.subject.code }}</small>
+              </div>
+            </div>
+  
+            <div class="d-flex gap-2 ms-2">
+              <button class="btn btn-outline-secondary btn-sm" title="Edit">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="btn btn-outline-danger btn-sm" title="Delete">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+  
+          <div class="small mt-3 pt-3 border-top">
+            <div class="d-flex justify-content-between mb-2">
+              <span class="text-muted">Section</span>
+              <span class="text-primary fw-semibold">{{ item.subject.section.name }}</span>
+            </div>
+            
+            <div class="d-flex justify-content-between">
+              <span class="text-muted">Students Enrolled</span>
+              <span class="text-primary fw-semibold">{{ item.student_count }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <div class="mb-3">
+        <i class="bi bi-book text-muted" style="font-size: 3rem;"></i>
+      </div>
+      <h5 class="text-muted">No subjects assigned</h5>
+      <p class="text-muted small">You don't have any subjects assigned yet. Click "Add Subject" to get started.</p>
+    </div>
+    {% endif %}
+  </div>
+  
 {% endblock %}

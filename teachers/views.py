@@ -152,9 +152,27 @@ def dashboard(request):
 def subjects(request):
     if request.user.role != 'teacher':
         return redirect('dashboard')
+    
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        return redirect('dashboard')
+    
+    # Get teacher's subjects with related data
+    subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code')
+    
+    # Get student count for each subject (students in that section)
+    subjects_with_counts = []
+    for subject in subjects:
+        student_count = StudentProfile.objects.filter(section=subject.section).count()
+        subjects_with_counts.append({
+            'subject': subject,
+            'student_count': student_count,
+        })
+    
     context = {
-        'page_title': 'Subjects',
-        'page_description': 'Manage and view all your assigned subjects here.'
+        'subjects': subjects_with_counts,
+        'teacher_profile': teacher_profile,
     }
     return render(request, 'teachers/subjects.html', context)
 

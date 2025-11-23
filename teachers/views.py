@@ -584,9 +584,73 @@ def grades(request):
 def reports(request):
     if request.user.role != 'teacher':
         return redirect('dashboard')
+    
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        return redirect('dashboard')
+    
+    # Get teacher's subjects
+    subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code')
+    
+    # Get all sections where teacher teaches
+    section_ids = subjects.values_list('section', flat=True).distinct()
+    sections = ClassSection.objects.filter(id__in=section_ids).order_by('name')
+    
+    # Get all students in teacher's sections
+    students = StudentProfile.objects.filter(section__in=section_ids).select_related(
+        'user', 'section'
+    ).order_by('section__name', 'user__last_name', 'user__first_name')
+    
+    # Calculate low performance students
+    # Criteria: GPA < 75 OR Attendance < 70%
+    low_performance_students = []
+    
+    for student in students:
+        # Calculate GPA (average grade) for this student
+        student_grades = Grade.objects.filter(
+            student=student,
+            subject__teacher=teacher_profile
+        )
+        
+        gpa = 0
+        if student_grades.exists():
+            gpa = student_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+        
+        # Calculate attendance percentage
+        student_attendance = Attendance.objects.filter(
+            student=student,
+            subject__teacher=teacher_profile
+        )
+        
+        total_attendance = student_attendance.count()
+        present_count = student_attendance.filter(status='present').count()
+        attendance_percentage = (present_count / total_attendance * 100) if total_attendance > 0 else 0
+        
+        # Check if student needs attention
+        issues = []
+        if gpa > 0 and gpa < 75:
+            issues.append(f'Low GPA: {gpa:.1f}')
+        if total_attendance > 0 and attendance_percentage < 70:
+            issues.append(f'Low Attendance: {attendance_percentage:.1f}%')
+        
+        if issues:
+            low_performance_students.append({
+                'student': student,
+                'gpa': round(gpa, 2),
+                'attendance_percentage': round(attendance_percentage, 1),
+                'issues': issues,
+            })
+    
+    # Sort by most critical (lowest GPA first)
+    low_performance_students.sort(key=lambda x: x['gpa'] if x['gpa'] > 0 else 100)
+    
     context = {
-        'page_title': 'Reports',
-        'page_description': 'Generate and view comprehensive reports and analytics.'
+        'students': students,
+        'subjects': subjects,
+        'sections': sections,
+        'low_performance_students': low_performance_students,
+        'teacher_profile': teacher_profile,
     }
     return render(request, 'teachers/reports.html', context)
 

@@ -1,5 +1,218 @@
 {% extends "base.html" %}
 {% block title %}Teacher Students | EduLog{% endblock %}
 {% block content %}
-{% include "teachers/coming_soon.html" %}
+<div class="dashboard-container container py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="text-primary">Manage Students</h2>
+            <p class="text-muted small">View students organized by their sections</p>
+        </div>
+        <button class="btn btn-primary d-flex align-items-center">
+            <span class="me-2">+</span> Add Student
+        </button>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-3">
+
+        <div class="col-md-3">
+            <div class="card p-3 border">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <p class="text-muted small mb-1">Total Students</p>
+                        <h5 class="text-primary">{{ total_students }}</h5>
+                        <span class="badge bg-primary-subtle text-primary">All Sections</span>
+                    </div>
+                    <div class="bg-primary-subtle p-3 rounded">
+                        <i class="bi bi-people fs-4 text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card p-3 border">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <p class="text-muted small mb-1">Active Students</p>
+                        <h5 class="text-primary">{{ active_students }}</h5>
+                        <span class="badge bg-success-subtle text-success">Good Standing</span>
+                    </div>
+                    <div class="bg-success-subtle p-3 rounded">
+                        <i class="bi bi-check-circle fs-4 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card p-3 border">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <p class="text-muted small mb-1">At Risk</p>
+                        <h5 class="text-primary">{{ at_risk_students }}</h5>
+                        <span class="badge bg-warning-subtle text-warning">Needs Attention</span>
+                    </div>
+                    <div class="bg-warning-subtle p-3 rounded">
+                        <i class="bi bi-exclamation-triangle fs-4 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card p-3 border">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <p class="text-muted small mb-1">Sections</p>
+                        <h5 class="text-primary">{{ total_sections }}</h5>
+                        <span class="badge bg-purple-subtle text-dark">Total Classes</span>
+                    </div>
+                    <div class="bg-light p-3 rounded">
+                        <i class="bi bi-mortarboard fs-4 text-secondary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Sections -->
+    {% if sections %}
+    {% for section_data in sections %}
+    <div class="card p-4 mt-4">
+
+        <!-- Section Header -->
+        <div class="d-flex justify-content-between pb-3 border-bottom mb-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="bg-primary-subtle p-3 rounded">
+                    <i class="bi bi-people fs-4 text-primary"></i>
+                </div>
+                <div>
+                    <h4 class="text-primary mb-1">{{ section_data.section.name }}</h4>
+                    <p class="text-muted small mb-0">{{ section_data.student_count }} Students</p>
+                </div>
+            </div>
+
+            <div class="d-flex gap-4">
+                <div class="text-end">
+                    <p class="text-muted small mb-1">Avg Attendance</p>
+                    <span class="badge {% if section_data.avg_attendance >= 80 %}bg-success-subtle text-success{% elif section_data.avg_attendance >= 70 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %}">{{ section_data.avg_attendance }}%</span>
+                </div>
+                <div class="text-end">
+                    <p class="text-muted small mb-1">Avg GPA</p>
+                    <span class="badge {% if section_data.avg_gpa >= 80 %}bg-primary-subtle text-primary{% elif section_data.avg_gpa >= 70 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %}">{{ section_data.avg_gpa|floatformat:2 }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Students Table -->
+        {% if section_data.students %}
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-striped align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Student ID</th>
+                        <th>Attendance</th>
+                        <th>GPA</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student_data in section_data.students %}
+                    <tr>
+                        <td><strong>{{ student_data.student.user.get_full_name|default:student_data.student.user.username }}</strong></td>
+                        <td class="text-muted">{{ student_data.student.user.email }}</td>
+                        <td><span class="badge bg-secondary-subtle text-secondary">{{ student_data.student.student_id }}</span></td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="progress w-50" style="height: 5px; background-color: #e9ecef; border-radius: 4px; overflow: hidden;">
+                                    <div class="progress-bar student-attendance-bar {% if student_data.attendance_percentage >= 80 %}bg-success{% elif student_data.attendance_percentage >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                         data-width="{{ student_data.attendance_percentage|default:0 }}"
+                                         style="height: 100%; width: 0%; transition: width 0.3s ease; display: block;"></div>
+                                </div>
+                                <small class="text-muted">{{ student_data.attendance_percentage }}%</small>
+                            </div>
+                        </td>
+                        <td><strong>{{ student_data.gpa|floatformat:2 }}</strong></td>
+                        <td>
+                            {% if student_data.status == 'active' %}
+                            <span class="badge bg-success-subtle text-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-warning-subtle text-warning">At Risk</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <p class="text-muted">No students in this section</p>
+        </div>
+        {% endif %}
+
+        <!-- Warning Alert -->
+        {% if section_data.avg_attendance < 70 or section_data.avg_gpa < 70 %}
+        <div class="alert alert-warning mt-3 d-flex align-items-center gap-2">
+            <i class="bi bi-exclamation-triangle"></i>
+            <span>This section may need attention - Low attendance and/or Below average GPA</span>
+        </div>
+        {% endif %}
+
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="card p-4 mt-4">
+        <div class="text-center py-5">
+            <i class="bi bi-people text-muted" style="font-size: 3rem;"></i>
+            <h5 class="text-muted mt-3">No sections assigned</h5>
+            <p class="text-muted small">You don't have any sections with students assigned yet.</p>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    function setProgressBars() {
+        const bars = document.querySelectorAll('.student-attendance-bar');
+        bars.forEach(function(bar) {
+            const widthValue = bar.getAttribute('data-width');
+            if (widthValue !== null && widthValue !== '') {
+                const width = parseFloat(widthValue);
+                if (!isNaN(width) && isFinite(width)) {
+                    const clampedWidth = Math.min(Math.max(width, 0), 100);
+                    bar.style.width = clampedWidth + '%';
+                    bar.style.display = 'block';
+                    bar.style.minWidth = '0%';
+                } else {
+                    bar.style.width = '0%';
+                }
+            } else {
+                bar.style.width = '0%';
+            }
+        });
+    }
+    
+    // Run immediately if DOM is ready, otherwise wait
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setProgressBars);
+    } else {
+        setProgressBars();
+    }
+    
+    // Also run after delays to catch any dynamic content
+    setTimeout(setProgressBars, 100);
+    setTimeout(setProgressBars, 500);
+})();
+</script>
 {% endblock %}

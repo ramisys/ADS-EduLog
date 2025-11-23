@@ -268,9 +268,105 @@ def sections(request):
 def students(request):
     if request.user.role != 'teacher':
         return redirect('dashboard')
+    
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        return redirect('dashboard')
+    
+    # Get sections where teacher is adviser or teaches subjects
+    advised_section_ids = ClassSection.objects.filter(adviser=teacher_profile).values_list('id', flat=True)
+    sections_with_subjects_ids = ClassSection.objects.filter(
+        subject__teacher=teacher_profile
+    ).values_list('id', flat=True).distinct()
+    all_section_ids = set(list(advised_section_ids) + list(sections_with_subjects_ids))
+    
+    # Get all students in these sections
+    all_students = StudentProfile.objects.filter(section__id__in=all_section_ids).select_related('user', 'section').order_by('section__name', 'user__last_name', 'user__first_name')
+    
+    # Get sections with their students
+    sections_data = []
+    total_students_count = 0
+    active_students_count = 0
+    at_risk_count = 0
+    
+    for section_id in all_section_ids:
+        section = ClassSection.objects.get(id=section_id)
+        section_students = all_students.filter(section=section)
+        student_count = section_students.count()
+        if student_count == 0:
+            continue
+        
+        total_students_count += student_count
+        
+        # Calculate statistics for each student in this section
+        students_data = []
+        section_attendance_sum = 0
+        section_grades_sum = 0
+        section_grades_count = 0
+        
+        for student in section_students:
+            # Calculate attendance percentage
+            student_attendance = Attendance.objects.filter(
+                student=student,
+                subject__teacher=teacher_profile
+            )
+            total_attendance = student_attendance.count()
+            present_count = student_attendance.filter(status='present').count()
+            attendance_percentage = (present_count / total_attendance * 100) if total_attendance > 0 else 0
+            section_attendance_sum += attendance_percentage
+            
+            # Calculate GPA (average grade)
+            student_grades = Grade.objects.filter(
+                student=student,
+                subject__teacher=teacher_profile
+            )
+            if student_grades.exists():
+                gpa = student_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+                section_grades_sum += gpa
+                section_grades_count += 1
+            else:
+                gpa = 0
+            
+            # Determine status
+            if attendance_percentage >= 80 and gpa >= 80:
+                status = 'active'
+                active_students_count += 1
+            elif attendance_percentage < 70 or gpa < 70:
+                status = 'at_risk'
+                at_risk_count += 1
+            else:
+                status = 'active'
+                active_students_count += 1
+            
+            students_data.append({
+                'student': student,
+                'attendance_percentage': round(attendance_percentage, 1),
+                'gpa': round(gpa, 2),
+                'status': status,
+            })
+        
+        # Calculate section averages
+        avg_attendance = (section_attendance_sum / student_count) if student_count > 0 else 0
+        avg_gpa = (section_grades_sum / section_grades_count) if section_grades_count > 0 else 0
+        
+        sections_data.append({
+            'section': section,
+            'students': students_data,
+            'student_count': student_count,
+            'avg_attendance': round(avg_attendance, 1),
+            'avg_gpa': round(avg_gpa, 2),
+        })
+    
+    # Sort sections by name
+    sections_data.sort(key=lambda x: x['section'].name)
+    
     context = {
-        'page_title': 'Students',
-        'page_description': 'View and manage all students in your classes.'
+        'sections': sections_data,
+        'total_students': total_students_count,
+        'active_students': active_students_count,
+        'at_risk_students': at_risk_count,
+        'total_sections': len(sections_data),
     }
     return render(request, 'teachers/students.html', context)
 

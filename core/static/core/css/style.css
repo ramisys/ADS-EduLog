@@ -452,6 +452,17 @@ body {
     display: none;
 }
 
+/* Mobile: Show avatar dropdown, hide desktop avatar */
+@media (max-width: 767px) {
+    .navbar-nav-desktop .dropdown {
+        display: none !important;
+    }
+    
+    .navbar-mobile.dropdown {
+        display: block !important;
+    }
+}
+
 button.avatar,
 .avatar {
     height: 38px !important;
@@ -931,6 +942,16 @@ button.avatar.dropdown-toggle,
     }
 
     .navbar-mobile {
+        display: block;
+    }
+
+    /* Hide desktop avatar dropdown on mobile */
+    .navbar-nav-desktop .dropdown {
+        display: none;
+    }
+
+    /* Show mobile avatar dropdown */
+    .navbar-mobile.dropdown {
         display: block;
     }
 

@@ -105,16 +105,55 @@
                     {% endif %}
                 </div>
 
-                <!-- Mobile menu button -->
-                <button class="navbar-toggler navbar-mobile" type="button" data-bs-toggle="collapse"
-                    data-bs-target="#mobileNav" aria-controls="mobileNav" aria-expanded="false"
-                    aria-label="Toggle navigation">
-                    <i class="bi bi-list" id="mobileMenuIcon"></i>
-                </button>
+                <!-- Mobile Avatar Dropdown -->
+                {% if user.is_authenticated %}
+                <div class="dropdown navbar-mobile">
+                    <button type="button" class="avatar dropdown-toggle" data-bs-toggle="dropdown"
+                        aria-expanded="false" id="mobileAvatarButton">
+                        {% with user.first_name|default_if_none:'' as first %}
+                        {% with user.last_name|default_if_none:'' as last %}
+                        {% if first or last %}
+                        {{ first|slice:":1"|upper }}{{ last|slice:":1"|upper }}
+                        {% else %}
+                        {{ user.username|slice:":2"|upper }}
+                        {% endif %}
+                        {% endwith %}
+                        {% endwith %}
+                    </button>
+
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li class="dropdown-item">
+                            <strong>{{ user.get_full_name|default:user.username }}</strong><br>
+                            <small class="text-muted">{{ user.role|title }} Account</small>
+                        </li>
+
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center gap-2">
+                                <i data-lucide="user"></i> Account Settings
+                            </a>
+                        </li>
+
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+
+                        <li>
+                            <a class="dropdown-item text-danger d-flex align-items-center gap-2"
+                                href="{% url 'logout' %}">
+                                <i data-lucide="log-out"></i> Logout
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                {% endif %}
             </div>
 
-            <!-- Mobile Navigation -->
-            <div class="collapse navbar-mobile" id="mobileNav">
+            <!-- Mobile Navigation (Hidden - navigation handled by sidebar) -->
+            <div class="collapse navbar-mobile d-none" id="mobileNav">
                 <div class="navbar-nav-mobile">
                     {% if user.is_authenticated %}
                     {% if user.role == 'student' %}

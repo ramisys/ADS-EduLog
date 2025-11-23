@@ -26,13 +26,23 @@
     <nav class="navbar">
         <div class="navbar-container">
             <div class="navbar-content">
-                <!-- Logo -->
-                <a href="{% url 'index' %}" class="navbar-brand">
-                    <div class="navbar-logo">
-                        <i class="bi bi-mortarboard"></i>
-                    </div>
-                    <span>EduLog</span>
-                </a>
+                <div class="navbar-left">
+                    {% if user.is_authenticated %}
+                    <!-- Hamburger Menu Button -->
+                    <button id="openSidebarBtn" class="navbar-hamburger">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    {% endif %}
+                    <!-- Logo (only show when not logged in) -->
+                    {% if not user.is_authenticated %}
+                    <a href="{% url 'index' %}" class="navbar-brand">
+                        <div class="navbar-logo">
+                            <i class="bi bi-mortarboard"></i>
+                        </div>
+                        <span>EduLog</span>
+                    </a>
+                    {% endif %}
+                </div>
 
                 <!-- Desktop Navigation -->
                 <div class="navbar-nav-desktop">
@@ -155,76 +165,85 @@
             </div>
         </div>
     </nav>
-    <nav class="below-nav">
-        <div class="dashboard-header">
-            {% if user.is_authenticated %}
-            <button id="openSidebarBtn">
-                <i class="bi bi-list"></i>
-            </button>
-            <div>
-                <h5 class="dashboard-title">Dashboard</h5>
-                <p class="dashboard-subtitle">
-                    Welcome, {{ user.get_full_name|default:user.username }}!
-                </p>
-            </div>
-            {% endif %}
-        </div>
-    </nav>
+    {% if user.is_authenticated %}
     <nav id="sidebar">
-        {% if user.is_authenticated %}
-        <button class="btn btn-light m-3" id="closeSidebarBtn">
-            <i class="bi bi-x-lg"></i>
-        </button>
+        <!-- Logo Section -->
+        <div class="sidebar-logo">
+            <a href="{% url 'index' %}" class="sidebar-logo-link">
+                <div class="sidebar-logo-icon">
+                    <i class="bi bi-mortarboard"></i>
+                </div>
+                <span>EduLog</span>
+            </a>
+        </div>
+        
+        <!-- User Profile Section -->
+        <div class="sidebar-profile">
+            <div class="sidebar-profile-picture">
+                {% with user.first_name|default_if_none:'' as first %}
+                {% with user.last_name|default_if_none:'' as last %}
+                {% if first or last %}
+                {{ first|slice:":1"|upper }}{{ last|slice:":1"|upper }}
+                {% else %}
+                {{ user.username|slice:":2"|upper }}
+                {% endif %}
+                {% endwith %}
+                {% endwith %}
+            </div>
+            <div class="sidebar-profile-info">
+                <div class="sidebar-profile-name">{{ user.get_full_name|default:user.username }}</div>
+            </div>
+        </div>
 
-        <div class="p-3">
-            <ul class="list-unstyled mt-3">
+        <div class="sidebar-content">
+            <ul class="list-unstyled">
                 {% block sidebar_links %}
                 {% if user.role == 'teacher' %}
                 <!-- Teacher Sidebar Links -->
                 <li>
-                    <a href="{% url 'teachers:dashboard' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                         <i data-lucide="layout-dashboard"></i>
                         Dashboard
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'teachers:subjects' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:subjects' %}" class="sidebar-link {% if request.resolver_match.url_name == 'subjects' %}active{% endif %}">
                         <i data-lucide="book-open"></i>
                         Subjects
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'teachers:sections' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:sections' %}" class="sidebar-link {% if request.resolver_match.url_name == 'sections' %}active{% endif %}">
                         <i data-lucide="users"></i>
                         Sections
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'teachers:students' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:students' %}" class="sidebar-link {% if request.resolver_match.url_name == 'students' %}active{% endif %}">
                         <i data-lucide="graduation-cap"></i>
                         Students
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'teachers:attendance' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:attendance' %}" class="sidebar-link {% if request.resolver_match.url_name == 'attendance' %}active{% endif %}">
                         <i data-lucide="clipboard-check"></i>
                         Attendance
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'teachers:grades' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:grades' %}" class="sidebar-link {% if request.resolver_match.url_name == 'grades' %}active{% endif %}">
                         <i data-lucide="trending-up"></i>
                         Grades
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'teachers:reports' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:reports' %}" class="sidebar-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
                         <i data-lucide="file-text"></i>
                         Reports
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'teachers:notifications' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:notifications' %}" class="sidebar-link {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                         <i data-lucide="bell"></i>
                         Notifications
                     </a>
@@ -232,31 +251,31 @@
                 {% elif user.role == 'student' %}
                 <!-- Student Sidebar Links -->
                 <li>
-                    <a href="{% url 'students:dashboard' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'students:dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                         <i data-lucide="layout-dashboard"></i>
                         Dashboard
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'students:subjects' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'students:subjects' %}" class="sidebar-link {% if request.resolver_match.url_name == 'subjects' %}active{% endif %}">
                         <i data-lucide="book-open"></i>
                         Subjects
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'students:attendance' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'students:attendance' %}" class="sidebar-link {% if request.resolver_match.url_name == 'attendance' %}active{% endif %}">
                         <i data-lucide="clipboard-check"></i>
                         Attendance
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'students:grades' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'students:grades' %}" class="sidebar-link {% if request.resolver_match.url_name == 'grades' %}active{% endif %}">
                         <i data-lucide="trending-up"></i>
                         Grades
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'students:notifications' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'students:notifications' %}" class="sidebar-link {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                         <i data-lucide="bell"></i>
                         Notifications
                     </a>
@@ -264,37 +283,37 @@
                 {% elif user.role == 'parent' %}
                 <!-- Parent Sidebar Links -->
                 <li>
-                    <a href="{% url 'parents:dashboard' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'parents:dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                         <i data-lucide="layout-dashboard"></i>
                         Dashboard
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'parents:child_subjects' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'parents:child_subjects' %}" class="sidebar-link {% if request.resolver_match.url_name == 'child_subjects' %}active{% endif %}">
                         <i data-lucide="book-open"></i>
                         Child Subjects
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'parents:attendance' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'parents:attendance' %}" class="sidebar-link {% if request.resolver_match.url_name == 'attendance' %}active{% endif %}">
                         <i data-lucide="clipboard-check"></i>
                         Attendance
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'parents:grades' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'parents:grades' %}" class="sidebar-link {% if request.resolver_match.url_name == 'grades' %}active{% endif %}">
                         <i data-lucide="trending-up"></i>
                         Grades
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'parents:reports' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'parents:reports' %}" class="sidebar-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
                         <i data-lucide="file-text"></i>
                         Performance Reports
                     </a>
                 </li>
                 <li>
-                    <a href="{% url 'parents:notifications' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'parents:notifications' %}" class="sidebar-link {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                         <i data-lucide="bell"></i>
                         Notifications
                     </a>
@@ -303,8 +322,8 @@
                 {% endblock %}
             </ul>
         </div>
-        {% endif %}
     </nav>
+    {% endif %}
     <div id="overlay"></div>
 
     {% block content %}{% endblock %}
@@ -324,21 +343,83 @@
 
         const sidebar = document.getElementById("sidebar");
         const overlay = document.getElementById("overlay");
+        const openSidebarBtn = document.getElementById("openSidebarBtn");
+        const closeSidebarBtn = document.getElementById("closeSidebarBtn");
 
-        document.getElementById("openSidebarBtn").onclick = () => {
-            sidebar.style.transform = "translateX(0)";
-            overlay.style.display = "block";
-        };
+        // Check if we're on mobile
+        function isMobile() {
+            return window.innerWidth < 768;
+        }
+        
+        // Check if we're on tablet
+        function isTablet() {
+            return window.innerWidth >= 768 && window.innerWidth < 992;
+        }
+        
+        // Check if we're on desktop
+        function isDesktop() {
+            return window.innerWidth >= 992;
+        }
 
-        document.getElementById("closeSidebarBtn").onclick = () => {
-            sidebar.style.transform = "translateX(-100%)";
-            overlay.style.display = "none";
-        };
+        // Only allow sidebar toggle on mobile (if sidebar exists)
+        if (sidebar && openSidebarBtn) {
+            openSidebarBtn.onclick = () => {
+                if (isMobile()) {
+                    sidebar.style.transform = "translateX(0)";
+                    if (overlay) overlay.style.display = "block";
+                }
+            };
+        }
 
-        overlay.onclick = () => {
-            sidebar.style.transform = "translateX(-100%)";
-            overlay.style.display = "none";
-        };
+        if (sidebar && closeSidebarBtn) {
+            closeSidebarBtn.onclick = () => {
+                if (isMobile()) {
+                    sidebar.style.transform = "translateX(-100%)";
+                    if (overlay) overlay.style.display = "none";
+                }
+            };
+        }
+
+        if (sidebar && overlay) {
+            overlay.onclick = () => {
+                if (isMobile()) {
+                    sidebar.style.transform = "translateX(-100%)";
+                    overlay.style.display = "none";
+                }
+            };
+        }
+
+        // Handle window resize - ensure sidebar behaves correctly (if sidebar exists)
+        if (sidebar) {
+            function handleResize() {
+                const width = window.innerWidth;
+                if (width >= 768) {
+                    // Tablet and Desktop: Remove inline transform style to let CSS take over
+                    sidebar.style.removeProperty('transform');
+                    if (overlay) overlay.style.display = "none";
+                } else {
+                    // Mobile: Ensure sidebar is hidden if not explicitly opened
+                    if (!sidebar.classList.contains('open')) {
+                        sidebar.style.transform = "translateX(-100%)";
+                    }
+                    if (overlay) overlay.style.display = sidebar.classList.contains('open') ? "block" : "none";
+                }
+            }
+            
+            window.addEventListener('resize', handleResize);
+
+            // Ensure sidebar behaves correctly on page load
+            const width = window.innerWidth;
+            if (width >= 768) {
+                // Tablet and Desktop: Remove any inline transform style to let CSS !important rule take over
+                sidebar.style.removeProperty('transform');
+                if (overlay) overlay.style.display = "none";
+            } else {
+                // Mobile: Ensure sidebar starts hidden
+                sidebar.style.transform = "translateX(-100%)";
+                if (overlay) overlay.style.display = "none";
+            }
+        }
     </script>
 
     {% block extra_js %}{% endblock %}

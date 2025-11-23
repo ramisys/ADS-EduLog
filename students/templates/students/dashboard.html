@@ -3,39 +3,6 @@
 
 {% block title %}Student Dashboard - EduLog{% endblock %}
 
-{% block sidebar_links %}
-<li>
-    <a href="{% url 'students:dashboard' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
-        <i data-lucide="layout-dashboard"></i>
-        Dashboard
-    </a>
-</li>
-<li>
-    <a href="{% url 'students:subjects' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
-        <i data-lucide="book-open"></i>
-        Subjects
-    </a>
-</li>
-<li>
-    <a href="{% url 'students:attendance' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
-        <i data-lucide="clipboard-check"></i>
-        Attendance
-    </a>
-</li>
-<li>
-    <a href="{% url 'students:grades' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
-        <i data-lucide="trending-up"></i>
-        Grades
-    </a>
-</li>
-<li>
-    <a href="{% url 'students:notifications' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
-        <i data-lucide="bell"></i>
-        Notifications
-    </a>
-</li>
-{% endblock %}
-
 {% block extra_css %}
 {% endblock %}
 

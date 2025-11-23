@@ -180,9 +180,87 @@ def subjects(request):
 def sections(request):
     if request.user.role != 'teacher':
         return redirect('dashboard')
+    
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        return redirect('dashboard')
+    
+    # Get sections where teacher is adviser
+    advised_section_ids = ClassSection.objects.filter(adviser=teacher_profile).values_list('id', flat=True)
+    
+    # Get sections where teacher teaches subjects
+    sections_with_subjects_ids = ClassSection.objects.filter(
+        subject__teacher=teacher_profile
+    ).values_list('id', flat=True).distinct()
+    
+    # Combine both sets of IDs
+    all_section_ids = set(list(advised_section_ids) + list(sections_with_subjects_ids))
+    
+    # Get all unique sections
+    all_sections = ClassSection.objects.filter(id__in=all_section_ids).order_by('name')
+    
+    # Calculate statistics for each section
+    sections_data = []
+    total_students_all = 0
+    total_attendance_present = 0
+    total_attendance_count = 0
+    total_grades_sum = 0
+    total_grades_count = 0
+    
+    for section in all_sections:
+        # Get students in this section
+        students = StudentProfile.objects.filter(section=section)
+        student_count = students.count()
+        total_students_all += student_count
+        
+        # Get subjects teacher teaches in this section
+        subjects = Subject.objects.filter(teacher=teacher_profile, section=section)
+        subject_names = [s.name for s in subjects]
+        
+        # Calculate attendance for this section
+        section_attendance = Attendance.objects.filter(
+            subject__teacher=teacher_profile,
+            subject__section=section
+        )
+        present_count = section_attendance.filter(status='present').count()
+        total_attendance = section_attendance.count()
+        attendance_percentage = (present_count / total_attendance * 100) if total_attendance > 0 else 0
+        
+        total_attendance_present += present_count
+        total_attendance_count += total_attendance
+        
+        # Calculate average grade for this section
+        section_grades = Grade.objects.filter(
+            subject__teacher=teacher_profile,
+            subject__section=section
+        )
+        if section_grades.exists():
+            avg_grade = section_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+            total_grades_sum += avg_grade * section_grades.count()
+            total_grades_count += section_grades.count()
+        else:
+            avg_grade = 0
+        
+        sections_data.append({
+            'section': section,
+            'student_count': student_count,
+            'subjects': subject_names,
+            'attendance_percentage': round(attendance_percentage, 1) if attendance_percentage else 0,
+            'avg_grade': round(avg_grade, 2) if avg_grade else 0,
+        })
+    
+    # Calculate overall statistics
+    total_sections = all_sections.count()
+    overall_attendance = (total_attendance_present / total_attendance_count * 100) if total_attendance_count > 0 else 0
+    overall_avg_grade = (total_grades_sum / total_grades_count) if total_grades_count > 0 else 0
+    
     context = {
-        'page_title': 'Sections',
-        'page_description': 'View and manage all class sections you are assigned to.'
+        'sections': sections_data,
+        'total_sections': total_sections,
+        'total_students': total_students_all,
+        'overall_attendance': round(overall_attendance, 1),
+        'overall_avg_grade': round(overall_avg_grade, 2),
     }
     return render(request, 'teachers/sections.html', context)
 

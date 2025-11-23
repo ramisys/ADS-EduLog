@@ -374,9 +374,91 @@ def students(request):
 def attendance(request):
     if request.user.role != 'teacher':
         return redirect('dashboard')
+    
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        return redirect('dashboard')
+    
+    # Handle POST request to save attendance
+    if request.method == 'POST':
+        selected_subject_id = request.POST.get('subject')
+        today = timezone.now().date()
+        
+        try:
+            selected_subject = Subject.objects.get(id=selected_subject_id, teacher=teacher_profile)
+            
+            # Process each student's attendance
+            for key, value in request.POST.items():
+                if key.startswith('student_') and value:
+                    student_id = key.replace('student_', '')
+                    status = value  # 'present', 'absent', or 'late'
+                    
+                    try:
+                        student = StudentProfile.objects.get(id=student_id, section=selected_subject.section)
+                        
+                        # Check if attendance already exists for today
+                        # Note: date has auto_now_add=True, so it will be automatically set to today when created
+                        attendance_record, created = Attendance.objects.get_or_create(
+                            student=student,
+                            subject=selected_subject,
+                            date=today,
+                            defaults={'status': status}
+                        )
+                        
+                        # Update if already exists
+                        if not created:
+                            attendance_record.status = status
+                            attendance_record.save()
+                    except (StudentProfile.DoesNotExist, ValueError):
+                        pass
+            
+            return redirect('teachers:attendance?subject=' + str(selected_subject_id))
+        except Subject.DoesNotExist:
+            pass
+    
+    # Get teacher's subjects
+    subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code')
+    
+    # Get today's date
+    today = timezone.now().date()
+    
+    # Get selected subject from query parameter
+    selected_subject_id = request.GET.get('subject')
+    selected_subject = None
+    students_data = []
+    
+    if selected_subject_id:
+        try:
+            selected_subject = Subject.objects.get(id=selected_subject_id, teacher=teacher_profile)
+            # Get students in this subject's section
+            if selected_subject.section:
+                students = StudentProfile.objects.filter(section=selected_subject.section).select_related('user').order_by('user__last_name', 'user__first_name')
+                
+                # Get existing attendance records for today
+                attendance_records = Attendance.objects.filter(
+                    subject=selected_subject,
+                    date=today
+                ).select_related('student')
+                
+                # Create a dictionary mapping student_id to attendance status
+                attendance_dict = {record.student.id: record.status for record in attendance_records}
+                
+                # Prepare students data with attendance status
+                for student in students:
+                    students_data.append({
+                        'student': student,
+                        'attendance_status': attendance_dict.get(student.id, '')
+                    })
+        except Subject.DoesNotExist:
+            pass
+    
     context = {
-        'page_title': 'Attendance',
-        'page_description': 'Track and manage student attendance records.'
+        'subjects': subjects,
+        'selected_subject': selected_subject,
+        'students_data': students_data,
+        'today': today,
+        'teacher_profile': teacher_profile,
     }
     return render(request, 'teachers/attendance.html', context)
 

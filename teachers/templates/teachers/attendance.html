@@ -1,5 +1,137 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Attendance | EduLog{% endblock %}
 {% block content %}
-{% include "teachers/coming_soon.html" %}
+<div class="dashboard-container container py-4">
+    <div class="mb-4">
+        <h2 class="text-primary">Mark Attendance</h2>
+        <p class="text-muted small">Track daily student attendance</p>
+    </div>
+
+    <div class="card p-4 border">
+        <form method="GET" action="{% url 'teachers:attendance' %}">
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <label for="subject-select" class="form-label">Subject</label>
+                    <select id="subject-select" name="subject" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- Select a Subject --</option>
+                        {% for subject in subjects %}
+                        <option value="{{ subject.id }}" {% if selected_subject and selected_subject.id == subject.id %}selected{% endif %}>
+                            {{ subject.code }} - {{ subject.name }} ({{ subject.section.name }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Date</label>
+                    <input type="text" class="form-control" value="{{ today|date:'Y-m-d' }}" disabled />
+                    <small class="text-muted">Attendance is marked for today's date automatically</small>
+                </div>
+            </div>
+        </form>
+
+        {% if selected_subject %}
+        <form method="POST" action="{% url 'teachers:attendance' %}">
+            {% csrf_token %}
+            <input type="hidden" name="subject" value="{{ selected_subject.id }}" />
+            
+            <!-- Scrollable area -->
+            <div style="height: 500px; overflow-y: auto;">
+                <div class="d-flex flex-column gap-3">
+                    {% if students_data %}
+                        {% for item in students_data %}
+                        {% with student=item.student status=item.attendance_status %}
+                        <div class="d-flex justify-content-between align-items-center p-3 border rounded">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="bg-primary bg-opacity-25 p-2 rounded-circle">
+                                    <i class="bi bi-person-fill text-primary"></i>
+                                </div>
+                                <div>
+                                    <p class="m-0 fw-bold text-primary">{{ student.user.get_full_name|default:student.user.username }}</p>
+                                    <p class="m-0 text-muted small">{{ student.user.email|default:student.student_id }}</p>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2" data-student-id="{{ student.id }}">
+                                <button type="button" 
+                                        class="btn btn-sm {% if status == 'present' %}btn-success{% else %}btn-outline-success{% endif %}"
+                                        data-status="present">
+                                    <i class="bi bi-check-circle me-1"></i> Present
+                                </button>
+                                <button type="button" 
+                                        class="btn btn-sm {% if status == 'late' %}btn-warning text-white{% else %}btn-outline-warning{% endif %}"
+                                        data-status="late">
+                                    <i class="bi bi-clock me-1"></i> Late
+                                </button>
+                                <button type="button" 
+                                        class="btn btn-sm {% if status == 'absent' %}btn-danger{% else %}btn-outline-danger{% endif %}"
+                                        data-status="absent">
+                                    <i class="bi bi-x-circle me-1"></i> Absent
+                                </button>
+                                <input type="hidden" name="student_{{ student.id }}" id="status_{{ student.id }}" value="{{ status }}" />
+                            </div>
+                        </div>
+                        {% endwith %}
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <p class="text-muted">No students found in this section.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if students_data %}
+            <div class="mt-4 d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save me-1"></i> Save Attendance
+                </button>
+            </div>
+            {% endif %}
+        </form>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-journal-text text-muted" style="font-size: 3rem;"></i>
+            <p class="text-muted mt-3">Please select a subject to mark attendance</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Attach event listeners to all status buttons
+    document.querySelectorAll('[data-status]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const container = this.closest('[data-student-id]');
+            const studentId = container.getAttribute('data-student-id');
+            const status = this.getAttribute('data-status');
+            
+            // Reset all buttons for this student
+            const buttons = container.querySelectorAll('button');
+            const hiddenInput = document.getElementById('status_' + studentId);
+            
+            buttons.forEach(function(btn) {
+                const statusType = btn.getAttribute('data-status');
+                btn.className = 'btn btn-sm btn-outline-' + 
+                    (statusType === 'present' ? 'success' : 
+                     statusType === 'late' ? 'warning' : 'danger');
+                if (statusType === 'late') {
+                    btn.classList.remove('text-white');
+                }
+            });
+            
+            // Activate selected button
+            this.className = 'btn btn-sm btn-' + 
+                (status === 'present' ? 'success' : 
+                 status === 'late' ? 'warning text-white' : 'danger');
+            
+            // Update hidden input
+            if (hiddenInput) {
+                hiddenInput.value = status;
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

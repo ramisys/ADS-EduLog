@@ -466,9 +466,117 @@ def attendance(request):
 def grades(request):
     if request.user.role != 'teacher':
         return redirect('dashboard')
+    
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        return redirect('dashboard')
+    
+    # Handle POST request to add/update/delete grades
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'add' or action == 'edit':
+            student_id = request.POST.get('student_id')
+            subject_id = request.POST.get('subject_id')
+            term = request.POST.get('term', 'Midterm')
+            grade_value = request.POST.get('grade')
+            
+            try:
+                student = StudentProfile.objects.get(id=student_id)
+                subject = Subject.objects.get(id=subject_id, teacher=teacher_profile)
+                
+                # Validate grade value
+                if grade_value:
+                    grade_value = float(grade_value)
+                    if 0 <= grade_value <= 100:
+                        grade_record, created = Grade.objects.get_or_create(
+                            student=student,
+                            subject=subject,
+                            term=term,
+                            defaults={'grade': grade_value}
+                        )
+                        
+                        if not created:
+                            grade_record.grade = grade_value
+                            grade_record.save()
+            except (StudentProfile.DoesNotExist, Subject.DoesNotExist, ValueError):
+                pass
+        
+        elif action == 'delete':
+            grade_id = request.POST.get('grade_id')
+            try:
+                grade_record = Grade.objects.get(id=grade_id, subject__teacher=teacher_profile)
+                grade_record.delete()
+            except Grade.DoesNotExist:
+                pass
+        
+        # Redirect back with same filters
+        section_id = request.POST.get('section_filter', request.GET.get('section', ''))
+        subject_id = request.POST.get('subject_filter', request.GET.get('subject', ''))
+        
+        redirect_url = 'teachers:grades'
+        if section_id or subject_id:
+            redirect_url += '?'
+            params = []
+            if section_id:
+                params.append('section=' + str(section_id))
+            if subject_id:
+                params.append('subject=' + str(subject_id))
+            redirect_url += '&'.join(params)
+        
+        return redirect(redirect_url)
+    
+    # Get teacher's subjects and sections
+    subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code')
+    
+    # Get all unique sections from teacher's subjects
+    section_ids = subjects.values_list('section', flat=True).distinct()
+    sections = ClassSection.objects.filter(id__in=section_ids).order_by('name')
+    
+    # Get filter parameters
+    selected_section_id = request.GET.get('section')
+    selected_subject_id = request.GET.get('subject')
+    
+    # Filter grades based on teacher's subjects
+    grades_queryset = Grade.objects.filter(subject__teacher=teacher_profile).select_related(
+        'student', 'student__user', 'student__section', 'subject'
+    ).order_by('-id')
+    
+    # Apply filters
+    if selected_section_id:
+        grades_queryset = grades_queryset.filter(student__section_id=selected_section_id)
+    
+    if selected_subject_id:
+        try:
+            subject = Subject.objects.get(id=selected_subject_id, teacher=teacher_profile)
+            grades_queryset = grades_queryset.filter(subject=subject)
+        except Subject.DoesNotExist:
+            pass
+    
+    # Get all students in filtered sections for add grade form
+    students_queryset = StudentProfile.objects.filter(
+        section__in=section_ids
+    ).select_related('user', 'section').order_by('section__name', 'user__last_name', 'user__first_name')
+    
+    if selected_section_id:
+        students_queryset = students_queryset.filter(section_id=selected_section_id)
+    
+    # Get statistics
+    total_grades = grades_queryset.count()
+    avg_grade = grades_queryset.aggregate(Avg('grade'))['grade__avg'] or 0
+    
     context = {
-        'page_title': 'Grades',
-        'page_description': 'View and manage student grades and assessments.'
+        'grades': grades_queryset,
+        'subjects': subjects,
+        'sections': sections,
+        'students': students_queryset,
+        'selected_section_id': selected_section_id,
+        'selected_subject_id': selected_subject_id,
+        'total_grades': total_grades,
+        'avg_grade': round(avg_grade, 2),
+        'teacher_profile': teacher_profile,
+        'term_choices': ['Prelim', 'Midterm', 'Semi-Final', 'Final'],
     }
     return render(request, 'teachers/grades.html', context)
 

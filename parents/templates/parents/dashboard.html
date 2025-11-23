@@ -5,37 +5,37 @@
 
 {% block sidebar_links %}
 <li>
-    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+    <a href="{% url 'parents:dashboard' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
         <i data-lucide="layout-dashboard"></i>
         Dashboard
     </a>
 </li>
 <li>
-    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+    <a href="{% url 'parents:child_subjects' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
         <i data-lucide="book-open"></i>
         Child Subjects
     </a>
 </li>
 <li>
-    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+    <a href="{% url 'parents:attendance' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
         <i data-lucide="clipboard-check"></i>
         Attendance
     </a>
 </li>
 <li>
-    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+    <a href="{% url 'parents:grades' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
         <i data-lucide="trending-up"></i>
         Grades
     </a>
 </li>
 <li>
-    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+    <a href="{% url 'parents:reports' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
         <i data-lucide="file-text"></i>
         Performance Reports
     </a>
 </li>
 <li>
-    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+    <a href="{% url 'parents:notifications' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
         <i data-lucide="bell"></i>
         Notifications
     </a>

@@ -67,3 +67,47 @@ def dashboard(request):
     }
     
     return render(request, 'students/dashboard.html', context)
+
+
+@login_required
+def subjects(request):
+    if request.user.role != 'student':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Subjects',
+        'page_description': 'View all your enrolled subjects and course information.'
+    }
+    return render(request, 'students/subjects.html', context)
+
+
+@login_required
+def attendance(request):
+    if request.user.role != 'student':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Attendance',
+        'page_description': 'View your attendance records and history.'
+    }
+    return render(request, 'students/attendance.html', context)
+
+
+@login_required
+def grades(request):
+    if request.user.role != 'student':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Grades',
+        'page_description': 'View your grades and academic performance.'
+    }
+    return render(request, 'students/grades.html', context)
+
+
+@login_required
+def notifications(request):
+    if request.user.role != 'student':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Notifications',
+        'page_description': 'View and manage all your notifications and alerts.'
+    }
+    return render(request, 'students/notifications.html', context)

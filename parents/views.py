@@ -73,3 +73,58 @@ def dashboard(request):
     }
     
     return render(request, 'parents/dashboard.html', context)
+
+
+@login_required
+def child_subjects(request):
+    if request.user.role != 'parent':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Child Subjects',
+        'page_description': 'View all subjects your children are enrolled in.'
+    }
+    return render(request, 'parents/child_subjects.html', context)
+
+
+@login_required
+def attendance(request):
+    if request.user.role != 'parent':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Attendance',
+        'page_description': 'View attendance records for all your children.'
+    }
+    return render(request, 'parents/attendance.html', context)
+
+
+@login_required
+def grades(request):
+    if request.user.role != 'parent':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Grades',
+        'page_description': 'View grades and academic performance for all your children.'
+    }
+    return render(request, 'parents/grades.html', context)
+
+
+@login_required
+def reports(request):
+    if request.user.role != 'parent':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Performance Reports',
+        'page_description': 'Generate and view comprehensive performance reports for your children.'
+    }
+    return render(request, 'parents/reports.html', context)
+
+
+@login_required
+def notifications(request):
+    if request.user.role != 'parent':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Notifications',
+        'page_description': 'View and manage all your notifications and alerts.'
+    }
+    return render(request, 'parents/notifications.html', context)

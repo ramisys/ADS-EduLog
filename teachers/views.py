@@ -147,3 +147,74 @@ def dashboard(request):
     }
     
     return render(request, 'teachers/dashboard.html', context)
+
+@login_required
+def subjects(request):
+    if request.user.role != 'teacher':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Subjects',
+        'page_description': 'Manage and view all your assigned subjects here.'
+    }
+    return render(request, 'teachers/subjects.html', context)
+
+@login_required
+def sections(request):
+    if request.user.role != 'teacher':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Sections',
+        'page_description': 'View and manage all class sections you are assigned to.'
+    }
+    return render(request, 'teachers/sections.html', context)
+
+@login_required
+def students(request):
+    if request.user.role != 'teacher':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Students',
+        'page_description': 'View and manage all students in your classes.'
+    }
+    return render(request, 'teachers/students.html', context)
+
+@login_required
+def attendance(request):
+    if request.user.role != 'teacher':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Attendance',
+        'page_description': 'Track and manage student attendance records.'
+    }
+    return render(request, 'teachers/attendance.html', context)
+
+@login_required
+def grades(request):
+    if request.user.role != 'teacher':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Grades',
+        'page_description': 'View and manage student grades and assessments.'
+    }
+    return render(request, 'teachers/grades.html', context)
+
+@login_required
+def reports(request):
+    if request.user.role != 'teacher':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Reports',
+        'page_description': 'Generate and view comprehensive reports and analytics.'
+    }
+    return render(request, 'teachers/reports.html', context)
+
+@login_required
+def notifications(request):
+    if request.user.role != 'teacher':
+        return redirect('dashboard')
+    context = {
+        'page_title': 'Notifications',
+        'page_description': 'View and manage all your notifications and alerts.'
+    }
+    return render(request, 'teachers/notifications.html', context)
+    

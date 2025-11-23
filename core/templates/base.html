@@ -179,54 +179,127 @@
         <div class="p-3">
             <ul class="list-unstyled mt-3">
                 {% block sidebar_links %}
+                {% if user.role == 'teacher' %}
+                <!-- Teacher Sidebar Links -->
                 <li>
-                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:dashboard' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
                         <i data-lucide="layout-dashboard"></i>
                         Dashboard
                     </a>
                 </li>
                 <li>
-                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:subjects' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
                         <i data-lucide="book-open"></i>
                         Subjects
                     </a>
                 </li>
                 <li>
-                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:sections' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
                         <i data-lucide="users"></i>
                         Sections
                     </a>
                 </li>
                 <li>
-                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:students' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
                         <i data-lucide="graduation-cap"></i>
                         Students
                     </a>
                 </li>
                 <li>
-                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:attendance' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
                         <i data-lucide="clipboard-check"></i>
                         Attendance
                     </a>
                 </li>
                 <li>
-                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:grades' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
                         <i data-lucide="trending-up"></i>
                         Grades
                     </a>
                 </li>
                 <li>
-                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:reports' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
                         <i data-lucide="file-text"></i>
                         Reports
                     </a>
                 </li>
                 <li>
-                    <a href="#" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                    <a href="{% url 'teachers:notifications' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
                         <i data-lucide="bell"></i>
                         Notifications
                     </a>
                 </li>
+                {% elif user.role == 'student' %}
+                <!-- Student Sidebar Links -->
+                <li>
+                    <a href="{% url 'students:dashboard' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="layout-dashboard"></i>
+                        Dashboard
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'students:subjects' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="book-open"></i>
+                        Subjects
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'students:attendance' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="clipboard-check"></i>
+                        Attendance
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'students:grades' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="trending-up"></i>
+                        Grades
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'students:notifications' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="bell"></i>
+                        Notifications
+                    </a>
+                </li>
+                {% elif user.role == 'parent' %}
+                <!-- Parent Sidebar Links -->
+                <li>
+                    <a href="{% url 'parents:dashboard' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="layout-dashboard"></i>
+                        Dashboard
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'parents:child_subjects' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="book-open"></i>
+                        Child Subjects
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'parents:attendance' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="clipboard-check"></i>
+                        Attendance
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'parents:grades' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="trending-up"></i>
+                        Grades
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'parents:reports' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="file-text"></i>
+                        Performance Reports
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'parents:notifications' %}" class="sidebar-link text-dark text-decoration-none d-block py-2">
+                        <i data-lucide="bell"></i>
+                        Notifications
+                    </a>
+                </li>
+                {% endif %}
                 {% endblock %}
             </ul>
         </div>

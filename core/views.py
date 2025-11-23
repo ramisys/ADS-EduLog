@@ -29,6 +29,18 @@ def check_password_with_plaintext(user, password):
     return False
 
 def index(request):
+    # If user is already logged in, redirect to their dashboard
+    if request.user.is_authenticated:
+        user = request.user
+        if user.role == 'teacher':
+            return redirect('teachers:dashboard')
+        elif user.role == 'student':
+            return redirect('students:dashboard')
+        elif user.role == 'parent':
+            return redirect('parents:dashboard')
+        else:
+            return redirect('dashboard')  # fallback to general dashboard
+    
     return render(request, 'index.html')
 
 def about(request):

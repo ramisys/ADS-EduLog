@@ -5,176 +5,199 @@
 
     <!-- Header -->
     <div class="mb-4">
-      <h2 class="text-primary fw-bold">Manage Sections</h2>
+      <h2 class="text-primary">Manage Sections</h2>
       <p class="text-muted small">View and manage class sections you're assigned to</p>
     </div>
   
-    <!-- Summary Cards -->
-    <div class="row g-4 mb-4">
-  
-      <!-- Total Sections -->
+    <!-- Section Summary Cards -->
+    <div class="row g-3 mb-4">
       <div class="col-12 col-md-6 col-lg-3">
-        <div class="card shadow-sm border-0">
-          <div class="card-body d-flex justify-content-between">
+        <div class="card shadow-sm">
+          <div class="card-body d-flex justify-content-between align-items-center">
             <div>
               <p class="text-muted small mb-1">Total Sections</p>
-              <p class="fw-bold text-primary fs-5">{{ total_sections }}</p>
-              <span class="badge bg-primary-subtle text-primary">Active</span>
+              <h3 class="mb-2 text-primary">{{ total_sections }}</h3>
+              <span class="badge bg-primary">Active</span>
             </div>
-            <div class="bg-primary-subtle p-3 rounded">
-              <i class="bi bi-people fs-4 text-primary"></i>
+            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+              🧑‍🤝‍🧑
             </div>
           </div>
         </div>
       </div>
-  
-      <!-- Total Students -->
+
       <div class="col-12 col-md-6 col-lg-3">
-        <div class="card shadow-sm border-0">
-          <div class="card-body d-flex justify-content-between">
+        <div class="card shadow-sm">
+          <div class="card-body d-flex justify-content-between align-items-center">
             <div>
               <p class="text-muted small mb-1">Total Students</p>
-              <p class="fw-bold text-primary fs-5">{{ total_students }}</p>
-              <span class="badge bg-success-subtle text-success">Enrolled</span>
+              <h3 class="mb-2 text-success">{{ total_students }}</h3>
+              <span class="badge bg-success">Enrolled</span>
             </div>
-            <div class="bg-success-subtle p-3 rounded">
-              <i class="bi bi-mortarboard fs-4 text-success"></i>
+            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+              🎓
             </div>
           </div>
         </div>
       </div>
-  
-      <!-- Average Attendance -->
+
       <div class="col-12 col-md-6 col-lg-3">
-        <div class="card shadow-sm border-0">
-          <div class="card-body d-flex justify-content-between">
+        <div class="card shadow-sm">
+          <div class="card-body d-flex justify-content-between align-items-center">
             <div>
               <p class="text-muted small mb-1">Avg Attendance</p>
-              <p class="fw-bold text-primary fs-5">{{ overall_attendance }}%</p>
-              <span class="badge bg-warning-subtle text-warning">This Term</span>
+              <h3 class="mb-2 text-warning">{{ overall_attendance }}%</h3>
+              <span class="badge bg-warning text-dark">This Term</span>
             </div>
-            <div class="bg-warning-subtle p-3 rounded">
-              <i class="bi bi-check-circle fs-4 text-warning"></i>
+            <div class="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+              ✔️
             </div>
           </div>
         </div>
       </div>
-  
-      <!-- Average Performance -->
+
       <div class="col-12 col-md-6 col-lg-3">
-        <div class="card shadow-sm border-0">
-          <div class="card-body d-flex justify-content-between">
+        <div class="card shadow-sm">
+          <div class="card-body d-flex justify-content-between align-items-center">
             <div>
               <p class="text-muted small mb-1">Avg Performance</p>
-              <p class="fw-bold text-primary fs-5">{{ overall_avg_grade }}%</p>
-              <span class="badge bg-success-subtle text-success">Overall</span>
+              <h3 class="mb-2" style="color: #7b3fe4;">{{ overall_avg_grade }}%</h3>
+              <span class="badge text-white" style="background-color: #7b3fe4;">Overall</span>
             </div>
-            <div class="bg-purple-subtle p-3 rounded" style="background:#f3e8ff;">
-              <i class="bi bi-graph-up fs-4 text-purple" style="color:#7b3fe4;"></i>
+            <div class="text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; background-color: #7b3fe4;">
+              📈
             </div>
           </div>
         </div>
       </div>
-  
     </div>
   
     <!-- Section Details (Repeat with Loop) -->
     {% if sections %}
     <div class="row g-4 mb-4">
       {% for item in sections %}
-      <div class="col-md-6">
-        <div class="card shadow-sm border-0">
+      <div class="col-12 col-md-6">
+        <div class="card shadow-sm">
           <div class="card-body">
-  
-            <!-- Header -->
             <div class="d-flex justify-content-between align-items-start mb-3">
               <div class="d-flex align-items-center gap-3">
-                <div class="bg-primary p-3 rounded d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
-                  <i class="bi bi-people text-white fs-4"></i>
+                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                  🧑‍🤝‍🧑
                 </div>
                 <div>
-                  <h5 class="text-primary mb-0 fw-bold">{{ item.section.name }}</h5>
-                  <p class="text-muted small mb-0">
+                  <h5 class="text-primary mb-0">{{ item.section.name }}</h5>
+                  <small class="text-muted">
                     {% if "Grade" in item.section.name %}
-                      {{ item.section.name|slice:":7" }}
+                      {{ item.section.name|slice:":7" }} • {{ item.student_count }} Students
                     {% elif "BSIT" in item.section.name %}
-                      {{ item.section.name|slice:":4" }}
+                      {{ item.section.name|slice:":4" }} • {{ item.student_count }} Students
                     {% else %}
-                      Class Section
+                      Class Section • {{ item.student_count }} Students
                     {% endif %}
-                  </p>
+                  </small>
                 </div>
               </div>
-              <span class="badge bg-success-subtle text-success rounded-pill px-3 py-1">Active</span>
+              <button class="btn btn-light btn-sm">⋮</button>
             </div>
-  
-            <!-- Info -->
-            <div class="mb-3">
-              <div class="d-flex justify-content-between small mb-2">
-                <span class="text-muted">Total Students</span>
-                <span class="fw-bold text-primary">{{ item.student_count }}</span>
-              </div>
-              <div class="d-flex justify-content-between small mb-2">
-                <span class="text-muted">Room</span>
-                <span class="fw-bold text-primary">—</span>
-              </div>
-              <div class="d-flex justify-content-between small">
-                <span class="text-muted">Schedule</span>
-                <span class="fw-bold text-primary">—</span>
-              </div>
-            </div>
-  
+
+            <!-- Info Section -->
+            <ul class="list-group list-group-flush mb-3">
+              <li class="list-group-item d-flex justify-content-between align-items-center p-2">
+                <span>🏫 Room</span>
+                <span>—</span>
+              </li>
+              <li class="list-group-item d-flex justify-content-between align-items-center p-2">
+                <span>⏰ Schedule</span>
+                <span>—</span>
+              </li>
+            </ul>
+
             <!-- Subjects -->
-            {% if item.subjects %}
-            <div class="border-top pt-3 mb-3">
-              <p class="text-muted small mb-2">Subjects Teaching:</p>
-              <div class="d-flex flex-wrap gap-2">
+            <div class="mb-3">
+              <p class="text-muted small mb-2">Teaching Subjects</p>
+              {% if item.subjects %}
+              <div class="d-grid gap-2">
                 {% for subject_name in item.subjects %}
-                <span class="badge bg-primary text-white rounded-pill px-3 py-1">{{ subject_name }}</span>
+                <div class="d-flex justify-content-between align-items-center p-2 border rounded bg-light">
+                  <span>📚 {{ subject_name }}</span>
+                  <a href="{% url 'teachers:grades' %}?section={{ item.section.id }}" class="btn btn-outline-primary btn-sm">Gradebook →</a>
+                </div>
                 {% endfor %}
               </div>
+              {% else %}
+              <div class="p-2 border rounded bg-light text-muted small">
+                No subjects assigned
+              </div>
+              {% endif %}
             </div>
-            {% else %}
-            <div class="border-top pt-3 mb-3">
-              <p class="text-muted small mb-2">Subjects Teaching:</p>
-              <p class="text-muted small">No subjects assigned</p>
+
+            <!-- Performance -->
+            <div class="mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <p class="text-muted small mb-0">Class Performance</p>
+                {% if item.attendance_percentage < 70 or item.avg_grade < 70 %}
+                <span class="badge bg-warning text-dark">🟡 Needs Attention</span>
+                {% elif item.attendance_percentage >= 80 and item.avg_grade >= 80 %}
+                <span class="badge bg-success text-white">🟢 Excellent</span>
+                {% else %}
+                <span class="badge bg-info text-white">🔵 Good</span>
+                {% endif %}
+              </div>
+              <div class="mb-2">
+                <div class="d-flex justify-content-between">
+                  <small class="text-muted">Attendance</small>
+                  <small class="{% if item.attendance_percentage >= 80 %}text-success{% elif item.attendance_percentage >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                    {{ item.attendance_percentage|default:0|floatformat:1 }}%
+                  </small>
+                </div>
+                <div class="progress" style="height: 6px;">
+                  <div class="progress-bar section-attendance-bar {% if item.attendance_percentage >= 80 %}bg-success{% elif item.attendance_percentage >= 60 %}bg-warning{% else %}bg-danger{% endif %}" 
+                       role="progressbar" 
+                       data-width="{{ item.attendance_percentage|default:0 }}"></div>
+                </div>
+              </div>
+              <div>
+                <div class="d-flex justify-content-between">
+                  <small class="text-muted">Grade Average</small>
+                  <small class="{% if item.avg_grade >= 80 %}text-success{% elif item.avg_grade >= 70 %}text-warning{% else %}text-danger{% endif %}">
+                    {{ item.avg_grade|default:0|floatformat:1 }}%
+                  </small>
+                </div>
+                <div class="progress" style="height: 6px;">
+                  <div class="progress-bar section-grade-bar {% if item.avg_grade >= 80 %}bg-success{% elif item.avg_grade >= 70 %}bg-warning{% else %}bg-danger{% endif %}" 
+                       role="progressbar" 
+                       data-width="{{ item.avg_grade|default:0 }}"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Teacher Notes -->
+            <div class="mb-3">
+              <p class="text-muted small mb-1">Teacher Notes</p>
+              <div class="p-2 border rounded bg-light text-muted fst-italic small">
+                Click to add private notes about this section...
+              </div>
+            </div>
+
+            <!-- Alert -->
+            {% if item.attendance_percentage < 70 or item.avg_grade < 70 %}
+            <div class="alert alert-warning py-2 small d-flex align-items-center gap-2 mb-3">
+              ⚠️ 
+              {% if item.attendance_percentage < 70 and item.avg_grade < 70 %}
+                Low attendance & Below average grades
+              {% elif item.attendance_percentage < 70 %}
+                Low attendance
+              {% else %}
+                Below average grades
+              {% endif %}
             </div>
             {% endif %}
-  
-            <!-- Attendance -->
-            <div class="mb-3">
-              <div class="d-flex justify-content-between small mb-2">
-                <span class="text-muted">Average Attendance</span>
-                <span class="fw-bold text-primary">{{ item.attendance_percentage|default:0|floatformat:1 }}%</span>
-              </div>
-              <div style="height: 8px; background-color: #e9ecef; border-radius: 4px; overflow: hidden; position: relative;">
-                <div data-width="{{ item.attendance_percentage|default:0 }}" 
-                     class="attendance-progress-bar" 
-                     style="background-color: #212529; height: 100%; border-radius: 4px; transition: width 0.3s ease;"></div>
-              </div>
+
+            <!-- Quick Actions -->
+            <div class="d-grid gap-2 d-md-flex">
+              <a href="{% url 'teachers:students' %}?section={{ item.section.id }}" class="btn btn-outline-secondary btn-sm me-md-2 flex-fill">👁 View Details</a>
+              <a href="{% url 'teachers:attendance' %}?section={{ item.section.id }}" class="btn btn-outline-secondary btn-sm flex-fill">✔️ Mark Attendance</a>
             </div>
-  
-            <!-- Grade -->
-            <div class="mb-3">
-              <div class="d-flex justify-content-between small mb-2">
-                <span class="text-muted">Average Grade</span>
-                <span class="fw-bold text-primary">{{ item.avg_grade|default:0|floatformat:1 }}%</span>
-              </div>
-              <div style="height: 8px; background-color: #e9ecef; border-radius: 4px; overflow: hidden; position: relative;">
-                <div data-width="{{ item.avg_grade|default:0 }}" 
-                     class="grade-progress-bar" 
-                     style="background-color: #212529; height: 100%; border-radius: 4px; transition: width 0.3s ease;"></div>
-              </div>
-            </div>
-  
-            <!-- Buttons -->
-            <div class="d-flex gap-2 mt-4">
-              <a href="{% url 'teachers:students' %}?section={{ item.section.id }}" class="btn btn-outline-primary w-100 btn-sm">View Students</a>
-              <a href="{% url 'teachers:attendance' %}?section={{ item.section.id }}" class="btn btn-outline-primary w-100 btn-sm">
-                <i class="bi bi-calendar-check me-1"></i> Attendance
-              </a>
-            </div>
-  
           </div>
         </div>
       </div>
@@ -258,13 +281,25 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Set progress bar widths for attendance
+    // Set progress bar widths for section attendance
+    document.querySelectorAll('.section-attendance-bar').forEach(function(bar) {
+        const width = parseFloat(bar.getAttribute('data-width')) || 0;
+        bar.style.width = Math.min(Math.max(width, 0), 100) + '%';
+    });
+    
+    // Set progress bar widths for section grades
+    document.querySelectorAll('.section-grade-bar').forEach(function(bar) {
+        const width = parseFloat(bar.getAttribute('data-width')) || 0;
+        bar.style.width = Math.min(Math.max(width, 0), 100) + '%';
+    });
+    
+    // Set progress bar widths for attendance (if any exist)
     document.querySelectorAll('.attendance-progress-bar').forEach(function(bar) {
         const width = parseFloat(bar.getAttribute('data-width')) || 0;
         bar.style.width = Math.min(Math.max(width, 0), 100) + '%';
     });
     
-    // Set progress bar widths for grades
+    // Set progress bar widths for grades (if any exist)
     document.querySelectorAll('.grade-progress-bar').forEach(function(bar) {
         const width = parseFloat(bar.getAttribute('data-width')) || 0;
         bar.style.width = Math.min(Math.max(width, 0), 100) + '%';

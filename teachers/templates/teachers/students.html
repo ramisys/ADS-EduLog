@@ -102,7 +102,7 @@
                     <span class="badge {% if section_data.avg_attendance >= 80 %}bg-success-subtle text-success{% elif section_data.avg_attendance >= 70 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %}">{{ section_data.avg_attendance }}%</span>
                 </div>
                 <div class="text-end">
-                    <p class="text-muted small mb-1">Avg GPA</p>
+                    <p class="text-muted small mb-1">Avg Grade</p>
                     <span class="badge {% if section_data.avg_gpa >= 80 %}bg-primary-subtle text-primary{% elif section_data.avg_gpa >= 70 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %}">{{ section_data.avg_gpa|floatformat:2 }}</span>
                 </div>
             </div>
@@ -118,7 +118,7 @@
                         <th>Email</th>
                         <th>Student ID</th>
                         <th>Attendance</th>
-                        <th>GPA</th>
+                        <th>Grade</th>
                         <th>Status</th>
                     </tr>
                 </thead>

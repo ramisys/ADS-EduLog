@@ -7,7 +7,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="text-primary">Manage Students</h2>
-            <p class="text-muted small">View students organized by their sections</p>
+            <p class="text-muted small">View students organized by their subjects</p>
         </div>
         <button class="btn btn-primary d-flex align-items-center">
             <span class="me-2">+</span> Add Student
@@ -23,7 +23,7 @@
                     <div>
                         <p class="text-muted small mb-1">Total Students</p>
                         <h5 class="text-primary">{{ total_students }}</h5>
-                        <span class="badge bg-primary-subtle text-primary">All Sections</span>
+                        <span class="badge bg-primary-subtle text-primary">All Subjects</span>
                     </div>
                     <div class="bg-primary-subtle p-3 rounded">
                         <i class="bi bi-people fs-4 text-primary"></i>
@@ -66,8 +66,8 @@
             <div class="card p-3 border">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <p class="text-muted small mb-1">Sections</p>
-                        <h5 class="text-primary">{{ total_sections }}</h5>
+                        <p class="text-muted small mb-1">Subjects</p>
+                        <h5 class="text-primary">{{ total_subjects }}</h5>
                         <span class="badge bg-purple-subtle text-dark">Total Classes</span>
                     </div>
                     <div class="bg-light p-3 rounded">
@@ -79,37 +79,37 @@
 
     </div>
 
-    <!-- Sections -->
-    {% if sections %}
-    {% for section_data in sections %}
+    <!-- Subjects -->
+    {% if subjects %}
+    {% for subject_data in subjects %}
     <div class="card p-4 mt-4">
 
-        <!-- Section Header -->
+        <!-- Subject Header -->
         <div class="d-flex justify-content-between pb-3 border-bottom mb-3">
             <div class="d-flex align-items-center gap-3">
                 <div class="bg-primary-subtle p-3 rounded">
-                    <i class="bi bi-people fs-4 text-primary"></i>
+                    <i class="bi bi-book fs-4 text-primary"></i>
                 </div>
                 <div>
-                    <h4 class="text-primary mb-1">{{ section_data.section.name }}</h4>
-                    <p class="text-muted small mb-0">{{ section_data.student_count }} Students</p>
+                    <h4 class="text-primary mb-1">{{ subject_data.subject.code }} - {{ subject_data.subject.name }}</h4>
+                    <p class="text-muted small mb-0">{{ subject_data.subject.section.name }} • {{ subject_data.student_count }} Students</p>
                 </div>
             </div>
 
             <div class="d-flex gap-4">
                 <div class="text-end">
                     <p class="text-muted small mb-1">Avg Attendance</p>
-                    <span class="badge {% if section_data.avg_attendance >= 80 %}bg-success-subtle text-success{% elif section_data.avg_attendance >= 70 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %}">{{ section_data.avg_attendance }}%</span>
+                    <span class="badge {% if subject_data.avg_attendance >= 80 %}bg-success-subtle text-success{% elif subject_data.avg_attendance >= 70 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %}">{{ subject_data.avg_attendance }}%</span>
                 </div>
                 <div class="text-end">
                     <p class="text-muted small mb-1">Avg Grade</p>
-                    <span class="badge {% if section_data.avg_gpa >= 80 %}bg-primary-subtle text-primary{% elif section_data.avg_gpa >= 70 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %}">{{ section_data.avg_gpa|floatformat:2 }}</span>
+                    <span class="badge {% if subject_data.avg_gpa >= 80 %}bg-primary-subtle text-primary{% elif subject_data.avg_gpa >= 70 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %}">{{ subject_data.avg_gpa|floatformat:2 }}</span>
                 </div>
             </div>
         </div>
 
         <!-- Students Table -->
-        {% if section_data.students %}
+        {% if subject_data.students %}
         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
             <table class="table table-striped align-middle">
                 <thead class="table-light">
@@ -123,7 +123,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for student_data in section_data.students %}
+                    {% for student_data in subject_data.students %}
                     <tr>
                         <td><strong>{{ student_data.student.user.get_full_name|default:student_data.student.user.username }}</strong></td>
                         <td class="text-muted">{{ student_data.student.user.email }}</td>
@@ -153,15 +153,15 @@
         </div>
         {% else %}
         <div class="text-center py-4">
-            <p class="text-muted">No students in this section</p>
+            <p class="text-muted">No students in this subject</p>
         </div>
         {% endif %}
 
         <!-- Warning Alert -->
-        {% if section_data.avg_attendance < 70 or section_data.avg_gpa < 70 %}
+        {% if subject_data.avg_attendance < 70 or subject_data.avg_gpa < 70 %}
         <div class="alert alert-warning mt-3 d-flex align-items-center gap-2">
             <i class="bi bi-exclamation-triangle"></i>
-            <span>This section may need attention - Low attendance and/or Below average GPA</span>
+            <span>This subject may need attention - Low attendance and/or Below average GPA</span>
         </div>
         {% endif %}
 
@@ -170,9 +170,9 @@
     {% else %}
     <div class="card p-4 mt-4">
         <div class="text-center py-5">
-            <i class="bi bi-people text-muted" style="font-size: 3rem;"></i>
-            <h5 class="text-muted mt-3">No sections assigned</h5>
-            <p class="text-muted small">You don't have any sections with students assigned yet.</p>
+            <i class="bi bi-book text-muted" style="font-size: 3rem;"></i>
+            <h5 class="text-muted mt-3">No subjects assigned</h5>
+            <p class="text-muted small">You don't have any subjects with students assigned yet.</p>
         </div>
     </div>
     {% endif %}

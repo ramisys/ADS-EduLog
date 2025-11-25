@@ -42,22 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// ========================================
-// Auto-dismiss Alert Messages (Login Page)
-// ========================================
-document.addEventListener('DOMContentLoaded', function() {
-    const alerts = document.querySelectorAll('.messages-container .alert');
-    alerts.forEach(function(alert) {
-        // Set timeout to auto-dismiss after 5 seconds (5000ms)
-        setTimeout(function() {
-            // Use Bootstrap's alert dismiss method
-            if (typeof bootstrap !== 'undefined' && bootstrap.Alert) {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            }
-        }, 5000);
-    });
-});
+// Note: Alert messages are now handled by Bootstrap Toasts in base.html
 
 // ========================================
 // Signup Form - Role-specific Field Management

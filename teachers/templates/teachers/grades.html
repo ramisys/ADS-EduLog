@@ -242,6 +242,11 @@
     
 </div>
 
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+    <div id="toastContainer"></div>
+</div>
+
 <style>
     #buttonGroup .btn,
     #buttonGroup .dropdown .btn {
@@ -603,11 +608,52 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
     }
 
     .audit-log-icon i {
         color: #2563eb;
         font-size: 1rem;
+    }
+
+    .audit-log-item .flex-fill {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .audit-log-item .badge {
+        display: inline-block;
+        max-width: fit-content;
+        overflow: visible;
+        white-space: nowrap;
+        position: relative;
+        z-index: 1;
+        background-color: rgba(219, 234, 254, 0.95) !important;
+        border: 1px solid rgba(37, 99, 235, 0.2);
+    }
+
+    .audit-log-item .d-flex.justify-content-between {
+        gap: 0.5rem;
+    }
+
+    /* Toast Styling */
+    .toast-container {
+        min-width: 300px;
+        max-width: 400px;
+    }
+
+    .toast {
+        margin-bottom: 0.5rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    .toast-header {
+        font-weight: 500;
+    }
+
+    .toast-body {
+        padding: 0.75rem;
+        font-size: 0.875rem;
     }
 </style>
 
@@ -637,6 +683,61 @@
     let auditLogs = JSON.parse(document.getElementById('audit-logs-data').textContent);
     const teacherName = JSON.parse(document.getElementById('teacher-name-data').textContent);
 
+    // Toast notification helper function
+    function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer');
+        const toastId = 'toast-' + Date.now();
+        
+        // Toast type configurations
+        const toastConfig = {
+            success: {
+                bgClass: 'bg-success',
+                icon: 'bi-check-circle-fill',
+                title: 'Success'
+            },
+            error: {
+                bgClass: 'bg-danger',
+                icon: 'bi-x-circle-fill',
+                title: 'Error'
+            },
+            warning: {
+                bgClass: 'bg-warning',
+                icon: 'bi-exclamation-triangle-fill',
+                title: 'Warning'
+            },
+            info: {
+                bgClass: 'bg-info',
+                icon: 'bi-info-circle-fill',
+                title: 'Info'
+            }
+        };
+        
+        const config = toastConfig[type] || toastConfig.info;
+        
+        const toastHtml = `
+            <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="5000">
+                <div class="toast-header ${config.bgClass} text-white">
+                    <i class="bi ${config.icon} me-2"></i>
+                    <strong class="me-auto">${config.title}</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        `;
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement);
+        toast.show();
+        
+        // Remove toast element after it's hidden
+        toastElement.addEventListener('hidden.bs.toast', function() {
+            toastElement.remove();
+        });
+    }
+
     // Edit mode toggle
     let isEditMode = false;
     function toggleEditMode() {
@@ -649,9 +750,9 @@
     }
 
     // Export functions
-    function handleExportCSV() { alert('Exporting CSV...'); }
-    function handleExportPDF() { alert('Exporting PDF...'); }
-    function handleExportExcel() { alert('Exporting Excel...'); }
+    function handleExportCSV() { showToast('Exporting to CSV...', 'info'); }
+    function handleExportPDF() { showToast('Exporting to PDF...', 'info'); }
+    function handleExportExcel() { showToast('Exporting to Excel...', 'info'); }
 
     let selectedTerm = '';
     let selectedSectionFilter = 'all';
@@ -955,10 +1056,10 @@
             renderSubjectPerformance();
             renderGradeDistribution();
             
-            // Show success message (you can replace this with a toast notification)
-            alert('Category weights updated successfully!');
+            // Show success message
+            showToast('Category weights updated successfully!', 'success');
         } else {
-            alert('Total weight must equal 100%. Current total: ' + total + '%');
+            showToast('Total weight must equal 100%. Current total: ' + total + '%', 'warning');
         }
     }
 
@@ -1113,12 +1214,12 @@
                     renderGradeDistribution();
                     renderAuditLog();
                 } else {
-                    alert('Error: ' + (data.error || 'Failed to delete score'));
+                    showToast('Error: ' + (data.error || 'Failed to delete score'), 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('An error occurred while deleting the score');
+                showToast('An error occurred while deleting the score', 'error');
             });
             return;
         }
@@ -1127,7 +1228,7 @@
         
         // Validate score
         if (isNaN(score) || score < 0) {
-            alert('Please enter a valid score (0 or greater)');
+            showToast('Please enter a valid score (0 or greater)', 'warning');
             input.focus();
             return;
         }
@@ -1135,12 +1236,12 @@
         // Get assessment to check max score
         const assessment = allAssessments.find(a => a.id === editingScore.assessmentId);
         if (!assessment) {
-            alert('Assessment not found');
+            showToast('Assessment not found', 'error');
             return;
         }
         
         if (score > assessment.maxScore) {
-            alert(`Score cannot exceed the maximum score of ${assessment.maxScore}. Please enter a value between 0 and ${assessment.maxScore}.`);
+            showToast(`Score cannot exceed the maximum score of ${assessment.maxScore}. Please enter a value between 0 and ${assessment.maxScore}.`, 'warning');
             input.focus();
             input.select();
             return;
@@ -1184,14 +1285,15 @@
                 renderSubjectPerformance();
                 renderGradeDistribution();
                 renderAuditLog();
+                showToast('Score saved successfully!', 'success');
             } else {
-                alert('Error: ' + (data.error || 'Failed to save score'));
+                showToast('Error: ' + (data.error || 'Failed to save score'), 'error');
                 input.focus();
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An error occurred while saving the score');
+            showToast('An error occurred while saving the score', 'error');
             input.focus();
         });
     }
@@ -1561,7 +1663,7 @@
         
         // Validate required fields
         if (!name || !subject || !maxScore || !date) {
-            alert('Please fill in all required fields');
+            showToast('Please fill in all required fields', 'warning');
             return;
         }
         
@@ -1590,7 +1692,7 @@
             console.error('Selected subject:', subject);
             console.error('Subject name to ID mapping:', subjectNameToId);
             console.error('All subjects list:', allSubjects);
-            alert(`Error: Could not find subject ID for "${subject}". Please try selecting the subject again.`);
+            showToast(`Error: Could not find subject ID for "${subject}". Please try selecting the subject again.`, 'error');
             return;
         }
         
@@ -1600,7 +1702,7 @@
             a.subject === subject && a.name.toLowerCase().trim() === trimmedName.toLowerCase()
         );
         if (duplicateAssessment) {
-            alert(`An assessment with the name "${trimmedName}" already exists for ${subject}. Please use a different name.`);
+            showToast(`An assessment with the name "${trimmedName}" already exists for ${subject}. Please use a different name.`, 'warning');
             document.getElementById('assessmentName').focus();
             return;
         }
@@ -1656,14 +1758,14 @@
                 // Reset form
                 e.target.reset();
                 
-                alert('Assessment added successfully!');
+                showToast('Assessment added successfully!', 'success');
             } else {
-                alert('Error: ' + (data.error || 'Failed to add assessment'));
+                showToast('Error: ' + (data.error || 'Failed to add assessment'), 'error');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An error occurred while adding the assessment');
+            showToast('An error occurred while adding the assessment', 'error');
         });
     }
 
@@ -1684,7 +1786,7 @@
     }
 
     function handleExportCategory(category, format) {
-        alert(`Exporting ${category} to ${format}...`);
+        showToast(`Exporting ${category} to ${format}...`, 'info');
     }
 
     // Subject Performance
@@ -1954,13 +2056,13 @@
                         <i class="bi bi-clock-history"></i>
                     </div>
                     <div class="flex-fill">
-                        <div class="d-flex align-items-center justify-content-between mb-1">
-                            <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size: 0.75rem;">
+                        <div class="d-flex align-items-center justify-content-between mb-1 flex-wrap gap-2">
+                            <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size: 0.75rem; white-space: nowrap; padding: 0.25rem 0.5rem; color: #1e40af !important; font-weight: 500;">
                                 ${log.action}
                             </span>
-                            <span class="text-muted" style="font-size: 0.75rem;">${log.timestamp}</span>
+                            <span class="text-muted" style="font-size: 0.75rem; white-space: nowrap;">${log.timestamp}</span>
                         </div>
-                        <p class="small text-muted mb-1">${log.details}</p>
+                        <p class="small text-muted mb-1" style="word-wrap: break-word;">${log.details}</p>
                         <p class="text-muted" style="font-size: 0.7rem;">by ${log.user}</p>
                     </div>
                 </div>

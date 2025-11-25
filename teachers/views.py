@@ -175,16 +175,37 @@ def subjects(request):
     
     # Get student count for each subject (students in that section)
     subjects_with_counts = []
+    total_students = 0
+    unique_sections = set()
+    unique_student_ids = set()
+    
     for subject in subjects:
         student_count = StudentProfile.objects.filter(section=subject.section).count()
         subjects_with_counts.append({
             'subject': subject,
             'student_count': student_count,
         })
+        total_students += student_count
+        unique_sections.add(subject.section.id)
+        
+        # Get unique students across all subjects
+        section_students = StudentProfile.objects.filter(section=subject.section)
+        for student in section_students:
+            unique_student_ids.add(student.id)
+    
+    # Calculate statistics
+    total_subjects = len(subjects_with_counts)
+    total_unique_students = len(unique_student_ids)
+    total_sections = len(unique_sections)
+    avg_students_per_subject = (total_students / total_subjects) if total_subjects > 0 else 0
     
     context = {
         'subjects': subjects_with_counts,
         'teacher_profile': teacher_profile,
+        'total_subjects': total_subjects,
+        'total_students': total_unique_students,
+        'total_sections': total_sections,
+        'avg_students_per_subject': round(avg_students_per_subject, 1),
     }
     return render(request, 'teachers/subjects.html', context)
 

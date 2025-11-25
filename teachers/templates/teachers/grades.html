@@ -3,276 +3,2171 @@
 {% block content %}
 
 <div class="dashboard-container container py-4">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <!-- Title and description -->
         <div>
-            <h2 class="text-primary">Manage Grades</h2>
-            <p class="text-muted small">Enter and update student grades</p>
+            <h2 class="text-primary mb-1">Grades</h2>
+            <p class="text-muted small mb-0">Comprehensive grade management with collapsible categories and detailed
+                analytics</p>
         </div>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGradeModal">
-            <i class="bi bi-plus-lg me-2"></i> Add Grade
-        </button>
-    </div>
 
-    <!-- Statistics Cards -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="card p-3 border">
+        <!-- Buttons and dropdown -->
+        <div class="d-flex flex-wrap gap-2 align-items-center" id="buttonGroup">
+            <!-- Edit Mode Button -->
+            <button id="editModeBtn" class="btn btn-outline-primary btn-sm rounded" onclick="toggleEditMode()">
+                <i class="bi bi-pencil-fill me-2"></i>Edit Mode
+            </button>
+
+            <!-- Weights Button -->
+            <button class="btn btn-outline-secondary btn-sm rounded" data-bs-toggle="modal"
+                data-bs-target="#weightsModal">
+                <i class="bi bi-gear-fill me-2"></i>Weights
+            </button>
+
+            <!-- Audit Log Button -->
+            <button class="btn btn-outline-secondary btn-sm rounded" data-bs-toggle="modal"
+                data-bs-target="#auditLogModal">
+                <i class="bi bi-clock-history me-2"></i>Audit Log
+            </button>
+
+            <!-- Export Dropdown -->
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm rounded dropdown-toggle" type="button"
+                    id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-download me-2"></i>Export All
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+                    <li><a class="dropdown-item" href="#" onclick="handleExportCSV()"><i
+                                class="bi bi-file-earmark-text me-2"></i>Export to CSV</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="handleExportPDF()"><i
+                                class="bi bi-file-earmark-text me-2"></i>Export to PDF</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="handleExportExcel()"><i
+                                class="bi bi-file-earmark-text me-2"></i>Export to Excel</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <!-- Summary Statistics -->
+    <div class="row g-4 justify-content-center mt-4">
+        <!-- Total Students -->
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border rounded-xl stats-card h-100">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <p class="text-muted small mb-1">Total Grades</p>
-                        <h5 class="text-primary mb-0">{{ total_grades }}</h5>
+                        <p class="text-muted small mb-1">Total Students</p>
+                        <p class="text-primary fs-3" id="totalStudents">0</p>
                     </div>
-                    <div class="bg-primary-subtle p-3 rounded">
-                        <i class="bi bi-journal-text fs-4 text-primary"></i>
+                    <i class="bi bi-mortarboard text-primary fs-5"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Assessments -->
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border rounded-xl stats-card h-100">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted small mb-1">Total Assessments</p>
+                        <p class="text-primary fs-3" id="totalAssessments">0</p>
+                    </div>
+                    <div class="bg-success bg-opacity-10 p-2 rounded-lg">
+                        <i class="bi bi-file-text text-success fs-5"></i>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card p-3 border">
+
+        <!-- Class Average -->
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border rounded-xl stats-card h-100">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <p class="text-muted small mb-1">Average Grade</p>
-                        <h5 class="text-success mb-0">{{ avg_grade|floatformat:2 }}%</h5>
+                        <p class="text-muted small mb-1">Class Average</p>
+                        <p class="text-primary fs-3" id="classAverage">0%</p>
                     </div>
-                    <div class="bg-success-subtle p-3 rounded">
-                        <i class="bi bi-graph-up fs-4 text-success"></i>
+                    <div class="bg-warning bg-opacity-10 p-2 rounded-lg">
+                        <i class="bi bi-graph-up text-warning fs-5"></i>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card p-3 border">
+
+        <!-- Total Scores -->
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border rounded-xl stats-card h-100">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <p class="text-muted small mb-1">Subjects</p>
-                        <h5 class="text-info mb-0">{{ subjects|length }}</h5>
+                        <p class="text-muted small mb-1">Total Scores</p>
+                        <p class="text-primary fs-3" id="totalScores">0</p>
                     </div>
-                    <div class="bg-info-subtle p-3 rounded">
-                        <i class="bi bi-book fs-4 text-info"></i>
+                    <div class="bg-purple bg-opacity-10 p-2 rounded-lg">
+                        <i class="bi bi-check-circle text-purple fs-5"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Filter Section -->
-    <div class="card p-3 mb-4">
-        <form method="GET" action="{% url 'teachers:grades' %}">
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <label for="section-filter" class="form-label text-muted fw-semibold">Filter by Section:</label>
-                    <select id="section-filter" name="section" class="form-select" onchange="this.form.submit()">
-                        <option value="">All Sections</option>
-                        {% for section in sections %}
-                        <option value="{{ section.id }}" {% if selected_section_id|stringformat:"s" == section.id|stringformat:"s" %}selected{% endif %}>
-                            {{ section.name }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label for="subject-filter" class="form-label text-muted fw-semibold">Filter by Subject:</label>
-                    <select id="subject-filter" name="subject" class="form-select" onchange="this.form.submit()">
-                        <option value="">All Subjects</option>
-                        {% for subject in subjects %}
-                        <option value="{{ subject.id }}" {% if selected_subject_id|stringformat:"s" == subject.id|stringformat:"s" %}selected{% endif %}>
-                            {{ subject.code }} - {{ subject.name }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-4 d-flex align-items-end">
-                    {% if selected_section_id or selected_subject_id %}
-                    <a href="{% url 'teachers:grades' %}" class="btn btn-outline-secondary w-100">
-                        <i class="bi bi-x-circle me-1"></i> Clear Filters
-                    </a>
-                    {% endif %}
+    <!-- Filters -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm border rounded-xl">
+                <div class="card-body p-2">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <!-- Term Selector -->
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="term-selector" class="text-muted small mb-0">Term:</label>
+                            <select id="term-selector" class="form-select form-select-sm filters-select">
+                                <option value="">Select term</option>
+                                <option value="Midterm">Midterm</option>
+                                <option value="Final">Final</option>
+                            </select>
+                        </div>
+
+                        <!-- Divider -->
+                        <div class="filters-divider"></div>
+
+                        <!-- Section Filter -->
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="section-filter-gradebook" class="text-muted small mb-0">Section:</label>
+                            <select id="section-filter-gradebook" class="form-select form-select-sm filters-select">
+                                <option value="all">All Sections</option>
+                                <!-- Sections will be populated dynamically -->
+                            </select>
+                        </div>
+
+                        <!-- Subject Filter -->
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="subject-filter" class="text-muted small mb-0">Subject:</label>
+                            <select id="subject-filter" class="form-select form-select-sm filters-select">
+                                <option value="all">All Subjects</option>
+                                <!-- Subjects will be populated dynamically -->
+                            </select>
+                        </div>
+
+                        <!-- Clear Filters Button -->
+                        <button id="clearFiltersBtn" class="btn btn-sm btn-link text-decoration-none p-0 filters-clear-btn" style="display: none;">
+                            <i class="bi bi-x me-1"></i>Clear Filters
+                        </button>
+                    </div>
                 </div>
             </div>
-        </form>
-    </div>
-
-    <!-- Grades Table -->
-    <div class="card p-3">
-        <div style="height: 600px; overflow-y: auto;">
-            <table class="table table-hover">
-                <thead class="table-light sticky-top">
-                    <tr>
-                        <th>Student</th>
-                        <th>Section</th>
-                        <th>Subject</th>
-                        <th>Term</th>
-                        <th>Grade</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% if grades %}
-                        {% for grade in grades %}
-                        <tr>
-                            <td>
-                                <div>
-                                    <p class="mb-0 fw-semibold">{{ grade.student.user.get_full_name|default:grade.student.user.username }}</p>
-                                    <p class="mb-0 text-muted small">{{ grade.student.student_id }}</p>
-                                </div>
-                            </td>
-                            <td>
-                                {% if grade.student.section %}
-                                <span class="badge bg-secondary">{{ grade.student.section.name }}</span>
-                                {% else %}
-                                <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <div>
-                                    <p class="mb-0 fw-semibold">{{ grade.subject.code }}</p>
-                                    <p class="mb-0 text-muted small">{{ grade.subject.name }}</p>
-                                </div>
-                            </td>
-                            <td>
-                                <span class="badge bg-info-subtle text-info">{{ grade.term }}</span>
-                            </td>
-                            <td>
-                                {% if grade.grade >= 90 %}
-                                <span class="badge bg-success">{{ grade.grade|floatformat:2 }}%</span>
-                                {% elif grade.grade >= 80 %}
-                                <span class="badge bg-primary">{{ grade.grade|floatformat:2 }}%</span>
-                                {% elif grade.grade >= 70 %}
-                                <span class="badge bg-warning text-dark">{{ grade.grade|floatformat:2 }}%</span>
-                                {% else %}
-                                <span class="badge bg-danger">{{ grade.grade|floatformat:2 }}%</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <button type="button" class="btn btn-link p-0 me-2 edit-grade-btn" 
-                                        data-grade-id="{{ grade.id }}"
-                                        data-student-id="{{ grade.student.id }}"
-                                        data-subject-id="{{ grade.subject.id }}"
-                                        data-term="{{ grade.term }}"
-                                        data-grade="{{ grade.grade }}">
-                                    <i class="bi bi-pencil text-primary"></i>
-                                </button>
-                                <form method="POST" action="{% url 'teachers:grades' %}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this grade?');">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="action" value="delete" />
-                                    <input type="hidden" name="grade_id" value="{{ grade.id }}" />
-                                    {% if selected_section_id %}<input type="hidden" name="section_filter" value="{{ selected_section_id }}" />{% endif %}
-                                    {% if selected_subject_id %}<input type="hidden" name="subject_filter" value="{{ selected_subject_id }}" />{% endif %}
-                                    <button type="submit" class="btn btn-link text-danger p-0">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="6" class="text-center text-muted py-5">
-                                <i class="bi bi-inbox fs-1 d-block mb-3"></i>
-                                No grades found for the selected filters
-                            </td>
-                        </tr>
-                    {% endif %}
-                </tbody>
-            </table>
         </div>
     </div>
+
+    <!-- Category Weights Panel -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card category-weights-card shadow-sm border rounded-xl">
+                <div class="card-body p-2">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-gear-fill category-weights-icon"></i>
+                            <h3 class="category-weights-title mb-0">Category Weights</h3>
+                        </div>
+                        <span class="badge category-weights-badge" id="categoryWeightsTotal">Total: 0%</span>
+                    </div>
+                    <div class="row g-2" id="categoryWeightsGrid">
+                        <!-- Category weights will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advanced Gradebook Table with Collapsible Categories -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm border rounded-xl overflow-hidden">
+                <div class="table-responsive gradebook-table-container" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-bordered mb-0 gradebook-table">
+                        <thead class="table-light sticky-top" style="z-index: 20;">
+                            <tr>
+                                <!-- Student Column (Sticky Left) -->
+                                <th class="gradebook-student-col sticky-left" style="width: 180px; background: linear-gradient(to right, #e3f2fd, #bbdefb);">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <span class="text-primary fw-semibold small">Student</span>
+                                        <i class="bi bi-info-circle text-primary" style="font-size: 0.75rem;"></i>
+                                    </div>
+                                </th>
+                                <!-- Category Columns (will be populated dynamically) -->
+                                <!-- Category headers will be inserted here -->
+                                <!-- Final Grade Column (Sticky Right) -->
+                                <th class="text-center gradebook-final-col sticky-right" style="width: 120px; background: linear-gradient(to right, #e8f5e9, #c8e6c9); border-right: 2px solid #81c784;">
+                                    <div>
+                                        <div class="text-success fw-semibold small">Final Grade</div>
+                                        <div class="text-muted small">Weighted</div>
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="gradebookTableBody">
+                            <!-- Table rows will be populated dynamically -->
+                            <tr>
+                                <td colspan="20" class="text-center text-muted py-5">Loading gradebook data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subject Performance and Grade Distribution -->
+    <div class="row mt-4 g-3">
+        <!-- Subject Performance Card -->
+        <div class="col-12 col-md-6">
+            <div class="card shadow-sm border rounded-xl">
+                <div class="card-body p-3">
+                    <h3 class="text-primary mb-3 small">Subject Performance</h3>
+                    <div id="subjectPerformanceContainer">
+                        <!-- Subject performance will be populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grade Distribution Card -->
+        <div class="col-12 col-md-6">
+            <div class="card shadow-sm border rounded-xl">
+                <div class="card-body p-3">
+                    <h3 class="text-primary mb-3 small">Grade Distribution</h3>
+                    <div id="gradeDistributionContainer">
+                        <!-- Grade distribution will be populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
 </div>
 
-<!-- Add/Edit Grade Modal -->
-<div class="modal fade" id="addGradeModal" tabindex="-1" aria-labelledby="addGradeModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="POST" action="{% url 'teachers:grades' %}">
-                {% csrf_token %}
-                <input type="hidden" name="action" id="grade_action" value="add" />
-                <input type="hidden" name="grade_id" id="edit_grade_id" value="" />
-                {% if selected_section_id %}<input type="hidden" name="section_filter" value="{{ selected_section_id }}" />{% endif %}
-                {% if selected_subject_id %}<input type="hidden" name="subject_filter" value="{{ selected_subject_id }}" />{% endif %}
-                
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addGradeModalLabel">Add Grade</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="student_select" class="form-label">Student</label>
-                        <select class="form-select" id="student_select" name="student_id" required>
-                            <option value="">-- Select Student --</option>
-                            {% for student in students %}
-                            <option value="{{ student.id }}">{{ student.user.get_full_name|default:student.user.username }} ({{ student.student_id }}) - {{ student.section.name|default:"No Section" }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="subject_select" class="form-label">Subject</label>
-                        <select class="form-select" id="subject_select" name="subject_id" required>
-                            <option value="">-- Select Subject --</option>
-                            {% for subject in subjects %}
-                            <option value="{{ subject.id }}">{{ subject.code }} - {{ subject.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="term_select" class="form-label">Term</label>
-                        <select class="form-select" id="term_select" name="term" required>
-                            {% for term in term_choices %}
-                            <option value="{{ term }}">{{ term }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="grade_input" class="form-label">Grade (0-100)</label>
-                        <input type="number" class="form-control" id="grade_input" name="grade" min="0" max="100" step="0.01" required>
-                        <small class="text-muted">Enter grade as a percentage (0-100)</small>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Grade</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<style>
+    #buttonGroup .btn,
+    #buttonGroup .dropdown .btn {
+        height: 31px;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    /* Fix spacing for summary statistics cards */
+    .row.g-4 {
+        margin-top: 2rem;
+    }
+
+    .row.g-4 .col-md-3 {
+        display: flex;
+    }
+
+    .row.g-4 .card {
+        width: 100%;
+    }
+
+    /* Reduce bottom padding of cards */
+    .stats-card {
+        padding: 1rem 1rem 0.75rem 1rem !important;
+    }
+
+    /* Category Weights Card with gradient background */
+    .category-weights-card {
+        background: linear-gradient(to right, #e3f2fd, #ffffff);
+        border-color: #e0e0e0 !important;
+    }
+
+    .category-weights-icon {
+        color: #2563eb;
+        font-size: 1.25rem;
+        width: 20px;
+        height: 20px;
+    }
+
+    .category-weights-title {
+        color: #1e3a8a;
+        font-size: 1.125rem;
+        font-weight: 600;
+    }
+
+    .category-weights-badge {
+        background-color: #dbeafe !important;
+        color: #1e40af !important;
+        padding: 0.5rem 0.75rem;
+        font-weight: 500;
+        border: none;
+    }
+
+    .category-weight-item {
+        margin-bottom: 0;
+        position: relative;
+    }
+
+    .category-weight-item .d-flex {
+        margin-bottom: 0.5rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .category-weight-label {
+        font-size: 0.875rem;
+        color: #374151;
+        font-weight: 400;
+        position: relative;
+        z-index: 2;
+    }
+
+    .category-weight-value {
+        color: #1e3a8a;
+        font-weight: 500;
+        font-size: 0.875rem;
+        position: relative;
+        z-index: 2;
+        background-color: rgba(255, 255, 255, 0.9);
+        padding: 0.125rem 0.25rem;
+        border-radius: 3px;
+    }
+
+    .category-weight-progress {
+        height: 8px;
+        background-color: #e5e7eb;
+        border-radius: 4px;
+        overflow: hidden;
+        width: 100%;
+        position: relative;
+        z-index: 1;
+        margin-top: 0;
+    }
+
+    .category-weight-progress .progress-bar {
+        background-color: #2563eb !important;
+        transition: width 0.3s ease;
+        height: 100%;
+        display: block;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Filters styling */
+    .filters-select {
+        width: 140px;
+        border-color: #bfdbfe;
+        border-radius: 0.5rem;
+    }
+
+    #section-filter-gradebook,
+    #subject-filter {
+        width: 180px;
+    }
+
+    .filters-divider {
+        height: 24px;
+        width: 1px;
+        background-color: #d1d5db;
+    }
+
+    .filters-clear-btn {
+        font-size: 0.75rem;
+        color: #6b7280;
+    }
+
+    .filters-clear-btn:hover {
+        color: #374151;
+    }
+
+    .filters-clear-btn i {
+        font-size: 0.75rem;
+    }
+
+    /* Gradebook Table Styling */
+    .gradebook-table-container {
+        position: relative;
+    }
+
+    .gradebook-table {
+        min-width: max-content;
+    }
+
+    .gradebook-table thead th {
+        border-bottom: 2px solid #dee2e6;
+        white-space: nowrap;
+    }
+
+    .gradebook-student-col {
+        position: sticky;
+        left: 0;
+        z-index: 30;
+        border-right: 2px solid #bdbdbd !important;
+    }
+
+    .gradebook-final-col {
+        position: sticky;
+        right: 0;
+        z-index: 30;
+        border-left: 2px solid #81c784 !important;
+    }
+
+    .sticky-left {
+        position: sticky;
+        left: 0;
+        z-index: 20;
+        background-color: white;
+    }
+
+    .sticky-right {
+        position: sticky;
+        right: 0;
+        z-index: 20;
+    }
+
+    .gradebook-table tbody tr:hover {
+        background-color: rgba(59, 130, 246, 0.05);
+    }
+
+    .gradebook-table tbody td {
+        vertical-align: middle;
+        padding: 0.5rem 0.5rem !important;
+        font-size: 0.875rem;
+    }
+
+    .gradebook-table thead th {
+        padding: 0.5rem 0.5rem !important;
+        font-size: 0.875rem;
+    }
+
+    .gradebook-table {
+        font-size: 0.875rem;
+    }
+
+    .category-header {
+        background: linear-gradient(to right, #e3f2fd, #ffffff);
+        border-right: 2px solid #bdbdbd !important;
+    }
+    
+    .category-header .badge {
+        position: relative;
+        z-index: 10;
+        background-color: rgba(219, 234, 254, 0.95) !important;
+        border: 1px solid rgba(37, 99, 235, 0.3);
+        padding: 0.125rem 0.375rem;
+        white-space: nowrap;
+    }
+
+    .category-collapsed {
+        background-color: rgba(227, 242, 253, 0.2);
+    }
+
+    .grade-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+
+    .grade-excellent {
+        background-color: #10b981;
+        color: white;
+    }
+
+    .grade-good {
+        background-color: #3b82f6;
+        color: white;
+    }
+
+    .grade-average {
+        background-color: #f59e0b;
+        color: white;
+    }
+
+    .grade-poor {
+        background-color: #ef4444;
+        color: white;
+    }
+
+    .missing-score {
+        background-color: #fef3c7;
+    }
+
+
+    /* Subject Performance and Grade Distribution */
+    .performance-item {
+        margin-bottom: 1rem;
+    }
+
+    .performance-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .performance-label {
+        font-size: 0.875rem;
+        color: #374151;
+        margin-bottom: 0.375rem;
+    }
+
+    .performance-value {
+        font-size: 0.875rem;
+        color: #1e3a8a;
+        font-weight: 500;
+    }
+
+    .performance-progress {
+        height: 8px;
+        background-color: #e5e7eb;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .performance-progress .progress-bar {
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+
+    .progress-green {
+        background-color: #10b981 !important;
+    }
+
+    .progress-blue {
+        background-color: #3b82f6 !important;
+    }
+
+    .progress-yellow {
+        background-color: #f59e0b !important;
+    }
+
+    .progress-orange {
+        background-color: #f97316 !important;
+    }
+
+    .progress-red {
+        background-color: #ef4444 !important;
+    }
+
+    /* Student Details Modal */
+    .student-details-header {
+        background: linear-gradient(to right, #e3f2fd, #ffffff);
+        border: 1px solid #bfdbfe;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+    }
+
+    .student-details-scroll {
+        max-height: 300px;
+        overflow-y: auto;
+        padding-right: 0.75rem;
+    }
+
+    .category-detail-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .assessment-item {
+        background-color: #f9fafb;
+        border-radius: 0.375rem;
+        padding: 0.4rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .contribution-box {
+        background-color: #dbeafe;
+        border: 1px solid #bfdbfe;
+        border-radius: 0.375rem;
+        padding: 0.4rem;
+        margin-top: 0.5rem;
+    }
+
+    .summary-box {
+        background-color: #f9fafb;
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+    }
+
+    /* Audit Log Styling */
+    .audit-log-scroll {
+        max-height: 500px;
+        overflow-y: auto;
+        padding-right: 1rem;
+    }
+
+    .audit-log-item {
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        background-color: white;
+    }
+
+    .audit-log-icon {
+        background-color: #dbeafe;
+        padding: 0.5rem;
+        border-radius: 0.5rem;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .audit-log-icon i {
+        color: #2563eb;
+        font-size: 1rem;
+    }
+</style>
+
+<!-- Optional: Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Data from Django backend (JSON format to avoid linter errors) -->
+<script type="application/json" id="sections-array-data">{{ sections_array_json|safe }}</script>
+<script type="application/json" id="all-subjects-data">{{ all_subjects_json|safe }}</script>
+<script type="application/json" id="category-weights-data">{{ category_weights_json|safe }}</script>
+<script type="application/json" id="subject-name-to-id-data">{{ subject_name_to_id_json|safe }}</script>
+<script type="application/json" id="students-data">{{ students_json|safe }}</script>
+<script type="application/json" id="assessments-data">{{ assessments_json|safe }}</script>
+<script type="application/json" id="scores-data">{{ scores_json|safe }}</script>
+<script type="application/json" id="audit-logs-data">{{ audit_logs_json|safe }}</script>
+<script type="application/json" id="teacher-name-data">"{{ teacher_profile.user.get_full_name|default:teacher_profile.user.username }}"</script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Handle edit grade button clicks
-    document.querySelectorAll('.edit-grade-btn').forEach(function(button) {
-        button.addEventListener('click', function() {
-            const gradeId = this.getAttribute('data-grade-id');
-            const studentId = this.getAttribute('data-student-id');
-            const subjectId = this.getAttribute('data-subject-id');
-            const term = this.getAttribute('data-term');
-            const grade = this.getAttribute('data-grade');
-            
-            document.getElementById('grade_action').value = 'edit';
-            document.getElementById('edit_grade_id').value = gradeId;
-            document.getElementById('student_select').value = studentId;
-            document.getElementById('subject_select').value = subjectId;
-            document.getElementById('term_select').value = term;
-            document.getElementById('grade_input').value = grade;
-            document.getElementById('addGradeModalLabel').textContent = 'Edit Grade';
-            
-            const modal = new bootstrap.Modal(document.getElementById('addGradeModal'));
-            modal.show();
+    // Read data from JSON script tags
+    const sectionsArray = JSON.parse(document.getElementById('sections-array-data').textContent);
+    const allSubjects = JSON.parse(document.getElementById('all-subjects-data').textContent);
+    const categoryWeightsBySubjectId = JSON.parse(document.getElementById('category-weights-data').textContent);
+    const subjectNameToId = JSON.parse(document.getElementById('subject-name-to-id-data').textContent);
+    const allStudents = JSON.parse(document.getElementById('students-data').textContent);
+    const allAssessments = JSON.parse(document.getElementById('assessments-data').textContent);
+    const allScores = JSON.parse(document.getElementById('scores-data').textContent);
+    let auditLogs = JSON.parse(document.getElementById('audit-logs-data').textContent);
+    const teacherName = JSON.parse(document.getElementById('teacher-name-data').textContent);
+
+    // Edit mode toggle
+    let isEditMode = false;
+    function toggleEditMode() {
+        isEditMode = !isEditMode;
+        const btn = document.getElementById('editModeBtn');
+        btn.innerHTML = `<i class="bi bi-pencil-fill me-2"></i>${isEditMode ? 'Exit Edit' : 'Edit Mode'}`;
+        btn.classList.toggle('btn-primary', isEditMode);
+        btn.classList.toggle('btn-outline-primary', !isEditMode);
+        renderGradebookTable();
+    }
+
+    // Export functions
+    function handleExportCSV() { alert('Exporting CSV...'); }
+    function handleExportPDF() { alert('Exporting PDF...'); }
+    function handleExportExcel() { alert('Exporting Excel...'); }
+
+    let selectedTerm = '';
+    let selectedSectionFilter = 'all';
+    let selectedSubject = 'all';
+
+    // Populate section and subject dropdowns
+    function populateFilters() {
+        const sectionSelect = document.getElementById('section-filter-gradebook');
+        const subjectSelect = document.getElementById('subject-filter');
+
+        // Populate sections
+        sectionsArray.forEach(section => {
+            const option = document.createElement('option');
+            option.value = section;
+            option.textContent = section;
+            sectionSelect.appendChild(option);
         });
-    });
+
+        // Populate subjects
+        allSubjects.forEach(subject => {
+            const option = document.createElement('option');
+            option.value = subject;
+            option.textContent = subject;
+            subjectSelect.appendChild(option);
+        });
+    }
+
+    // Update clear filters button visibility
+    function updateClearFiltersButton() {
+        const clearBtn = document.getElementById('clearFiltersBtn');
+        if (selectedSectionFilter !== 'all' || selectedSubject !== 'all') {
+            clearBtn.style.display = 'block';
+        } else {
+            clearBtn.style.display = 'none';
+        }
+    }
+
+    // Check if all required filters are applied
+    function areFiltersApplied() {
+        return selectedSectionFilter !== 'all' && selectedSubject !== 'all';
+    }
+
+    // Apply filters to data
+    function applyFilters() {
+        // Check if filters are applied
+        if (!areFiltersApplied()) {
+            // Reset filtered data
+            filteredStudents = [];
+            filteredAssessments = [];
+            
+            // Show empty state in displays
+            updateSummaryStatistics();
+            renderCategoryWeights();
+            renderGradebookTable();
+            renderSubjectPerformance();
+            renderGradeDistribution();
+            return;
+        }
+        
+        // Filter students by section
+        filteredStudents = allStudents.filter(s => s.section === selectedSectionFilter);
+        
+        // Filter assessments by subject and term
+        filteredAssessments = allAssessments.filter(a => {
+            const matchesSubject = a.subject === selectedSubject;
+            const matchesTerm = !selectedTerm || a.term === selectedTerm;
+            return matchesSubject && matchesTerm;
+        });
+        
+        // Refresh displays
+        updateSummaryStatistics();
+        renderCategoryWeights();
+        renderGradebookTable();
+        renderSubjectPerformance();
+        renderGradeDistribution();
+    }
+
+    // Clear all filters
+    function clearFilters() {
+        selectedTerm = '';
+        selectedSectionFilter = 'all';
+        selectedSubject = 'all';
+        
+        document.getElementById('term-selector').value = '';
+        document.getElementById('section-filter-gradebook').value = 'all';
+        document.getElementById('subject-filter').value = 'all';
+        
+        updateClearFiltersButton();
+        applyFilters();
+    }
+
+    // Initialize filters
+    function initializeFilters() {
+        populateFilters();
+
+        // Add event listeners
+        document.getElementById('term-selector').addEventListener('change', function(e) {
+            selectedTerm = e.target.value;
+            applyFilters();
+        });
+
+        document.getElementById('section-filter-gradebook').addEventListener('change', function(e) {
+            selectedSectionFilter = e.target.value;
+            updateClearFiltersButton();
+            applyFilters();
+        });
+
+        document.getElementById('subject-filter').addEventListener('change', function(e) {
+            selectedSubject = e.target.value;
+            updateClearFiltersButton();
+            applyFilters();
+        });
+
+        document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
+    }
+
+    // Default weights if no subject-specific weights exist
+    const defaultCategoryWeights = {
+        'Activities': 20,
+        'Quizzes': 20,
+        'Projects': 30,
+        'Exams': 30
+    };
     
-    // Reset form when modal is hidden
-    document.getElementById('addGradeModal').addEventListener('hidden.bs.modal', function () {
-        document.getElementById('grade_action').value = 'add';
-        document.getElementById('edit_grade_id').value = '';
-        document.getElementById('student_select').value = '';
-        document.getElementById('subject_select').value = '';
-        document.getElementById('term_select').value = 'Midterm';
-        document.getElementById('grade_input').value = '';
-        document.getElementById('addGradeModalLabel').textContent = 'Add Grade';
+    // Get category weights for current subject
+    function getCategoryWeights() {
+        if (selectedSubject === 'all' || !selectedSubject) {
+            return defaultCategoryWeights;
+        }
+        
+        const subjectId = subjectNameToId[selectedSubject];
+        if (subjectId && categoryWeightsBySubjectId && categoryWeightsBySubjectId[subjectId]) {
+            const weights = categoryWeightsBySubjectId[subjectId];
+            // Ensure all categories are present
+            return {
+                'Activities': weights.Activities || defaultCategoryWeights.Activities,
+                'Quizzes': weights.Quizzes || defaultCategoryWeights.Quizzes,
+                'Projects': weights.Projects || defaultCategoryWeights.Projects,
+                'Exams': weights.Exams || defaultCategoryWeights.Exams
+            };
+        }
+        
+        return defaultCategoryWeights;
+    }
+
+    function renderCategoryWeights() {
+        const grid = document.getElementById('categoryWeightsGrid');
+        const totalElement = document.getElementById('categoryWeightsTotal');
+        
+        if (!areFiltersApplied()) {
+            totalElement.textContent = 'Total: —';
+            grid.innerHTML = '<div class="col-12 text-center text-muted small py-2">Please apply filters to view category weights</div>';
+            return;
+        }
+        
+        const categoryWeights = getCategoryWeights();
+        
+        // Ensure all weights are valid numbers
+        const categories = ['Activities', 'Quizzes', 'Projects', 'Exams'];
+        categories.forEach(category => {
+            if (typeof categoryWeights[category] !== 'number' || isNaN(categoryWeights[category])) {
+                categoryWeights[category] = defaultCategoryWeights[category] || 0;
+            }
+        });
+        
+        // Calculate total
+        const total = Object.values(categoryWeights).reduce((a, b) => {
+            const numA = typeof a === 'number' ? a : 0;
+            const numB = typeof b === 'number' ? b : 0;
+            return numA + numB;
+        }, 0);
+        totalElement.textContent = `Total: ${total}%`;
+
+        // Clear existing content
+        grid.innerHTML = '';
+
+        // Render each category - ensure order and all categories are shown
+        categories.forEach(category => {
+            const weight = categoryWeights[category] || 0;
+            const col = document.createElement('div');
+            col.className = 'col-6 col-md-3';
+            
+            col.innerHTML = `
+                <div class="category-weight-item">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="category-weight-label">${category}</span>
+                        <span class="category-weight-value">${weight}%</span>
+                    </div>
+                    <div class="progress category-weight-progress" style="height: 8px;">
+                        <div class="progress-bar" role="progressbar" style="width: ${weight}%;" aria-valuenow="${weight}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+            `;
+            
+            grid.appendChild(col);
+        });
+    }
+
+    // Category Weights Configuration
+    let tempCategoryWeights = {};
+
+    function renderWeightsConfiguration() {
+        const container = document.getElementById('weightsConfigurationContainer');
+        container.innerHTML = '';
+        
+        // Initialize tempCategoryWeights from current weights
+        const currentWeights = getCategoryWeights();
+        tempCategoryWeights = { ...currentWeights };
+        
+        Object.entries(tempCategoryWeights).forEach(([category, weight]) => {
+            const item = document.createElement('div');
+            item.className = 'mb-3';
+            
+            item.innerHTML = `
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <label for="weight-${category}" class="text-muted small mb-0">${category}</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <input 
+                            type="number" 
+                            id="weight-${category}" 
+                            class="form-control form-control-sm text-center" 
+                            style="width: 80px; height: 36px;"
+                            min="0" 
+                            max="100" 
+                            value="${weight}"
+                            data-category="${category}"
+                        />
+                        <span class="text-muted small">%</span>
+                    </div>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: ${weight}%" aria-valuenow="${weight}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            `;
+            
+            container.appendChild(item);
+        });
+        
+        // Add event listeners to inputs
+        container.querySelectorAll('input[type="number"]').forEach(input => {
+            input.addEventListener('input', function() {
+                const category = this.getAttribute('data-category');
+                const value = parseInt(this.value) || 0;
+                tempCategoryWeights[category] = Math.max(0, Math.min(100, value));
+                this.value = tempCategoryWeights[category];
+                
+                // Update progress bar
+                const progressBar = this.closest('.mb-3').querySelector('.progress-bar');
+                progressBar.style.width = tempCategoryWeights[category] + '%';
+                progressBar.setAttribute('aria-valuenow', tempCategoryWeights[category]);
+                
+                updateWeightsTotal();
+            });
+        });
+        
+        updateWeightsTotal();
+    }
+
+    function updateWeightsTotal() {
+        const total = Object.values(tempCategoryWeights).reduce((a, b) => a + b, 0);
+        const badge = document.getElementById('weightsTotalBadge');
+        
+        if (total === 100) {
+            badge.className = 'badge bg-success';
+            badge.textContent = total + '%';
+        } else {
+            badge.className = 'badge bg-danger';
+            badge.textContent = total + '%';
+        }
+    }
+
+    function saveCategoryWeights() {
+        const total = Object.values(tempCategoryWeights).reduce((a, b) => a + b, 0);
+        
+        if (total === 100) {
+            // Get subject ID for current subject
+            if (selectedSubject && selectedSubject !== 'all' && subjectNameToId[selectedSubject]) {
+                const subjectId = subjectNameToId[selectedSubject];
+                
+                // Update category weights in the dictionary
+                categoryWeightsBySubjectId[subjectId] = { ...tempCategoryWeights };
+                
+                // TODO: Save to database via AJAX
+                // fetch('/teachers/save-category-weights/', {
+                //     method: 'POST',
+                //     headers: {'Content-Type': 'application/json'},
+                //     body: JSON.stringify({
+                //         subject_id: subjectId,
+                //         weights: tempCategoryWeights
+                //     })
+                // });
+            }
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('weightsModal'));
+            modal.hide();
+            
+            // Refresh displays
+            renderCategoryWeights();
+            renderGradebookTable();
+            renderSubjectPerformance();
+            renderGradeDistribution();
+            
+            // Show success message (you can replace this with a toast notification)
+            alert('Category weights updated successfully!');
+        } else {
+            alert('Total weight must equal 100%. Current total: ' + total + '%');
+        }
+    }
+
+    // Initialize weights modal
+    function initializeWeightsModal() {
+        const weightsModal = document.getElementById('weightsModal');
+        if (weightsModal) {
+            weightsModal.addEventListener('show.bs.modal', function() {
+                // Reset temp weights to current weights when modal opens
+                tempCategoryWeights = { ...categoryWeights };
+                renderWeightsConfiguration();
+            });
+            
+            document.getElementById('saveWeightsBtn').addEventListener('click', saveCategoryWeights);
+        }
+    }
+
+    // Initialize filtered data (will be filtered based on selected filters)
+    let filteredStudents = allStudents;
+    let filteredAssessments = allAssessments;
+    
+    // Convert scores array to object for easier lookup
+    const studentScores = {};
+    allScores.forEach(score => {
+        if (!studentScores[score.studentId]) {
+            studentScores[score.studentId] = {};
+        }
+        studentScores[score.studentId][score.assessmentId] = score.score;
     });
-});
+
+    const collapsedCategories = {
+        'Activities': false,
+        'Quizzes': false,
+        'Projects': false,
+        'Exams': false
+    };
+
+    let editingScore = null;
+    let tempScore = '';
+
+    function toggleCategory(category) {
+        collapsedCategories[category] = !collapsedCategories[category];
+        renderGradebookTable();
+    }
+
+    function getScore(studentId, assessmentId) {
+        return studentScores[studentId]?.[assessmentId] ?? null;
+    }
+
+    function getCategoryAverage(studentId, category, subject) {
+        let categoryAssessments = filteredAssessments.filter(a => a.category === category);
+        
+        // Filter by subject if provided
+        if (subject) {
+            categoryAssessments = categoryAssessments.filter(a => a.subject === subject);
+        }
+        
+        if (categoryAssessments.length === 0) return null;
+        
+        const scores = categoryAssessments
+            .map(a => getScore(studentId, a.id))
+            .filter(s => s !== null);
+        
+        if (scores.length === 0) return null;
+        
+        const total = scores.reduce((a, b) => a + b, 0);
+        const maxTotal = categoryAssessments.reduce((a, b) => a + b.maxScore, 0);
+        return Math.round((total / maxTotal) * 100);
+    }
+
+    function getOverallFinalGrade(studentId) {
+        const categoryWeights = getCategoryWeights();
+        let totalWeighted = 0;
+        let totalWeight = 0;
+        
+        Object.keys(categoryWeights).forEach(category => {
+            const avg = getCategoryAverage(studentId, category, selectedSubject === 'all' ? null : selectedSubject);
+            if (avg !== null) {
+                totalWeighted += avg * (categoryWeights[category] / 100);
+                totalWeight += categoryWeights[category] / 100;
+            }
+        });
+        
+        return totalWeight > 0 ? Math.round(totalWeighted / totalWeight) : null;
+    }
+
+    function getGradeColor(percentage) {
+        if (percentage >= 90) return 'grade-excellent';
+        if (percentage >= 80) return 'grade-good';
+        if (percentage >= 70) return 'grade-average';
+        return 'grade-poor';
+    }
+
+    function getPerformanceColor(percentage) {
+        if (percentage >= 90) return 'text-success';
+        if (percentage >= 80) return 'text-primary';
+        if (percentage >= 70) return 'text-warning';
+        return 'text-danger';
+    }
+
+    function handleEditScore(studentId, assessmentId) {
+        const currentScore = getScore(studentId, assessmentId);
+        editingScore = { studentId, assessmentId };
+        tempScore = currentScore !== null ? currentScore.toString() : '';
+        renderGradebookTable();
+    }
+
+    function handleSaveScore() {
+        if (!editingScore) return;
+        
+        const input = document.getElementById(`edit-score-input-${editingScore.studentId}-${editingScore.assessmentId}`);
+        if (!input) return;
+        
+        const enteredValue = input.value.trim();
+        if (enteredValue === '') {
+            // Delete score (empty value)
+            fetch('{% url "teachers:update_score" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    student_id: editingScore.studentId,
+                    assessment_id: editingScore.assessmentId,
+                    score: null
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update local data
+                    if (!studentScores[editingScore.studentId]) {
+                        studentScores[editingScore.studentId] = {};
+                    }
+                    delete studentScores[editingScore.studentId][editingScore.assessmentId];
+                    
+                    // Update audit logs
+                    auditLogs.unshift({
+                        id: auditLogs.length + 1,
+                        action: data.message,
+                        details: data.message,
+                        user: teacherName,
+                        timestamp: new Date().toLocaleString()
+                    });
+                    
+                    editingScore = null;
+                    tempScore = '';
+                    renderCategoryWeights();
+                    renderGradebookTable();
+                    renderSubjectPerformance();
+                    renderGradeDistribution();
+                    renderAuditLog();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to delete score'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while deleting the score');
+            });
+            return;
+        }
+        
+        const score = parseFloat(enteredValue);
+        
+        // Validate score
+        if (isNaN(score) || score < 0) {
+            alert('Please enter a valid score (0 or greater)');
+            input.focus();
+            return;
+        }
+        
+        // Get assessment to check max score
+        const assessment = allAssessments.find(a => a.id === editingScore.assessmentId);
+        if (!assessment) {
+            alert('Assessment not found');
+            return;
+        }
+        
+        if (score > assessment.maxScore) {
+            alert(`Score cannot exceed the maximum score of ${assessment.maxScore}. Please enter a value between 0 and ${assessment.maxScore}.`);
+            input.focus();
+            input.select();
+            return;
+        }
+        
+        // Save to database via AJAX
+        fetch('{% url "teachers:update_score" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                student_id: editingScore.studentId,
+                assessment_id: editingScore.assessmentId,
+                score: score
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update local data
+                if (!studentScores[editingScore.studentId]) {
+                    studentScores[editingScore.studentId] = {};
+                }
+                studentScores[editingScore.studentId][editingScore.assessmentId] = score;
+                
+                // Update audit logs
+                auditLogs.unshift({
+                    id: auditLogs.length + 1,
+                    action: data.message,
+                    details: data.message,
+                    user: teacherName,
+                    timestamp: new Date().toLocaleString()
+                });
+                
+                editingScore = null;
+                tempScore = '';
+                renderCategoryWeights();
+                renderGradebookTable();
+                renderSubjectPerformance();
+                renderGradeDistribution();
+                renderAuditLog();
+            } else {
+                alert('Error: ' + (data.error || 'Failed to save score'));
+                input.focus();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while saving the score');
+            input.focus();
+        });
+    }
+
+    function renderCategoryHeaders() {
+        // Find the header row and the Student th
+        const thead = document.querySelector('.gradebook-table thead tr');
+        const studentTh = thead.querySelector('.gradebook-student-col'); // Student column
+        const finalGradeTh = thead.querySelector('.gradebook-final-col');
+        
+        // Remove existing category headers (if any)
+        const existingCategoryHeaders = thead.querySelectorAll('.category-header');
+        existingCategoryHeaders.forEach(th => th.remove());
+        
+        const categoryWeights = getCategoryWeights();
+        const categories = ['Activities', 'Quizzes', 'Projects', 'Exams'];
+        
+        // Create category header elements
+        const categoryHeaders = [];
+        categories.forEach(category => {
+            const categoryAssessments = filteredAssessments.filter(a => a.category === category);
+            // Show category even if no assessments (so user can add them)
+            const isCollapsed = collapsedCategories[category] || categoryAssessments.length === 0;
+            const colspan = isCollapsed ? 1 : categoryAssessments.length + 1;
+            
+            const th = document.createElement('th');
+            th.className = 'category-header text-center';
+            th.setAttribute('colspan', colspan);
+            th.style.borderRight = '2px solid #bdbdbd';
+            
+            th.innerHTML = `
+                <div class="d-flex flex-column gap-2 p-2">
+                    <div class="d-flex align-items-center justify-content-between gap-2">
+                        <button class="btn btn-link p-0 text-decoration-none d-flex align-items-center gap-2 toggle-category-btn" 
+                                data-category="${category}" style="color: #1e3a8a;">
+                            <i class="bi ${isCollapsed ? 'bi-chevron-right' : 'bi-chevron-down'}"></i>
+                            <span class="fw-semibold small">${category}</span>
+                            <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size: 0.75rem;">${categoryWeights[category] || 0}%</span>
+                        </button>
+                        <div class="d-flex align-items-center gap-1">
+                            <button class="btn btn-sm btn-link p-1 add-assessment-btn" data-category="${category}" style="font-size: 0.75rem;">
+                                <i class="bi bi-plus"></i> Add
+                            </button>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link p-1 dropdown-toggle" type="button" data-bs-toggle="dropdown" style="font-size: 0.75rem;">
+                                    <i class="bi bi-download"></i>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" onclick="handleExportCategory('${category}', 'CSV')">CSV</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="handleExportCategory('${category}', 'PDF')">PDF</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="handleExportCategory('${category}', 'Excel')">Excel</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    ${!isCollapsed ? `
+                        <div class="d-flex gap-1">
+                            ${categoryAssessments.map(a => `
+                                <div class="flex-fill text-center" style="min-width: 70px; font-size: 0.7rem;">
+                                    <div class="text-truncate">${a.name}</div>
+                                    <div class="text-muted">/${a.maxScore}</div>
+                                </div>
+                            `).join('')}
+                            <div class="flex-fill text-center text-primary" style="min-width: 60px; font-size: 0.7rem;">Avg</div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            categoryHeaders.push(th);
+        });
+        
+        // Insert category headers after Student column, before Final Grade column
+        if (categoryHeaders.length > 0) {
+            finalGradeTh.before(...categoryHeaders);
+        }
+    }
+
+    function renderGradebookTable() {
+        const tbody = document.getElementById('gradebookTableBody');
+        tbody.innerHTML = '';
+        
+        // Check if filters are applied
+        if (!areFiltersApplied()) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="20" class="text-center text-muted py-5">
+                        <div class="d-flex flex-column align-items-center gap-2">
+                            <i class="bi bi-funnel" style="font-size: 2rem; opacity: 0.5;"></i>
+                            <div class="fw-semibold">Please apply filters to view gradebook</div>
+                            <div class="small">Select a Section and Subject to display student scores</div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            // Clear category headers
+            const thead = document.querySelector('.gradebook-table thead tr');
+            const existingCategoryHeaders = thead.querySelectorAll('.category-header');
+            existingCategoryHeaders.forEach(th => th.remove());
+            return;
+        }
+        
+        if (filteredStudents.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="20" class="text-center text-muted py-5">No students found for the selected filters</td></tr>';
+            // Clear category headers
+            const thead = document.querySelector('.gradebook-table thead tr');
+            const existingCategoryHeaders = thead.querySelectorAll('.category-header');
+            existingCategoryHeaders.forEach(th => th.remove());
+            return;
+        }
+        
+        renderCategoryHeaders();
+        
+        filteredStudents.forEach(student => {
+            const finalGrade = getOverallFinalGrade(student.id);
+            const tr = document.createElement('tr');
+            tr.className = 'gradebook-row';
+            
+            // Student column
+            let studentCell = `
+                <td class="sticky-left gradebook-student-col">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-primary mb-0 fw-semibold small">${student.name}</p>
+                            <p class="text-muted" style="font-size: 0.7rem;">${student.email}</p>
+                        </div>
+                        <button class="btn btn-sm btn-link p-0 opacity-0 student-info-btn" data-student-id="${student.id}" onclick="openStudentDetailsModal(${student.id})">
+                            <i class="bi bi-info-circle text-primary" style="font-size: 0.75rem;"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            // Category columns
+            const categories = ['Activities', 'Quizzes', 'Projects', 'Exams'];
+            categories.forEach(category => {
+                const categoryAssessments = filteredAssessments.filter(a => a.category === category);
+                // Show category even if no assessments
+                const isCollapsed = collapsedCategories[category] || categoryAssessments.length === 0;
+                const categoryAvg = getCategoryAverage(student.id, category, selectedSubject === 'all' ? null : selectedSubject);
+                
+                if (isCollapsed) {
+                    studentCell += `
+                        <td class="text-center category-collapsed">
+                            ${categoryAvg !== null ? `
+                                <span class="badge ${getGradeColor(categoryAvg)} grade-badge">${categoryAvg}%</span>
+                            ` : '<span class="text-muted small">—</span>'}
+                        </td>
+                    `;
+                } else {
+                    categoryAssessments.forEach(assessment => {
+                        const score = getScore(student.id, assessment.id);
+                        const isMissing = score === null;
+                        const isEditing = editingScore?.studentId === student.id && editingScore?.assessmentId === assessment.id;
+                        
+                        if (isEditing) {
+                            studentCell += `
+                                <td class="text-center ${isMissing ? 'missing-score' : ''}">
+                                    <div class="d-flex align-items-center gap-1 justify-content-center">
+                                        <input type="number" min="0" max="${assessment.maxScore}" 
+                                               value="${tempScore}" class="form-control form-control-sm score-input" 
+                                               style="width: 50px; height: 24px; font-size: 0.7rem; text-align: center; padding: 0.2rem;"
+                                               id="edit-score-input-${student.id}-${assessment.id}"
+                                               data-max-score="${assessment.maxScore}"
+                                               data-student-id="${student.id}"
+                                               data-assessment-id="${assessment.id}">
+                                        <button class="btn btn-sm btn-link p-0 save-score-btn" data-student-id="${student.id}" data-assessment-id="${assessment.id}">
+                                            <i class="bi bi-check text-success" style="font-size: 0.7rem;"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-link p-0 cancel-edit-btn">
+                                            <i class="bi bi-x text-danger" style="font-size: 0.7rem;"></i>
+                                        </button>
+                                    </div>
+                                    <div class="score-error-message text-danger small" id="score-error-${student.id}-${assessment.id}" style="display: none; font-size: 0.65rem; margin-top: 2px;"></div>
+                                </td>
+                            `;
+                        } else {
+                            studentCell += `
+                                <td class="text-center ${isMissing ? 'missing-score' : ''}">
+                                    <div class="d-flex align-items-center gap-1 justify-content-center">
+                                        ${score !== null ? `
+                                            <span class="badge ${getGradeColor(Math.round((score / assessment.maxScore) * 100))} grade-badge">${score}</span>
+                                        ` : '<span class="text-muted small">—</span>'}
+                                        ${isEditMode ? `
+                                            <button class="btn btn-sm btn-link p-0 edit-score-btn" 
+                                                    data-student-id="${student.id}" data-assessment-id="${assessment.id}">
+                                                <i class="bi bi-pencil text-primary" style="font-size: 0.7rem;"></i>
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                </td>
+                            `;
+                        }
+                    });
+                    
+                    // Category average
+                    studentCell += `
+                        <td class="text-center category-collapsed">
+                            ${categoryAvg !== null ? `
+                                <span class="badge ${getGradeColor(categoryAvg)} grade-badge">${categoryAvg}%</span>
+                            ` : '<span class="text-muted small">—</span>'}
+                        </td>
+                    `;
+                }
+            });
+            
+            // Final grade column
+            studentCell += `
+                <td class="text-center sticky-right gradebook-final-col">
+                    ${finalGrade !== null ? `
+                        <span class="badge ${getGradeColor(finalGrade)}">${finalGrade}%</span>
+                    ` : '<span class="text-muted small">—</span>'}
+                </td>
+            `;
+            
+            tr.innerHTML = studentCell;
+            tbody.appendChild(tr);
+        });
+        
+        // Add event listeners
+        attachGradebookEventListeners();
+    }
+
+    function attachGradebookEventListeners() {
+        // Toggle category
+        document.querySelectorAll('.toggle-category-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const category = this.getAttribute('data-category');
+                toggleCategory(category);
+            });
+        });
+        
+        // Edit score
+        document.querySelectorAll('.edit-score-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const studentId = parseInt(this.getAttribute('data-student-id'));
+                const assessmentId = parseInt(this.getAttribute('data-assessment-id'));
+                handleEditScore(studentId, assessmentId);
+            });
+        });
+        
+        // Save score
+        document.querySelectorAll('.save-score-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const input = document.getElementById(`edit-score-input-${this.getAttribute('data-student-id')}-${this.getAttribute('data-assessment-id')}`);
+                if (input) {
+                    tempScore = input.value;
+                }
+                handleSaveScore();
+            });
+        });
+        
+        // Cancel edit
+        document.querySelectorAll('.cancel-edit-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                editingScore = null;
+                tempScore = '';
+                renderGradebookTable();
+            });
+        });
+        
+        // Real-time input validation for score inputs
+        document.querySelectorAll('.score-input').forEach(input => {
+            input.addEventListener('input', function() {
+                const maxScore = parseFloat(this.getAttribute('data-max-score'));
+                const value = parseFloat(this.value);
+                const studentId = this.getAttribute('data-student-id');
+                const assessmentId = this.getAttribute('data-assessment-id');
+                const errorElement = document.getElementById(`score-error-${studentId}-${assessmentId}`);
+                
+                // Clear previous error
+                if (errorElement) {
+                    errorElement.style.display = 'none';
+                    errorElement.textContent = '';
+                }
+                this.classList.remove('is-invalid', 'border-danger');
+                
+                // Validate if value is entered
+                if (this.value.trim() !== '' && !isNaN(value)) {
+                    if (value < 0) {
+                        this.classList.add('is-invalid', 'border-danger');
+                        if (errorElement) {
+                            errorElement.textContent = 'Score cannot be negative';
+                            errorElement.style.display = 'block';
+                        }
+                    } else if (value > maxScore) {
+                        this.classList.add('is-invalid', 'border-danger');
+                        if (errorElement) {
+                            errorElement.textContent = `Max score is ${maxScore}`;
+                            errorElement.style.display = 'block';
+                        }
+                    }
+                }
+            });
+            
+            // Also validate on blur
+            input.addEventListener('blur', function() {
+                const maxScore = parseFloat(this.getAttribute('data-max-score'));
+                const value = parseFloat(this.value);
+                const studentId = this.getAttribute('data-student-id');
+                const assessmentId = this.getAttribute('data-assessment-id');
+                const errorElement = document.getElementById(`score-error-${studentId}-${assessmentId}`);
+                
+                if (this.value.trim() !== '' && !isNaN(value) && value > maxScore) {
+                    // Auto-correct to max score if user tries to enter more
+                    this.value = maxScore;
+                    this.classList.remove('is-invalid', 'border-danger');
+                    if (errorElement) {
+                        errorElement.style.display = 'none';
+                    }
+                }
+            });
+        });
+        
+        // Student info hover
+        document.querySelectorAll('.gradebook-row').forEach(row => {
+            row.addEventListener('mouseenter', function() {
+                this.querySelector('.student-info-btn')?.classList.remove('opacity-0');
+            });
+            row.addEventListener('mouseleave', function() {
+                this.querySelector('.student-info-btn')?.classList.add('opacity-0');
+            });
+        });
+        
+        // Add assessment button
+        document.querySelectorAll('.add-assessment-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const category = this.getAttribute('data-category');
+                openAddAssessmentModal(category);
+            });
+        });
+    }
+
+    // Add Assessment Modal
+    function openAddAssessmentModal(category) {
+        document.getElementById('assessmentCategory').value = category;
+        
+        // Populate subject dropdown
+        const subjectSelect = document.getElementById('assessmentSubject');
+        subjectSelect.innerHTML = '<option value="">Select subject</option>';
+        allSubjects.forEach(subject => {
+            const option = document.createElement('option');
+            option.value = subject;
+            option.textContent = subject;
+            subjectSelect.appendChild(option);
+        });
+        
+        // Set default date to today
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('assessmentDate').value = today;
+        
+        // Open modal
+        const modal = new bootstrap.Modal(document.getElementById('addAssessmentModal'));
+        modal.show();
+    }
+
+    function handleAddAssessment(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const category = formData.get('category');
+        const name = formData.get('name');
+        const subject = formData.get('subject');
+        const maxScore = parseFloat(formData.get('maxScore'));
+        const date = formData.get('date');
+        const term = formData.get('term');
+        
+        // Validate required fields
+        if (!name || !subject || !maxScore || !date) {
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        // Get subject ID
+        let subjectId = subjectNameToId[subject];
+        
+        if (!subjectId) {
+            // Try trimming whitespace
+            const trimmedSubject = subject.trim();
+            subjectId = subjectNameToId[trimmedSubject];
+            
+            // If still not found, try case-insensitive lookup
+            if (!subjectId) {
+                const subjectLower = trimmedSubject.toLowerCase();
+                for (const [subjectName, id] of Object.entries(subjectNameToId)) {
+                    if (subjectName.toLowerCase().trim() === subjectLower) {
+                        subjectId = id;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (!subjectId) {
+            console.error('Subject lookup failed:');
+            console.error('Selected subject:', subject);
+            console.error('Subject name to ID mapping:', subjectNameToId);
+            console.error('All subjects list:', allSubjects);
+            alert(`Error: Could not find subject ID for "${subject}". Please try selecting the subject again.`);
+            return;
+        }
+        
+        // Check for duplicate assessment name in the same subject
+        const trimmedName = name.trim();
+        const duplicateAssessment = allAssessments.find(a => 
+            a.subject === subject && a.name.toLowerCase().trim() === trimmedName.toLowerCase()
+        );
+        if (duplicateAssessment) {
+            alert(`An assessment with the name "${trimmedName}" already exists for ${subject}. Please use a different name.`);
+            document.getElementById('assessmentName').focus();
+            return;
+        }
+        
+        // Submit via AJAX
+        fetch('{% url "teachers:add_assessment" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                name: name,
+                category: category,
+                subject_id: subjectId,
+                max_score: maxScore,
+                date: date,
+                term: term
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Add new assessment to allAssessments
+                allAssessments.push({
+                    id: data.assessment_id,
+                    name: name,
+                    category: category,
+                    subject: subject,
+                    subjectId: subjectId,
+                    maxScore: maxScore,
+                    date: date,
+                    term: term
+                });
+                
+                // Add to audit logs
+                auditLogs.unshift({
+                    id: auditLogs.length + 1,
+                    action: 'Assessment Added',
+                    details: `Created new assessment: ${name} (${category})`,
+                    user: teacherName,
+                    timestamp: new Date().toLocaleString()
+                });
+                
+                // Refresh displays
+                applyFilters();
+                renderAuditLog();
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addAssessmentModal'));
+                modal.hide();
+                
+                // Reset form
+                e.target.reset();
+                
+                alert('Assessment added successfully!');
+            } else {
+                alert('Error: ' + (data.error || 'Failed to add assessment'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while adding the assessment');
+        });
+    }
+
+    // Helper function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function handleExportCategory(category, format) {
+        alert(`Exporting ${category} to ${format}...`);
+    }
+
+    // Subject Performance
+    function getSubjectAverage(subject) {
+        const subjectAssessments = filteredAssessments.filter(a => a.subject === subject);
+        if (subjectAssessments.length === 0) return 0;
+        
+        let totalScore = 0;
+        let totalMax = 0;
+        
+        filteredStudents.forEach(student => {
+            subjectAssessments.forEach(assessment => {
+                const score = getScore(student.id, assessment.id);
+                if (score !== null) {
+                    totalScore += score;
+                    totalMax += assessment.maxScore;
+                }
+            });
+        });
+        
+        return totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+    }
+
+    function renderSubjectPerformance() {
+        const container = document.getElementById('subjectPerformanceContainer');
+        container.innerHTML = '';
+        
+        if (!areFiltersApplied()) {
+            container.innerHTML = '<div class="text-center text-muted small py-3">Please apply filters to view subject performance</div>';
+            return;
+        }
+        
+        allSubjects.forEach(subject => {
+            const avg = getSubjectAverage(subject);
+            let progressColor = 'progress-red';
+            if (avg >= 85) progressColor = 'progress-green';
+            else if (avg >= 75) progressColor = 'progress-blue';
+            else if (avg >= 60) progressColor = 'progress-yellow';
+            
+            const item = document.createElement('div');
+            item.className = 'performance-item';
+            item.innerHTML = `
+                <div class="d-flex justify-content-between performance-label mb-1">
+                    <span>${subject}</span>
+                    <span class="performance-value">${avg}%</span>
+                </div>
+                <div class="progress performance-progress">
+                    <div class="progress-bar ${progressColor}" role="progressbar" style="width: ${avg}%" aria-valuenow="${avg}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    // Grade Distribution
+    function renderGradeDistribution() {
+        const container = document.getElementById('gradeDistributionContainer');
+        container.innerHTML = '';
+        
+        if (!areFiltersApplied()) {
+            container.innerHTML = '<div class="text-center text-muted small py-3">Please apply filters to view grade distribution</div>';
+            return;
+        }
+        
+        const gradeRanges = [
+            { label: 'A (90-100%)', min: 90, max: 100, color: 'progress-green' },
+            { label: 'B (80-89%)', min: 80, max: 89, color: 'progress-blue' },
+            { label: 'C (70-79%)', min: 70, max: 79, color: 'progress-yellow' },
+            { label: 'D (60-69%)', min: 60, max: 69, color: 'progress-orange' },
+            { label: 'F (<60%)', min: 0, max: 59, color: 'progress-red' }
+        ];
+        
+        const allFinalGrades = filteredStudents.map(s => getOverallFinalGrade(s.id)).filter(g => g !== null);
+        
+        gradeRanges.forEach(range => {
+            const count = allFinalGrades.filter(g => g >= range.min && g <= range.max).length;
+            const percentage = allFinalGrades.length > 0 ? Math.round((count / allFinalGrades.length) * 100) : 0;
+            
+            const item = document.createElement('div');
+            item.className = 'performance-item';
+            item.innerHTML = `
+                <div class="d-flex justify-content-between performance-label mb-1">
+                    <span>${range.label}</span>
+                    <span class="performance-value">${count} (${percentage}%)</span>
+                </div>
+                <div class="progress performance-progress">
+                    <div class="progress-bar ${range.color}" role="progressbar" style="width: ${percentage}%" aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    // Student Details Modal
+    let selectedStudentDetails = null;
+
+    function openStudentDetailsModal(studentId) {
+        selectedStudentDetails = studentId;
+        renderStudentDetails();
+        const modal = new bootstrap.Modal(document.getElementById('studentDetailsModal'));
+        modal.show();
+    }
+
+    function renderStudentDetails() {
+        if (!selectedStudentDetails) return;
+        
+        const student = filteredStudents.find(s => s.id === selectedStudentDetails);
+        if (!student) return;
+        
+        const container = document.getElementById('studentDetailsContent');
+        const finalGrade = getOverallFinalGrade(student.id);
+        
+        // Count total scores recorded
+        const totalScoresRecorded = Object.keys(studentScores[student.id] || {}).length;
+        const completionRate = filteredAssessments.length > 0 
+            ? Math.round((totalScoresRecorded / filteredAssessments.length) * 100) 
+            : 0;
+        
+        let content = `
+            <!-- Student Header -->
+            <div class="student-details-header mb-3">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h3 class="text-primary mb-1 small">${student.name}</h3>
+                        <p class="text-muted small mb-0">${student.email}</p>
+                        <p class="text-muted" style="font-size: 0.7rem; margin-top: 0.25rem;">Section: ${student.section || 'N/A'}</p>
+                    </div>
+                    <div class="text-end">
+                        <p class="text-muted small mb-1">Final Grade</p>
+                        <span class="badge ${getGradeColor(finalGrade)}" style="font-size: 0.875rem; padding: 0.4rem 0.6rem;">
+                            ${finalGrade || 0}%
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Category Breakdown -->
+            <div class="student-details-scroll">
+        `;
+        
+        const categoryWeights = getCategoryWeights();
+        const categories = ['Activities', 'Quizzes', 'Projects', 'Exams'];
+        categories.forEach(category => {
+            const categoryAssessments = filteredAssessments.filter(a => a.category === category);
+            if (categoryAssessments.length === 0) return;
+            
+            const categoryAvg = getCategoryAverage(
+                student.id,
+                category,
+                selectedSubject === 'all' ? categoryAssessments[0]?.subject : selectedSubject
+            );
+            
+            content += `
+                <div class="category-detail-card">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <h4 class="text-primary mb-0 small">${category}</h4>
+                            <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size: 0.75rem;">
+                                Weight: ${categoryWeights[category]}%
+                            </span>
+                        </div>
+                        <span class="badge ${getGradeColor(categoryAvg || 0)}">
+                            ${categoryAvg || 0}%
+                        </span>
+                    </div>
+                    
+                    <div>
+            `;
+            
+            categoryAssessments.forEach(assessment => {
+                const score = getScore(student.id, assessment.id);
+                const percentage = score !== null ? Math.round((score / assessment.maxScore) * 100) : null;
+                
+                content += `
+                    <div class="assessment-item d-flex align-items-center justify-content-between">
+                        <div class="flex-fill">
+                            <p class="small mb-0 text-dark">${assessment.name}</p>
+                            <p class="text-muted" style="font-size: 0.7rem;">${assessment.date}</p>
+                        </div>
+                        <div class="d-flex align-items-center gap-3">
+                `;
+                
+                if (score !== null) {
+                    content += `
+                        <span class="small text-muted">${score}/${assessment.maxScore}</span>
+                        <span class="badge ${getGradeColor(percentage)}" style="font-size: 0.7rem; min-width: 55px;">
+                            ${percentage}%
+                        </span>
+                    `;
+                } else {
+                    content += `
+                        <span class="badge bg-warning bg-opacity-10 text-warning" style="font-size: 0.7rem;">
+                            Missing
+                        </span>
+                    `;
+                }
+                
+                content += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // Weighted Contribution
+            const contribution = categoryAvg !== null 
+                ? Math.round(categoryAvg * (categoryWeights[category] / 100)) 
+                : 0;
+            
+            content += `
+                    </div>
+                    
+                    <div class="contribution-box">
+                        <div class="d-flex align-items-center justify-content-between small">
+                            <span class="text-muted">Contribution to Final Grade:</span>
+                            <span class="text-primary fw-semibold">${contribution} points</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        content += `
+            </div>
+            
+            <!-- Summary -->
+            <div class="border-top border-secondary pt-2 mt-3">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <div class="summary-box">
+                            <p class="text-muted small mb-1">Total Scores Recorded</p>
+                            <p class="text-primary mb-0" style="font-size: 1rem;">
+                                ${totalScoresRecorded}/${filteredAssessments.length}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="summary-box">
+                            <p class="text-muted small mb-1">Completion Rate</p>
+                            <p class="text-primary mb-0" style="font-size: 1rem;">
+                                ${completionRate}%
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.innerHTML = content;
+    }
+
+    function renderAuditLog() {
+        const container = document.getElementById('auditLogContainer');
+        container.innerHTML = '';
+        
+        if (auditLogs.length === 0) {
+            container.innerHTML = '<p class="text-center text-muted py-5">No audit logs available</p>';
+            return;
+        }
+        
+        auditLogs.forEach(log => {
+            const item = document.createElement('div');
+            item.className = 'audit-log-item';
+            
+            item.innerHTML = `
+                <div class="d-flex align-items-start gap-3">
+                    <div class="audit-log-icon">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+                    <div class="flex-fill">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size: 0.75rem;">
+                                ${log.action}
+                            </span>
+                            <span class="text-muted" style="font-size: 0.75rem;">${log.timestamp}</span>
+                        </div>
+                        <p class="small text-muted mb-1">${log.details}</p>
+                        <p class="text-muted" style="font-size: 0.7rem;">by ${log.user}</p>
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(item);
+        });
+    }
+
+    // Initialize audit log modal
+    function initializeAuditLogModal() {
+        const auditModal = document.getElementById('auditLogModal');
+        if (auditModal) {
+            auditModal.addEventListener('show.bs.modal', function() {
+                renderAuditLog();
+            });
+        }
+    }
+
+    // Update summary statistics
+    function updateSummaryStatistics() {
+        if (!areFiltersApplied()) {
+            // Show 0 or dashes when filters aren't applied
+            document.getElementById('totalStudents').textContent = '0';
+            document.getElementById('totalAssessments').textContent = '0';
+            document.getElementById('classAverage').textContent = '—';
+            document.getElementById('totalScores').textContent = '0';
+            return;
+        }
+        
+        // Total Students
+        document.getElementById('totalStudents').textContent = filteredStudents.length;
+        
+        // Total Assessments
+        document.getElementById('totalAssessments').textContent = filteredAssessments.length;
+        
+        // Class Average
+        const allFinalGrades = filteredStudents.map(s => getOverallFinalGrade(s.id)).filter(g => g !== null);
+        const avg = allFinalGrades.length > 0 
+            ? Math.round(allFinalGrades.reduce((a, b) => a + b, 0) / allFinalGrades.length) 
+            : 0;
+        document.getElementById('classAverage').textContent = avg + '%';
+        
+        // Total Scores
+        let totalScoresCount = 0;
+        filteredStudents.forEach(student => {
+            totalScoresCount += Object.keys(studentScores[student.id] || {}).length;
+        });
+        document.getElementById('totalScores').textContent = totalScoresCount;
+    }
+
+    // Initialize everything
+    function initializePage() {
+        initializeFilters();
+        applyFilters(); // Apply initial filters
+        updateSummaryStatistics();
+        renderCategoryWeights();
+        renderGradebookTable();
+        renderSubjectPerformance();
+        renderGradeDistribution();
+        
+        // Reset student details when modal is closed
+        const studentModal = document.getElementById('studentDetailsModal');
+        if (studentModal) {
+            studentModal.addEventListener('hidden.bs.modal', function() {
+                selectedStudentDetails = null;
+            });
+        }
+        
+        // Initialize weights modal
+        initializeWeightsModal();
+        
+        // Initialize audit log modal
+        initializeAuditLogModal();
+        
+        // Initialize add assessment form
+        const addAssessmentForm = document.getElementById('addAssessmentForm');
+        if (addAssessmentForm) {
+            addAssessmentForm.addEventListener('submit', handleAddAssessment);
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializePage);
+    } else {
+        initializePage();
+    }
 </script>
+
+<!-- Category Weights Configuration Modal -->
+<div class="modal fade" id="weightsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configure Category Weights</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Adjust the weight percentage for each assessment category. Total should equal 100%.</p>
+                <div id="weightsConfigurationContainer">
+                    <!-- Weights configuration will be populated dynamically -->
+                </div>
+                <div class="border-top border-secondary pt-3 mt-3">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <span class="text-muted">Total Weight:</span>
+                        <span id="weightsTotalBadge" class="badge">0%</span>
+                    </div>
+                    <button type="button" class="btn btn-primary w-100" id="saveWeightsBtn">
+                        Save Weights
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Audit Log Modal -->
+<div class="modal fade" id="auditLogModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Audit Log</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">View all grade modifications and assessment changes</p>
+                <div class="audit-log-scroll" style="max-height: 500px; overflow-y: auto; padding-right: 1rem;">
+                    <div id="auditLogContainer">
+                        <!-- Audit logs will be populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Student Grade Details Modal -->
+<div class="modal fade" id="studentDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title small">Student Grade Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+                <p class="text-muted small mb-2">Comprehensive grade breakdown with weighted calculations</p>
+                <div id="studentDetailsContent">
+                    <!-- Student details will be populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Assessment Modal -->
+<div class="modal fade" id="addAssessmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Assessment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addAssessmentForm">
+                    <input type="hidden" id="assessmentCategory" name="category">
+                    
+                    <div class="mb-3">
+                        <label for="assessmentName" class="form-label small">Assessment Name</label>
+                        <input type="text" class="form-control form-control-sm" id="assessmentName" name="name" required placeholder="e.g., Activity 1">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="assessmentSubject" class="form-label small">Subject</label>
+                        <select class="form-select form-select-sm" id="assessmentSubject" name="subject" required>
+                            <option value="">Select subject</option>
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="assessmentMaxScore" class="form-label small">Maximum Score</label>
+                        <input type="number" class="form-control form-control-sm" id="assessmentMaxScore" name="maxScore" min="1" required placeholder="e.g., 100">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="assessmentDate" class="form-label small">Date</label>
+                        <input type="date" class="form-control form-control-sm" id="assessmentDate" name="date" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="assessmentTerm" class="form-label small">Term</label>
+                        <select class="form-select form-select-sm" id="assessmentTerm" name="term" required>
+                            <option value="Midterm">Midterm</option>
+                            <option value="Final">Final</option>
+                        </select>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                            <i class="bi bi-plus me-1"></i>Add Assessment
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 {% endblock %}

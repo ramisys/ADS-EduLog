@@ -177,3 +177,128 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"To: {self.recipient.username} - {self.message[:30]}..."
+
+
+# ===== ASSESSMENT =====
+class Assessment(models.Model):
+    CATEGORY_CHOICES = [
+        ('Activities', 'Activities'),
+        ('Quizzes', 'Quizzes'),
+        ('Projects', 'Projects'),
+        ('Exams', 'Exams'),
+    ]
+    
+    TERM_CHOICES = [
+        ('Midterm', 'Midterm'),
+        ('Final', 'Final'),
+    ]
+    
+    name = models.CharField(max_length=200)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='assessments')
+    max_score = models.DecimalField(max_digits=5, decimal_places=2)
+    date = models.DateField()
+    term = models.CharField(max_length=20, choices=TERM_CHOICES, default='Midterm')
+    created_by = models.ForeignKey(TeacherProfile, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-date', 'name']
+    
+    def __str__(self):
+        return f"{self.name} ({self.category}) - {self.subject.code}"
+
+
+# ===== ASSESSMENT SCORE =====
+class AssessmentScore(models.Model):
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='assessment_scores')
+    assessment = models.ForeignKey(Assessment, on_delete=models.CASCADE, related_name='scores')
+    score = models.DecimalField(max_digits=5, decimal_places=2)
+    recorded_by = models.ForeignKey(TeacherProfile, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['student', 'assessment']
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.student.student_id} - {self.assessment.name}: {self.score}/{self.assessment.max_score}"
+    
+    @property
+    def percentage(self):
+        """Calculate percentage score"""
+        if self.assessment.max_score > 0:
+            return round((self.score / self.assessment.max_score) * 100, 2)
+        return 0
+
+
+# ===== CATEGORY WEIGHTS =====
+class CategoryWeights(models.Model):
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='category_weights')
+    activities_weight = models.IntegerField(default=20, help_text="Weight percentage for Activities")
+    quizzes_weight = models.IntegerField(default=20, help_text="Weight percentage for Quizzes")
+    projects_weight = models.IntegerField(default=30, help_text="Weight percentage for Projects")
+    exams_weight = models.IntegerField(default=30, help_text="Weight percentage for Exams")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['subject']
+        verbose_name = 'Category Weight'
+        verbose_name_plural = 'Category Weights'
+    
+    def __str__(self):
+        return f"{self.subject.code} - Weights"
+    
+    def clean(self):
+        """Validate that weights sum to 100"""
+        from django.core.exceptions import ValidationError
+        total = (self.activities_weight + self.quizzes_weight + 
+                self.projects_weight + self.exams_weight)
+        if total != 100:
+            raise ValidationError(f'Category weights must sum to 100%. Current total: {total}%')
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
+    def get_weight(self, category):
+        """Get weight for a specific category"""
+        weight_map = {
+            'Activities': self.activities_weight,
+            'Quizzes': self.quizzes_weight,
+            'Projects': self.projects_weight,
+            'Exams': self.exams_weight,
+        }
+        return weight_map.get(category, 0)
+
+
+# ===== AUDIT LOG =====
+class AuditLog(models.Model):
+    ACTION_CHOICES = [
+        ('Grade Updated', 'Grade Updated'),
+        ('Assessment Added', 'Assessment Added'),
+        ('Assessment Updated', 'Assessment Updated'),
+        ('Assessment Deleted', 'Assessment Deleted'),
+        ('Category Weight Changed', 'Category Weight Changed'),
+        ('Score Added', 'Score Added'),
+        ('Score Updated', 'Score Updated'),
+        ('Score Deleted', 'Score Deleted'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='audit_logs')
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
+    details = models.TextField()
+    student = models.ForeignKey(StudentProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
+    assessment = models.ForeignKey(Assessment, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'Audit Log'
+        verbose_name_plural = 'Audit Logs'
+    
+    def __str__(self):
+        return f"{self.action} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"

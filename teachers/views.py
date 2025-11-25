@@ -3,7 +3,13 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Q
 from django.utils import timezone
 from datetime import timedelta
-from core.models import TeacherProfile, Subject, ClassSection, StudentProfile, Attendance, Grade, Notification
+from core.models import (
+    TeacherProfile, Subject, ClassSection, StudentProfile, Attendance, Grade, Notification,
+    Assessment, AssessmentScore, CategoryWeights, AuditLog
+)
+from django.http import JsonResponse
+import json
+from django.views.decorators.http import require_http_methods
 
 @login_required
 def dashboard(request):
@@ -472,113 +478,278 @@ def grades(request):
     except TeacherProfile.DoesNotExist:
         return redirect('dashboard')
     
-    # Handle POST request to add/update/delete grades
-    if request.method == 'POST':
-        action = request.POST.get('action')
-        
-        if action == 'add' or action == 'edit':
-            student_id = request.POST.get('student_id')
-            subject_id = request.POST.get('subject_id')
-            term = request.POST.get('term', 'Midterm')
-            grade_value = request.POST.get('grade')
-            
-            try:
-                student = StudentProfile.objects.get(id=student_id)
-                subject = Subject.objects.get(id=subject_id, teacher=teacher_profile)
-                
-                # Validate grade value
-                if grade_value:
-                    grade_value = float(grade_value)
-                    if 0 <= grade_value <= 100:
-                        grade_record, created = Grade.objects.get_or_create(
-                            student=student,
-                            subject=subject,
-                            term=term,
-                            defaults={'grade': grade_value}
-                        )
-                        
-                        if not created:
-                            grade_record.grade = grade_value
-                            grade_record.save()
-            except (StudentProfile.DoesNotExist, Subject.DoesNotExist, ValueError):
-                pass
-        
-        elif action == 'delete':
-            grade_id = request.POST.get('grade_id')
-            try:
-                grade_record = Grade.objects.get(id=grade_id, subject__teacher=teacher_profile)
-                grade_record.delete()
-            except Grade.DoesNotExist:
-                pass
-        
-        # Redirect back with same filters
-        section_id = request.POST.get('section_filter', request.GET.get('section', ''))
-        subject_id = request.POST.get('subject_filter', request.GET.get('subject', ''))
-        
-        redirect_url = 'teachers:grades'
-        if section_id or subject_id:
-            redirect_url += '?'
-            params = []
-            if section_id:
-                params.append('section=' + str(section_id))
-            if subject_id:
-                params.append('subject=' + str(subject_id))
-            redirect_url += '&'.join(params)
-        
-        return redirect(redirect_url)
-    
-    # Get teacher's subjects and sections
+    # Get teacher's subjects
     subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code')
     
     # Get all unique sections from teacher's subjects
     section_ids = subjects.values_list('section', flat=True).distinct()
     sections = ClassSection.objects.filter(id__in=section_ids).order_by('name')
     
-    # Get filter parameters
-    selected_section_id = request.GET.get('section')
-    selected_subject_id = request.GET.get('subject')
-    
-    # Filter grades based on teacher's subjects
-    grades_queryset = Grade.objects.filter(subject__teacher=teacher_profile).select_related(
-        'student', 'student__user', 'student__section', 'subject'
-    ).order_by('-id')
-    
-    # Apply filters
-    if selected_section_id:
-        grades_queryset = grades_queryset.filter(student__section_id=selected_section_id)
-    
-    if selected_subject_id:
-        try:
-            subject = Subject.objects.get(id=selected_subject_id, teacher=teacher_profile)
-            grades_queryset = grades_queryset.filter(subject=subject)
-        except Subject.DoesNotExist:
-            pass
-    
-    # Get all students in filtered sections for add grade form
-    students_queryset = StudentProfile.objects.filter(
+    # Get all students in teacher's sections
+    students = StudentProfile.objects.filter(
         section__in=section_ids
     ).select_related('user', 'section').order_by('section__name', 'user__last_name', 'user__first_name')
     
-    if selected_section_id:
-        students_queryset = students_queryset.filter(section_id=selected_section_id)
+    # Get all assessments for teacher's subjects
+    assessments = Assessment.objects.filter(
+        subject__teacher=teacher_profile
+    ).select_related('subject', 'created_by').order_by('-date', 'category', 'name')
     
-    # Get statistics
-    total_grades = grades_queryset.count()
-    avg_grade = grades_queryset.aggregate(Avg('grade'))['grade__avg'] or 0
+    # Get all assessment scores
+    assessment_scores = AssessmentScore.objects.filter(
+        assessment__subject__teacher=teacher_profile
+    ).select_related('student', 'assessment', 'recorded_by')
+    
+    # Get category weights for each subject
+    category_weights_dict = {}
+    for subject in subjects:
+        try:
+            weights = CategoryWeights.objects.get(subject=subject)
+            category_weights_dict[subject.id] = {
+                'Activities': weights.activities_weight,
+                'Quizzes': weights.quizzes_weight,
+                'Projects': weights.projects_weight,
+                'Exams': weights.exams_weight,
+            }
+        except CategoryWeights.DoesNotExist:
+            # Default weights if not set
+            category_weights_dict[subject.id] = {
+                'Activities': 20,
+                'Quizzes': 20,
+                'Projects': 30,
+                'Exams': 30,
+            }
+    
+    # Get audit logs
+    audit_logs = AuditLog.objects.filter(
+        user=request.user
+    ).select_related('student', 'assessment').order_by('-timestamp')[:50]
+    
+    # Get unique subject names
+    all_subjects = list(subjects.values_list('name', flat=True).distinct())
+    
+    # Get unique section names
+    sections_array = list(sections.values_list('name', flat=True))
+    
+    # Prepare data for JSON serialization
+    students_data = []
+    for student in students:
+        students_data.append({
+            'id': student.id,
+            'name': student.user.get_full_name() or student.user.username,
+            'email': student.user.email,
+            'section': student.section.name if student.section else None,
+        })
+    
+    assessments_data = []
+    # Map subject names to IDs for category weights lookup - populate from all subjects
+    subject_name_to_id = {}
+    for subject in subjects:
+        subject_name_to_id[subject.name] = subject.id
+    
+    for assessment in assessments:
+        assessments_data.append({
+            'id': assessment.id,
+            'name': assessment.name,
+            'category': assessment.category,
+            'subject': assessment.subject.name,
+            'subjectId': assessment.subject.id,
+            'maxScore': float(assessment.max_score),
+            'date': assessment.date.strftime('%Y-%m-%d'),
+            'term': assessment.term,
+        })
+    
+    scores_data = []
+    for score in assessment_scores:
+        scores_data.append({
+            'id': score.id,
+            'studentId': score.student.id,
+            'assessmentId': score.assessment.id,
+            'score': float(score.score),
+        })
+    
+    audit_logs_data = []
+    for log in audit_logs:
+        audit_logs_data.append({
+            'id': log.id,
+            'action': log.action,
+            'details': log.details,
+            'user': log.user.get_full_name() or log.user.username,
+            'timestamp': log.timestamp.strftime('%Y-%m-%d %I:%M %p'),
+        })
     
     context = {
-        'grades': grades_queryset,
+        'teacher_profile': teacher_profile,
         'subjects': subjects,
         'sections': sections,
-        'students': students_queryset,
-        'selected_section_id': selected_section_id,
-        'selected_subject_id': selected_subject_id,
-        'total_grades': total_grades,
-        'avg_grade': round(avg_grade, 2),
-        'teacher_profile': teacher_profile,
-        'term_choices': ['Prelim', 'Midterm', 'Semi-Final', 'Final'],
+        'students_json': json.dumps(students_data),
+        'assessments_json': json.dumps(assessments_data),
+        'scores_json': json.dumps(scores_data),
+        'category_weights_json': json.dumps(category_weights_dict),
+        'subject_name_to_id_json': json.dumps(subject_name_to_id),
+        'audit_logs_json': json.dumps(audit_logs_data),
+        'all_subjects_json': json.dumps(all_subjects),
+        'sections_array_json': json.dumps(sections_array),
     }
     return render(request, 'teachers/grades.html', context)
+
+@login_required
+@require_http_methods(["POST"])
+def add_assessment(request):
+    """AJAX endpoint to add a new assessment"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Teacher profile not found'}, status=404)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        # Get subject
+        try:
+            subject = Subject.objects.get(id=data.get('subject_id'), teacher=teacher_profile)
+        except Subject.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Subject not found'}, status=404)
+        
+        # Check for duplicate assessment name in the same subject
+        assessment_name = data.get('name', '').strip()
+        if Assessment.objects.filter(subject=subject, name=assessment_name).exists():
+            return JsonResponse({
+                'success': False,
+                'error': f'An assessment with the name "{assessment_name}" already exists for this subject.'
+            }, status=400)
+        
+        # Create assessment
+        assessment = Assessment.objects.create(
+            name=data.get('name'),
+            category=data.get('category'),
+            subject=subject,
+            max_score=data.get('max_score'),
+            date=data.get('date'),
+            term=data.get('term', 'Midterm'),
+            created_by=teacher_profile
+        )
+        
+        # Create audit log
+        AuditLog.objects.create(
+            user=request.user,
+            action='Assessment Added',
+            details=f'Created new assessment: {assessment.name} ({assessment.category})',
+            assessment=assessment
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'assessment_id': assessment.id,
+            'message': 'Assessment added successfully'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+@login_required
+@require_http_methods(["POST"])
+def update_score(request):
+    """AJAX endpoint to update or create an assessment score"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Teacher profile not found'}, status=404)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        student_id = data.get('student_id')
+        assessment_id = data.get('assessment_id')
+        score_value = data.get('score')
+        
+        # Validate required fields
+        if not student_id or not assessment_id:
+            return JsonResponse({'success': False, 'error': 'Student ID and Assessment ID are required'}, status=400)
+        
+        # Get student and assessment
+        try:
+            student = StudentProfile.objects.get(id=student_id)
+            assessment = Assessment.objects.get(id=assessment_id, subject__teacher=teacher_profile)
+        except (StudentProfile.DoesNotExist, Assessment.DoesNotExist):
+            return JsonResponse({'success': False, 'error': 'Student or Assessment not found'}, status=404)
+        
+        # Validate score if provided
+        if score_value is not None:
+            try:
+                score_value = float(score_value)
+                if score_value < 0:
+                    return JsonResponse({'success': False, 'error': 'Score cannot be negative'}, status=400)
+                if score_value > assessment.max_score:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Score cannot exceed maximum score of {assessment.max_score}'
+                    }, status=400)
+            except (ValueError, TypeError):
+                return JsonResponse({'success': False, 'error': 'Invalid score value'}, status=400)
+        
+        # Handle score deletion or update/create
+        try:
+            assessment_score = AssessmentScore.objects.get(student=student, assessment=assessment)
+            # Score exists
+            if score_value is None:
+                # Delete the score
+                assessment_score.delete()
+                action = 'Score Deleted'
+                details = f'Deleted score for {student.user.get_full_name()} - {assessment.name}'
+                score_id = None
+            else:
+                # Update existing score
+                assessment_score.score = score_value
+                assessment_score.recorded_by = teacher_profile
+                assessment_score.save()
+                action = 'Score Updated'
+                details = f'Updated score for {student.user.get_full_name()} - {assessment.name}: {score_value}/{assessment.max_score}'
+                score_id = assessment_score.id
+        except AssessmentScore.DoesNotExist:
+            # Score doesn't exist
+            if score_value is None:
+                # Nothing to delete
+                return JsonResponse({
+                    'success': True,
+                    'score_id': None,
+                    'message': 'No score to delete'
+                })
+            else:
+                # Create new score
+                assessment_score = AssessmentScore.objects.create(
+                    student=student,
+                    assessment=assessment,
+                    score=score_value,
+                    recorded_by=teacher_profile
+                )
+                action = 'Score Added'
+                details = f'Added score for {student.user.get_full_name()} - {assessment.name}: {score_value}/{assessment.max_score}'
+                score_id = assessment_score.id
+        
+        # Create audit log
+        AuditLog.objects.create(
+            user=request.user,
+            action=action,
+            details=details,
+            student=student,
+            assessment=assessment
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'score_id': score_id,
+            'message': action
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 @login_required
 def reports(request):

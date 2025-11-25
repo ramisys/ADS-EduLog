@@ -118,7 +118,7 @@
                         <div class="d-flex align-items-center gap-2">
                             <label for="term-selector" class="text-muted small mb-0">Term:</label>
                             <select id="term-selector" class="form-select form-select-sm filters-select">
-                                <option value="">Select term</option>
+                                <option value="">Overall</option>
                                 <option value="Midterm">Midterm</option>
                                 <option value="Final">Final</option>
                             </select>
@@ -131,7 +131,7 @@
                         <div class="d-flex align-items-center gap-2">
                             <label for="section-filter-gradebook" class="text-muted small mb-0">Section:</label>
                             <select id="section-filter-gradebook" class="form-select form-select-sm filters-select">
-                                <option value="all">All Sections</option>
+                                <option value="all">Select a section</option>
                                 <!-- Sections will be populated dynamically -->
                             </select>
                         </div>
@@ -140,7 +140,7 @@
                         <div class="d-flex align-items-center gap-2">
                             <label for="subject-filter" class="text-muted small mb-0">Subject:</label>
                             <select id="subject-filter" class="form-select form-select-sm filters-select">
-                                <option value="all">All Subjects</option>
+                                <option value="all">Select a subject</option>
                                 <!-- Subjects will be populated dynamically -->
                             </select>
                         </div>
@@ -660,6 +660,7 @@
 <!-- Data from Django backend (JSON format to avoid linter errors) -->
 <script type="application/json" id="sections-array-data">{{ sections_array_json|safe }}</script>
 <script type="application/json" id="all-subjects-data">{{ all_subjects_json|safe }}</script>
+<script type="application/json" id="section-to-subjects-data">{{ section_to_subjects_json|safe }}</script>
 <script type="application/json" id="category-weights-data">{{ category_weights_json|safe }}</script>
 <script type="application/json" id="subject-name-to-id-data">{{ subject_name_to_id_json|safe }}</script>
 <script type="application/json" id="students-data">{{ students_json|safe }}</script>
@@ -672,6 +673,7 @@
     // Read data from JSON script tags
     const sectionsArray = JSON.parse(document.getElementById('sections-array-data').textContent);
     const allSubjects = JSON.parse(document.getElementById('all-subjects-data').textContent);
+    const sectionToSubjects = JSON.parse(document.getElementById('section-to-subjects-data').textContent);
     const categoryWeightsBySubjectId = JSON.parse(document.getElementById('category-weights-data').textContent);
     const subjectNameToId = JSON.parse(document.getElementById('subject-name-to-id-data').textContent);
     const allStudents = JSON.parse(document.getElementById('students-data').textContent);
@@ -760,7 +762,7 @@
         const sectionSelect = document.getElementById('section-filter-gradebook');
         const subjectSelect = document.getElementById('subject-filter');
 
-        // Populate sections
+        // Populate sections (only sections where teacher teaches)
         sectionsArray.forEach(section => {
             const option = document.createElement('option');
             option.value = section;
@@ -768,13 +770,44 @@
             sectionSelect.appendChild(option);
         });
 
-        // Populate subjects
-        allSubjects.forEach(subject => {
-            const option = document.createElement('option');
-            option.value = subject;
-            option.textContent = subject;
-            subjectSelect.appendChild(option);
-        });
+        // Subjects will be populated dynamically based on selected section
+        updateSubjectFilter();
+    }
+    
+    // Update subject filter based on selected section
+    function updateSubjectFilter() {
+        const subjectSelect = document.getElementById('subject-filter');
+        const currentValue = subjectSelect.value;
+        
+        // Clear existing options except "Select a subject"
+        subjectSelect.innerHTML = '<option value="all">Select a subject</option>';
+        
+        // If a section is selected, only show subjects for that section
+        if (selectedSectionFilter !== 'all' && sectionToSubjects[selectedSectionFilter]) {
+            const subjectsForSection = sectionToSubjects[selectedSectionFilter];
+            subjectsForSection.forEach(subject => {
+                const option = document.createElement('option');
+                option.value = subject;
+                option.textContent = subject;
+                subjectSelect.appendChild(option);
+            });
+        } else {
+            // If no section selected or "all", show all teacher's subjects
+            allSubjects.forEach(subject => {
+                const option = document.createElement('option');
+                option.value = subject;
+                option.textContent = subject;
+                subjectSelect.appendChild(option);
+            });
+        }
+        
+        // Restore previous selection if it's still valid
+        if (currentValue && Array.from(subjectSelect.options).some(opt => opt.value === currentValue)) {
+            subjectSelect.value = currentValue;
+        } else {
+            subjectSelect.value = 'all';
+            selectedSubject = 'all';
+        }
     }
 
     // Update clear filters button visibility
@@ -855,6 +888,7 @@
 
         document.getElementById('section-filter-gradebook').addEventListener('change', function(e) {
             selectedSectionFilter = e.target.value;
+            updateSubjectFilter(); // Update subject filter when section changes
             updateClearFiltersButton();
             applyFilters();
         });
@@ -1734,10 +1768,20 @@
     function openAddAssessmentModal(category) {
         document.getElementById('assessmentCategory').value = category;
         
-        // Populate subject dropdown
+        // Populate subject dropdown - only show subjects for selected section (if section is selected)
         const subjectSelect = document.getElementById('assessmentSubject');
         subjectSelect.innerHTML = '<option value="">Select subject</option>';
-        allSubjects.forEach(subject => {
+        
+        let subjectsToShow = [];
+        if (selectedSectionFilter !== 'all' && sectionToSubjects[selectedSectionFilter]) {
+            // Show only subjects for the selected section
+            subjectsToShow = sectionToSubjects[selectedSectionFilter];
+        } else {
+            // Show all teacher's subjects if no section is selected
+            subjectsToShow = allSubjects;
+        }
+        
+        subjectsToShow.forEach(subject => {
             const option = document.createElement('option');
             option.value = subject;
             option.textContent = subject;

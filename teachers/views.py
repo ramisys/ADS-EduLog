@@ -530,10 +530,10 @@ def grades(request):
         user=request.user
     ).select_related('student', 'assessment').order_by('-timestamp')[:50]
     
-    # Get unique subject names
+    # Get unique subject names (only teacher's subjects)
     all_subjects = list(subjects.values_list('name', flat=True).distinct())
     
-    # Get unique section names
+    # Get unique section names (only sections where teacher teaches)
     sections_array = list(sections.values_list('name', flat=True))
     
     # Prepare data for JSON serialization
@@ -545,6 +545,15 @@ def grades(request):
             'email': student.user.email,
             'section': student.section.name if student.section else None,
         })
+    
+    # Create mapping of section to subjects for that section
+    section_to_subjects = {}
+    for subject in subjects:
+        section_name = subject.section.name
+        if section_name not in section_to_subjects:
+            section_to_subjects[section_name] = []
+        if subject.name not in section_to_subjects[section_name]:
+            section_to_subjects[section_name].append(subject.name)
     
     assessments_data = []
     # Map subject names to IDs for category weights lookup - populate from all subjects
@@ -595,6 +604,7 @@ def grades(request):
         'audit_logs_json': json.dumps(audit_logs_data),
         'all_subjects_json': json.dumps(all_subjects),
         'sections_array_json': json.dumps(sections_array),
+        'section_to_subjects_json': json.dumps(section_to_subjects),
     }
     return render(request, 'teachers/grades.html', context)
 

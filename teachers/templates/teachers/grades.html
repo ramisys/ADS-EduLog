@@ -1069,6 +1069,7 @@
         if (weightsModal) {
             weightsModal.addEventListener('show.bs.modal', function() {
                 // Reset temp weights to current weights when modal opens
+                const categoryWeights = getCategoryWeights();
                 tempCategoryWeights = { ...categoryWeights };
                 renderWeightsConfiguration();
             });

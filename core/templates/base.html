@@ -19,50 +19,6 @@
     <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
 
     {% block extra_css %}{% endblock %}
-    
-    <style>
-        /* Toast Notification Styles */
-        .toast-container {
-            min-width: 300px;
-            max-width: 400px;
-        }
-        
-        .toast {
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            margin-bottom: 0.75rem;
-        }
-        
-        .toast-header {
-            border-radius: 8px 8px 0 0;
-            font-weight: 600;
-            padding: 0.75rem 1rem;
-        }
-        
-        .toast-body {
-            padding: 0.75rem 1rem;
-            font-size: 0.95rem;
-            line-height: 1.5;
-        }
-        
-        /* Ensure toasts appear above other content */
-        #toastContainer {
-            pointer-events: none;
-        }
-        
-        #toastContainer .toast {
-            pointer-events: auto;
-        }
-        
-        /* Animation improvements */
-        .toast:not(.show) {
-            opacity: 0;
-        }
-        
-        .toast.show {
-            opacity: 1;
-        }
-    </style>
 </head>
 
 <body>
@@ -421,170 +377,25 @@
 
     <!-- Custom JS -->
     <script src="{% static 'core/js/main.js' %}"></script>
+    <script src="{% static 'core/js/toast.js' %}"></script>
+    <script src="{% static 'core/js/base.js' %}"></script>
 
+    <!-- Convert Django messages to toasts on page load -->
+    {% if messages %}
     <script>
-        lucide.createIcons();
-
-        // Bootstrap Toast Notification System - Global Function
-        window.showToast = function(message, type = 'info', duration = 5000) {
-            const toastContainer = document.getElementById('toastContainer');
-            if (!toastContainer) return;
-
-            // Map message types to Bootstrap toast classes
-            const toastClasses = {
-                'success': 'bg-success text-white',
-                'error': 'bg-danger text-white',
-                'warning': 'bg-warning text-dark',
-                'info': 'bg-info text-white',
-                'debug': 'bg-secondary text-white'
-            };
-
-            // Map message types to icons
-            const toastIcons = {
-                'success': '<i class="bi bi-check-circle-fill me-2"></i>',
-                'error': '<i class="bi bi-exclamation-triangle-fill me-2"></i>',
-                'warning': '<i class="bi bi-exclamation-circle-fill me-2"></i>',
-                'info': '<i class="bi bi-info-circle-fill me-2"></i>',
-                'debug': '<i class="bi bi-bug-fill me-2"></i>'
-            };
-
-            // Normalize type (Django uses 'error', Bootstrap uses 'danger')
-            const normalizedType = type === 'error' ? 'error' : type;
-            const toastClass = toastClasses[normalizedType] || toastClasses['info'];
-            const toastIcon = toastIcons[normalizedType] || toastIcons['info'];
-
-            // Create unique toast ID
-            const toastId = 'toast-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-
-            // Create toast HTML
-            const toastHTML = `
-                <div id="${toastId}" class="toast ${toastClass}" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="${duration}">
-                    <div class="toast-header ${toastClass} border-0">
-                        ${toastIcon}
-                        <strong class="me-auto">${type.charAt(0).toUpperCase() + type.slice(1)}</strong>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-                    </div>
-                    <div class="toast-body">
-                        ${message}
-                    </div>
-                </div>
-            `;
-
-            // Insert toast
-            toastContainer.insertAdjacentHTML('beforeend', toastHTML);
-
-            // Initialize and show toast
-            const toastElement = document.getElementById(toastId);
-            const toast = new bootstrap.Toast(toastElement, {
-                autohide: true,
-                delay: duration
-            });
-
-            toast.show();
-
-            // Remove toast element from DOM after it's hidden
-            toastElement.addEventListener('hidden.bs.toast', function() {
-                toastElement.remove();
-            });
-        }
-
-        // Convert Django messages to toasts on page load
         document.addEventListener('DOMContentLoaded', function() {
-            {% if messages %}
-                {% for message in messages %}
+            {% for message in messages %}
+                if (typeof showToast === 'function') {
                     showToast(
                         '{{ message|escapejs }}',
                         '{{ message.tags|default:"info" }}',
                         {% if message.tags == 'error' %}7000{% else %}5000{% endif %}
                     );
-                {% endfor %}
-            {% endif %}
+                }
+            {% endfor %}
         });
-
-        function toggleMobileMenu() {
-            document.getElementById("mobileMenu").classList.toggle("d-none");
-        }
-
-        const sidebar = document.getElementById("sidebar");
-        const overlay = document.getElementById("overlay");
-        const openSidebarBtn = document.getElementById("openSidebarBtn");
-        const closeSidebarBtn = document.getElementById("closeSidebarBtn");
-
-        // Check if we're on mobile
-        function isMobile() {
-            return window.innerWidth < 768;
-        }
-        
-        // Check if we're on tablet
-        function isTablet() {
-            return window.innerWidth >= 768 && window.innerWidth < 992;
-        }
-        
-        // Check if we're on desktop
-        function isDesktop() {
-            return window.innerWidth >= 992;
-        }
-
-        // Only allow sidebar toggle on mobile (if sidebar exists)
-        if (sidebar && openSidebarBtn) {
-            openSidebarBtn.onclick = () => {
-                if (isMobile()) {
-                    sidebar.style.transform = "translateX(0)";
-                    if (overlay) overlay.style.display = "block";
-                }
-            };
-        }
-
-        if (sidebar && closeSidebarBtn) {
-            closeSidebarBtn.onclick = () => {
-                if (isMobile()) {
-                    sidebar.style.transform = "translateX(-100%)";
-                    if (overlay) overlay.style.display = "none";
-                }
-            };
-        }
-
-        if (sidebar && overlay) {
-            overlay.onclick = () => {
-                if (isMobile()) {
-                    sidebar.style.transform = "translateX(-100%)";
-                    overlay.style.display = "none";
-                }
-            };
-        }
-
-        // Handle window resize - ensure sidebar behaves correctly (if sidebar exists)
-        if (sidebar) {
-            function handleResize() {
-                const width = window.innerWidth;
-                if (width >= 768) {
-                    // Tablet and Desktop: Remove inline transform style to let CSS take over
-                    sidebar.style.removeProperty('transform');
-                    if (overlay) overlay.style.display = "none";
-                } else {
-                    // Mobile: Ensure sidebar is hidden if not explicitly opened
-                    if (!sidebar.classList.contains('open')) {
-                        sidebar.style.transform = "translateX(-100%)";
-                    }
-                    if (overlay) overlay.style.display = sidebar.classList.contains('open') ? "block" : "none";
-                }
-            }
-            
-            window.addEventListener('resize', handleResize);
-
-            // Ensure sidebar behaves correctly on page load
-            const width = window.innerWidth;
-            if (width >= 768) {
-                // Tablet and Desktop: Remove any inline transform style to let CSS !important rule take over
-                sidebar.style.removeProperty('transform');
-                if (overlay) overlay.style.display = "none";
-            } else {
-                // Mobile: Ensure sidebar starts hidden
-                sidebar.style.transform = "translateX(-100%)";
-                if (overlay) overlay.style.display = "none";
-            }
-        }
     </script>
+    {% endif %}
 
     {% block extra_js %}{% endblock %}
 </body>

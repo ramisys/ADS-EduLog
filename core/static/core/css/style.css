@@ -533,7 +533,7 @@ button.avatar.dropdown-toggle,
     padding: 8px 0;
     margin-top: 8px;
     min-width: 220px;
-    z-index: 1000;
+    z-index: 1050 !important;
 }
 
 .dropdown-item {

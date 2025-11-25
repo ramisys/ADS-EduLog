@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Q
 from django.db import transaction
 from django.utils import timezone
+from django.urls import reverse
 from datetime import timedelta
 from decimal import Decimal
 import logging
@@ -424,7 +425,7 @@ def attendance(request):
                     except (StudentProfile.DoesNotExist, ValueError):
                         pass
             
-            return redirect('teachers:attendance?subject=' + str(selected_subject_id))
+            return redirect(reverse('teachers:attendance') + '?subject=' + str(selected_subject_id) + '&saved=true')
         except Subject.DoesNotExist:
             pass
     

@@ -43,7 +43,7 @@
                         {% with student=item.student status=item.attendance_status %}
                         <div class="d-flex justify-content-between align-items-center p-3 border rounded">
                             <div class="d-flex align-items-center gap-3">
-                                <div class="bg-primary bg-opacity-25 p-2 rounded-circle">
+                                <div class="bg-primary bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; flex-shrink: 0;">
                                     <i class="bi bi-person-fill text-primary"></i>
                                 </div>
                                 <div>
@@ -98,40 +98,144 @@
     </div>
 </div>
 
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+    <div id="toastContainer"></div>
+</div>
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Attach event listeners to all status buttons
-    document.querySelectorAll('[data-status]').forEach(function(button) {
-        button.addEventListener('click', function() {
-            const container = this.closest('[data-student-id]');
-            const studentId = container.getAttribute('data-student-id');
-            const status = this.getAttribute('data-status');
-            
-            // Reset all buttons for this student
-            const buttons = container.querySelectorAll('button');
-            const hiddenInput = document.getElementById('status_' + studentId);
-            
-            buttons.forEach(function(btn) {
-                const statusType = btn.getAttribute('data-status');
-                btn.className = 'btn btn-sm btn-outline-' + 
-                    (statusType === 'present' ? 'success' : 
-                     statusType === 'late' ? 'warning' : 'danger');
-                if (statusType === 'late') {
-                    btn.classList.remove('text-white');
+    // Toast notification helper function
+    function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer');
+        const toastId = 'toast-' + Date.now();
+        
+        // Toast type configurations
+        const toastConfig = {
+            success: {
+                bgClass: 'bg-success',
+                icon: 'bi-check-circle-fill',
+                title: 'Success'
+            },
+            error: {
+                bgClass: 'bg-danger',
+                icon: 'bi-x-circle-fill',
+                title: 'Error'
+            },
+            warning: {
+                bgClass: 'bg-warning',
+                icon: 'bi-exclamation-triangle-fill',
+                title: 'Warning'
+            },
+            info: {
+                bgClass: 'bg-info',
+                icon: 'bi-info-circle-fill',
+                title: 'Info'
+            }
+        };
+        
+        const config = toastConfig[type] || toastConfig.info;
+        
+        const toastHtml = `
+            <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="5000">
+                <div class="toast-header ${config.bgClass} text-white">
+                    <i class="bi ${config.icon} me-2"></i>
+                    <strong class="me-auto">${config.title}</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        `;
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement);
+        toast.show();
+        
+        // Remove toast element after it's hidden
+        toastElement.addEventListener('hidden.bs.toast', function() {
+            toastElement.remove();
+        });
+    }
+
+    // Check for URL parameters to show success message
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('saved') === 'true') {
+            showToast('Attendance saved successfully!', 'success');
+            // Clean URL by removing the parameter
+            const newUrl = window.location.pathname + (urlParams.get('subject') ? '?subject=' + urlParams.get('subject') : '');
+            window.history.replaceState({}, '', newUrl);
+        }
+        
+        // Attach event listeners to all status buttons
+        document.querySelectorAll('[data-status]').forEach(function(button) {
+            button.addEventListener('click', function() {
+                const container = this.closest('[data-student-id]');
+                const studentId = container.getAttribute('data-student-id');
+                const status = this.getAttribute('data-status');
+                
+                // Reset all buttons for this student
+                const buttons = container.querySelectorAll('button');
+                const hiddenInput = document.getElementById('status_' + studentId);
+                
+                buttons.forEach(function(btn) {
+                    const statusType = btn.getAttribute('data-status');
+                    btn.className = 'btn btn-sm btn-outline-' + 
+                        (statusType === 'present' ? 'success' : 
+                         statusType === 'late' ? 'warning' : 'danger');
+                    if (statusType === 'late') {
+                        btn.classList.remove('text-white');
+                    }
+                });
+                
+                // Activate selected button
+                this.className = 'btn btn-sm btn-' + 
+                    (status === 'present' ? 'success' : 
+                     status === 'late' ? 'warning text-white' : 'danger');
+                
+                // Update hidden input
+                if (hiddenInput) {
+                    hiddenInput.value = status;
                 }
             });
-            
-            // Activate selected button
-            this.className = 'btn btn-sm btn-' + 
-                (status === 'present' ? 'success' : 
-                 status === 'late' ? 'warning text-white' : 'danger');
-            
-            // Update hidden input
-            if (hiddenInput) {
-                hiddenInput.value = status;
-            }
         });
+        
+        // Show success toast when form is submitted successfully
+        const form = document.querySelector('form[method="POST"]');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                // Check if at least one student has a status selected
+                const hasStatus = Array.from(document.querySelectorAll('input[id^="status_"]')).some(input => input.value);
+                if (!hasStatus) {
+                    e.preventDefault();
+                    showToast('Please mark attendance for at least one student.', 'warning');
+                    return false;
+                }
+            });
+        }
     });
-});
 </script>
+
+<style>
+    .toast-container {
+        min-width: 300px;
+        max-width: 400px;
+    }
+
+    .toast {
+        margin-bottom: 0.5rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    .toast-header {
+        font-weight: 500;
+    }
+
+    .toast-body {
+        padding: 0.75rem;
+        font-size: 0.875rem;
+    }
+</style>
 {% endblock %}

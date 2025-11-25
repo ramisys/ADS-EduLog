@@ -13,5 +13,6 @@ urlpatterns = [
     path('grades/', views.grades, name='grades'),
     path('add-assessment/', views.add_assessment, name='add_assessment'),
     path('update-score/', views.update_score, name='update_score'),
+    path('update-category-weights/', views.update_category_weights, name='update_category_weights'),
     path('reports/', views.reports, name='reports'),
 ]

@@ -1,8 +1,11 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Q
+from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
+import logging
 from core.models import (
     TeacherProfile, Subject, ClassSection, StudentProfile, Attendance, Grade, Notification,
     Assessment, AssessmentScore, CategoryWeights, AuditLog
@@ -10,6 +13,8 @@ from core.models import (
 from django.http import JsonResponse
 import json
 from django.views.decorators.http import require_http_methods
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def dashboard(request):
@@ -650,6 +655,121 @@ def add_assessment(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
+def recalculate_all_grades_for_subject(subject, term=None):
+    """
+    Recalculate grades for all students in a subject's section.
+    
+    Args:
+        subject: Subject instance
+        term: 'Midterm', 'Final', or None (both)
+    """
+    try:
+        students = StudentProfile.objects.filter(section=subject.section)
+        terms_to_process = [term] if term else ['Midterm', 'Final']
+        
+        for student in students:
+            for t in terms_to_process:
+                try:
+                    calculate_and_update_grade(student, subject, t)
+                except Exception as e:
+                    logger.error(f"Error recalculating grade for student {student.id}, subject {subject.id}, term {t}: {str(e)}", exc_info=True)
+    except Exception as e:
+        logger.error(f"Error in recalculate_all_grades_for_subject: {str(e)}", exc_info=True)
+
+def calculate_and_update_grade(student, subject, term='Midterm'):
+    """
+    Calculate weighted final grade for a student in a subject for a specific term
+    and update/create the Grade record in the database.
+    
+    Args:
+        student: StudentProfile instance
+        subject: Subject instance
+        term: 'Midterm' or 'Final'
+    
+    Returns:
+        float: The calculated grade, or None if no assessments exist
+    """
+    try:
+        # Get category weights for this subject
+        try:
+            weights = CategoryWeights.objects.get(subject=subject)
+            category_weights = {
+                'Activities': weights.activities_weight,
+                'Quizzes': weights.quizzes_weight,
+                'Projects': weights.projects_weight,
+                'Exams': weights.exams_weight,
+            }
+        except CategoryWeights.DoesNotExist:
+            # Use default weights if not set
+            category_weights = {
+                'Activities': 20,
+                'Quizzes': 20,
+                'Projects': 30,
+                'Exams': 30,
+            }
+        
+        # Get all assessments for this subject and term
+        assessments = Assessment.objects.filter(subject=subject, term=term)
+        
+        if not assessments.exists():
+            # No assessments for this term, delete grade if exists
+            Grade.objects.filter(student=student, subject=subject, term=term).delete()
+            return None
+        
+        # Calculate weighted average for each category
+        total_weighted = 0
+        total_weight = 0
+        
+        for category in ['Activities', 'Quizzes', 'Projects', 'Exams']:
+            category_assessments = assessments.filter(category=category)
+            if not category_assessments.exists():
+                continue
+            
+            # Get all scores for this category
+            category_scores = AssessmentScore.objects.filter(
+                student=student,
+                assessment__in=category_assessments
+            )
+            
+            if not category_scores.exists():
+                continue
+            
+            # Calculate category average
+            # Convert Decimal to float for calculations
+            total_score = float(sum(float(score.score) for score in category_scores))
+            total_max = float(sum(float(assessment.max_score) for assessment in category_assessments))
+            
+            if total_max > 0:
+                category_average = (total_score / total_max) * 100.0
+                weight = float(category_weights[category]) / 100.0
+                total_weighted += category_average * weight
+                total_weight += weight
+        
+        # Calculate final grade
+        if total_weight > 0:
+            final_grade = round(total_weighted / total_weight, 2)
+            
+            # Update or create Grade record within a transaction
+            with transaction.atomic():
+                grade, created = Grade.objects.update_or_create(
+                    student=student,
+                    subject=subject,
+                    term=term,
+                    defaults={'grade': Decimal(str(final_grade))}
+                )
+                # Explicitly save to ensure it's persisted
+                grade.save()
+            
+            return final_grade
+        else:
+            # No valid scores, delete grade if exists
+            Grade.objects.filter(student=student, subject=subject, term=term).delete()
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error calculating grade for {student.user.get_full_name()} - {subject.code} ({term}): {str(e)}")
+        return None
+
 @login_required
 @require_http_methods(["POST"])
 def update_score(request):
@@ -716,7 +836,14 @@ def update_score(request):
         except AssessmentScore.DoesNotExist:
             # Score doesn't exist
             if score_value is None:
-                # Nothing to delete
+                # Nothing to delete, but still recalculate grades in case other scores changed
+                # Calculate and update grades for both Midterm and Final terms
+                try:
+                    calculate_and_update_grade(student, assessment.subject, 'Midterm')
+                    calculate_and_update_grade(student, assessment.subject, 'Final')
+                except Exception as grade_error:
+                    logger.error(f"Error calculating grades: {str(grade_error)}")
+                
                 return JsonResponse({
                     'success': True,
                     'score_id': None,
@@ -743,12 +870,93 @@ def update_score(request):
             assessment=assessment
         )
         
+        # Calculate and update grades for both Midterm and Final terms
+        # Recalculate for ALL students in the subject's section, not just this student
+        # This ensures all grades are consistent
+        try:
+            recalculate_all_grades_for_subject(assessment.subject, term=None)
+        except Exception as grade_error:
+            logger.error(f"Error calculating grades after score update: {str(grade_error)}", exc_info=True)
+        
         return JsonResponse({
             'success': True,
             'score_id': score_id,
             'message': action
         })
     except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+@login_required
+@require_http_methods(["POST"])
+def update_category_weights(request):
+    """AJAX endpoint to update category weights for a subject"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Teacher profile not found'}, status=404)
+    
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        subject_id = data.get('subject_id')
+        weights = data.get('weights', {})
+        
+        if not subject_id:
+            return JsonResponse({'success': False, 'error': 'Subject ID is required'}, status=400)
+        
+        # Get subject
+        try:
+            subject = Subject.objects.get(id=subject_id, teacher=teacher_profile)
+        except Subject.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Subject not found'}, status=404)
+        
+        # Validate weights
+        activities_weight = int(weights.get('Activities', 20))
+        quizzes_weight = int(weights.get('Quizzes', 20))
+        projects_weight = int(weights.get('Projects', 30))
+        exams_weight = int(weights.get('Exams', 30))
+        
+        total = activities_weight + quizzes_weight + projects_weight + exams_weight
+        if total != 100:
+            return JsonResponse({
+                'success': False,
+                'error': f'Category weights must total 100%. Current total: {total}%'
+            }, status=400)
+        
+        # Update or create category weights
+        category_weights, created = CategoryWeights.objects.update_or_create(
+            subject=subject,
+            defaults={
+                'activities_weight': activities_weight,
+                'quizzes_weight': quizzes_weight,
+                'projects_weight': projects_weight,
+                'exams_weight': exams_weight,
+            }
+        )
+        
+        # Recalculate grades for ALL students in this subject's section
+        try:
+            recalculate_all_grades_for_subject(subject, term=None)
+        except Exception as grade_error:
+            logger.error(f"Error recalculating grades after weight update: {str(grade_error)}", exc_info=True)
+        
+        # Create audit log
+        AuditLog.objects.create(
+            user=request.user,
+            action='Category Weights Updated',
+            details=f'Updated category weights for {subject.code}: Activities {activities_weight}%, Quizzes {quizzes_weight}%, Projects {projects_weight}%, Exams {exams_weight}%'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Category weights updated successfully'
+        })
+    except Exception as e:
+        logger.error(f"Error updating category weights: {str(e)}", exc_info=True)
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 @login_required

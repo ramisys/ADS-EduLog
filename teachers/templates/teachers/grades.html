@@ -192,11 +192,11 @@
                                 </th>
                                 <!-- Category Columns (will be populated dynamically) -->
                                 <!-- Category headers will be inserted here -->
-                                <!-- Final Grade Column (Sticky Right) -->
-                                <th class="text-center gradebook-final-col sticky-right" style="width: 120px; background: linear-gradient(to right, #e8f5e9, #c8e6c9); border-right: 2px solid #81c784;">
+                                <!-- Overall Grade Column (Sticky Right) - Dynamic based on term filter -->
+                                <th class="text-center gradebook-overall-col sticky-right" id="overallGradeHeader" style="width: 120px; background: linear-gradient(to right, #e8f5e9, #c8e6c9); border-right: 2px solid #81c784;">
                                     <div>
-                                        <div class="text-success fw-semibold small">Final Grade</div>
-                                        <div class="text-muted small">Weighted</div>
+                                        <div class="text-success fw-semibold small" id="overallGradeTitle">Overall</div>
+                                        <div class="text-muted small" id="overallGradeSubtitle">Grade</div>
                                     </div>
                                 </th>
                             </tr>
@@ -402,7 +402,7 @@
         border-right: 2px solid #bdbdbd !important;
     }
 
-    .gradebook-final-col {
+    .gradebook-overall-col {
         position: sticky;
         right: 0;
         z-index: 30;
@@ -801,6 +801,7 @@
             filteredAssessments = [];
             
             // Show empty state in displays
+            updateOverallGradeHeader();
             updateSummaryStatistics();
             renderCategoryWeights();
             renderGradebookTable();
@@ -820,6 +821,7 @@
         });
         
         // Refresh displays
+        updateOverallGradeHeader();
         updateSummaryStatistics();
         renderCategoryWeights();
         renderGradebookTable();
@@ -1032,15 +1034,28 @@
                 // Update category weights in the dictionary
                 categoryWeightsBySubjectId[subjectId] = { ...tempCategoryWeights };
                 
-                // TODO: Save to database via AJAX
-                // fetch('/teachers/save-category-weights/', {
-                //     method: 'POST',
-                //     headers: {'Content-Type': 'application/json'},
-                //     body: JSON.stringify({
-                //         subject_id: subjectId,
-                //         weights: tempCategoryWeights
-                //     })
-                // });
+                // Save to database via AJAX
+                fetch('/teachers/update-category-weights/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        subject_id: subjectId,
+                        weights: tempCategoryWeights
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        showToast('Error updating category weights: ' + (data.error || 'Unknown error'), 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error saving category weights:', error);
+                    showToast('Error saving category weights to database', 'error');
+                });
             }
             
             // Close modal
@@ -1128,20 +1143,110 @@
         return Math.round((total / maxTotal) * 100);
     }
 
-    function getOverallFinalGrade(studentId) {
+    function getTermGrade(studentId, term) {
         const categoryWeights = getCategoryWeights();
         let totalWeighted = 0;
         let totalWeight = 0;
         
+        // Use allAssessments (not filtered) to ensure we get all assessments for the term
+        // Filter by subject if a specific subject is selected
+        let assessmentsToUse = allAssessments;
+        if (selectedSubject !== 'all' && selectedSubject) {
+            assessmentsToUse = allAssessments.filter(a => a.subject === selectedSubject);
+        }
+        
+        // Filter assessments by term
+        const termAssessments = assessmentsToUse.filter(a => a.term === term);
+        
         Object.keys(categoryWeights).forEach(category => {
-            const avg = getCategoryAverage(studentId, category, selectedSubject === 'all' ? null : selectedSubject);
-            if (avg !== null) {
-                totalWeighted += avg * (categoryWeights[category] / 100);
-                totalWeight += categoryWeights[category] / 100;
+            // Get category average for this specific term
+            let categoryAssessments = termAssessments.filter(a => a.category === category);
+            
+            if (categoryAssessments.length === 0) return;
+            
+            const scores = categoryAssessments
+                .map(a => getScore(studentId, a.id))
+                .filter(s => s !== null);
+            
+            if (scores.length === 0) return;
+            
+            const total = scores.reduce((a, b) => a + b, 0);
+            const maxTotal = categoryAssessments.reduce((a, b) => a + b.maxScore, 0);
+            
+            if (maxTotal > 0) {
+                const categoryAvg = (total / maxTotal) * 100;
+                const weight = categoryWeights[category] / 100;
+                totalWeighted += categoryAvg * weight;
+                totalWeight += weight;
             }
         });
         
-        return totalWeight > 0 ? Math.round(totalWeighted / totalWeight) : null;
+        return totalWeight > 0 ? parseFloat((totalWeighted / totalWeight).toFixed(2)) : null;
+    }
+    
+    function getMidtermGrade(studentId) {
+        return getTermGrade(studentId, 'Midterm');
+    }
+    
+    function getFinalGrade(studentId) {
+        return getTermGrade(studentId, 'Final');
+    }
+    
+    function getOverallGrade(studentId) {
+        // If a specific term is selected, return that term's grade
+        if (selectedTerm === 'Midterm') {
+            return getMidtermGrade(studentId);
+        } else if (selectedTerm === 'Final') {
+            return getFinalGrade(studentId);
+        }
+        
+        // If no term filter or "all", return average of midterm and final
+        const midtermGrade = getMidtermGrade(studentId);
+        const finalGrade = getFinalGrade(studentId);
+        
+        if (midtermGrade !== null && finalGrade !== null) {
+            // Average of midterm and final
+            return parseFloat(((midtermGrade + finalGrade) / 2).toFixed(2));
+        } else if (midtermGrade !== null) {
+            return midtermGrade;
+        } else if (finalGrade !== null) {
+            return finalGrade;
+        }
+        return null;
+    }
+    
+    // Keep old function for backward compatibility (now returns overall grade)
+    function getOverallFinalGrade(studentId) {
+        return getOverallGrade(studentId);
+    }
+    
+    // Update the Overall Grade column header based on term filter
+    function updateOverallGradeHeader() {
+        const titleElement = document.getElementById('overallGradeTitle');
+        const subtitleElement = document.getElementById('overallGradeSubtitle');
+        const headerElement = document.getElementById('overallGradeHeader');
+        
+        if (!titleElement || !subtitleElement || !headerElement) return;
+        
+        if (selectedTerm === 'Midterm') {
+            titleElement.textContent = 'Midterm';
+            subtitleElement.textContent = 'Grade';
+            headerElement.style.background = 'linear-gradient(to right, #fff3cd, #ffe69c)';
+            headerElement.style.borderRight = '2px solid #ffc107';
+            titleElement.className = 'text-warning fw-semibold small';
+        } else if (selectedTerm === 'Final') {
+            titleElement.textContent = 'Final';
+            subtitleElement.textContent = 'Grade';
+            headerElement.style.background = 'linear-gradient(to right, #d1ecf1, #bee5eb)';
+            headerElement.style.borderRight = '2px solid #17a2b8';
+            titleElement.className = 'text-info fw-semibold small';
+        } else {
+            titleElement.textContent = 'Overall';
+            subtitleElement.textContent = 'Grade';
+            headerElement.style.background = 'linear-gradient(to right, #e8f5e9, #c8e6c9)';
+            headerElement.style.borderRight = '2px solid #81c784';
+            titleElement.className = 'text-success fw-semibold small';
+        }
     }
 
     function getGradeColor(percentage) {
@@ -1300,7 +1405,7 @@
         // Find the header row and the Student th
         const thead = document.querySelector('.gradebook-table thead tr');
         const studentTh = thead.querySelector('.gradebook-student-col'); // Student column
-        const finalGradeTh = thead.querySelector('.gradebook-final-col');
+        const overallGradeTh = thead.querySelector('.gradebook-overall-col');
         
         // Remove existing category headers (if any)
         const existingCategoryHeaders = thead.querySelectorAll('.category-header');
@@ -1364,9 +1469,9 @@
             categoryHeaders.push(th);
         });
         
-        // Insert category headers after Student column, before Final Grade column
+        // Insert category headers after Student column, before Overall Grade column
         if (categoryHeaders.length > 0) {
-            finalGradeTh.before(...categoryHeaders);
+            overallGradeTh.before(...categoryHeaders);
         }
     }
 
@@ -1406,7 +1511,7 @@
         renderCategoryHeaders();
         
         filteredStudents.forEach(student => {
-            const finalGrade = getOverallFinalGrade(student.id);
+            const overallGrade = getOverallGrade(student.id);
             const tr = document.createElement('tr');
             tr.className = 'gradebook-row';
             
@@ -1498,11 +1603,11 @@
                 }
             });
             
-            // Final grade column
+            // Overall grade column
             studentCell += `
-                <td class="text-center sticky-right gradebook-final-col">
-                    ${finalGrade !== null ? `
-                        <span class="badge ${getGradeColor(finalGrade)}">${finalGrade}%</span>
+                <td class="text-center sticky-right gradebook-overall-col">
+                    ${overallGrade !== null ? `
+                        <span class="badge ${getGradeColor(overallGrade)}">${overallGrade.toFixed(2)}%</span>
                     ` : '<span class="text-muted small">—</span>'}
                 </td>
             `;
@@ -1857,11 +1962,11 @@
             { label: 'F (<60%)', min: 0, max: 59, color: 'progress-red' }
         ];
         
-        const allFinalGrades = filteredStudents.map(s => getOverallFinalGrade(s.id)).filter(g => g !== null);
+        const allOverallGrades = filteredStudents.map(s => getOverallGrade(s.id)).filter(g => g !== null);
         
         gradeRanges.forEach(range => {
-            const count = allFinalGrades.filter(g => g >= range.min && g <= range.max).length;
-            const percentage = allFinalGrades.length > 0 ? Math.round((count / allFinalGrades.length) * 100) : 0;
+            const count = allOverallGrades.filter(g => g >= range.min && g <= range.max).length;
+            const percentage = allOverallGrades.length > 0 ? Math.round((count / allOverallGrades.length) * 100) : 0;
             
             const item = document.createElement('div');
             item.className = 'performance-item';
@@ -1895,7 +2000,7 @@
         if (!student) return;
         
         const container = document.getElementById('studentDetailsContent');
-        const finalGrade = getOverallFinalGrade(student.id);
+        const overallGrade = getOverallGrade(student.id);
         
         // Count total scores recorded
         const totalScoresRecorded = Object.keys(studentScores[student.id] || {}).length;
@@ -1913,9 +2018,9 @@
                         <p class="text-muted" style="font-size: 0.7rem; margin-top: 0.25rem;">Section: ${student.section || 'N/A'}</p>
                     </div>
                     <div class="text-end">
-                        <p class="text-muted small mb-1">Final Grade</p>
-                        <span class="badge ${getGradeColor(finalGrade)}" style="font-size: 0.875rem; padding: 0.4rem 0.6rem;">
-                            ${finalGrade || 0}%
+                        <p class="text-muted small mb-1">Overall Grade</p>
+                        <span class="badge ${getGradeColor(overallGrade)}" style="font-size: 0.875rem; padding: 0.4rem 0.6rem;">
+                            ${overallGrade !== null ? overallGrade.toFixed(2) : '0.00'}%
                         </span>
                     </div>
                 </div>
@@ -2097,12 +2202,12 @@
         // Total Assessments
         document.getElementById('totalAssessments').textContent = filteredAssessments.length;
         
-        // Class Average
-        const allFinalGrades = filteredStudents.map(s => getOverallFinalGrade(s.id)).filter(g => g !== null);
-        const avg = allFinalGrades.length > 0 
-            ? Math.round(allFinalGrades.reduce((a, b) => a + b, 0) / allFinalGrades.length) 
+        // Class Average (using Overall Grade)
+        const allOverallGrades = filteredStudents.map(s => getOverallGrade(s.id)).filter(g => g !== null);
+        const avg = allOverallGrades.length > 0 
+            ? parseFloat((allOverallGrades.reduce((a, b) => a + b, 0) / allOverallGrades.length).toFixed(2))
             : 0;
-        document.getElementById('classAverage').textContent = avg + '%';
+        document.getElementById('classAverage').textContent = avg.toFixed(2) + '%';
         
         // Total Scores
         let totalScoresCount = 0;
@@ -2116,6 +2221,7 @@
     function initializePage() {
         initializeFilters();
         applyFilters(); // Apply initial filters
+        updateOverallGradeHeader();
         updateSummaryStatistics();
         renderCategoryWeights();
         renderGradebookTable();

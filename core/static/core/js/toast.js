@@ -3,138 +3,18 @@
  * Handles all toast notifications including loading toasts
  */
 
-// Loading Toast Management
-let loadingToastId = null;
-let loadingToastInstance = null;
+// Loading Toast Management - DISABLED
+// Loading toast functionality has been removed
 
-// Hide loading toast helper (defined first)
-function hideLoadingToastInternal() {
-    if (loadingToastId && loadingToastInstance) {
-        const toastElement = document.getElementById(loadingToastId);
-        if (toastElement && typeof bootstrap !== 'undefined') {
-            try {
-                loadingToastInstance.hide();
-                toastElement.addEventListener('hidden.bs.toast', function() {
-                    if (toastElement && toastElement.parentNode) {
-                        toastElement.remove();
-                    }
-                    loadingToastId = null;
-                    loadingToastInstance = null;
-                }, { once: true });
-            } catch (e) {
-                console.error('Error hiding loading toast:', e);
-                // Fallback: remove directly
-                if (toastElement && toastElement.parentNode) {
-                    toastElement.remove();
-                }
-                loadingToastId = null;
-                loadingToastInstance = null;
-            }
-        } else if (toastElement) {
-            // Bootstrap not available, remove directly
-            if (toastElement.parentNode) {
-                toastElement.remove();
-            }
-            loadingToastId = null;
-            loadingToastInstance = null;
-        }
-    }
-}
-
-// Show loading toast
+// Show loading toast - DISABLED (no-op function)
 window.showLoadingToast = function(message = 'Loading...', persistent = false) {
-    const toastContainer = document.getElementById('toastContainer');
-    if (!toastContainer) {
-        console.error('Toast container not found. Make sure toastContainer div exists in the DOM.');
-        return null;
-    }
-
-    // Check if Bootstrap is available - wait a bit if not
-    if (typeof bootstrap === 'undefined') {
-        console.warn('Bootstrap is not loaded yet, retrying in 100ms...');
-        setTimeout(function() {
-            if (typeof bootstrap !== 'undefined') {
-                showLoadingToast(message, persistent);
-            } else {
-                console.error('Bootstrap failed to load. Cannot show loading toast.');
-            }
-        }, 100);
-        return null;
-    }
-
-    // Hide any existing loading toast
-    if (loadingToastId) {
-        hideLoadingToastInternal();
-        // Wait a bit for cleanup
-        setTimeout(function() {
-            createLoadingToast(message, persistent);
-        }, 150);
-        return loadingToastId;
-    }
-
-    const result = createLoadingToast(message, persistent);
-    if (!result) {
-        console.error('Failed to create loading toast');
-    }
-    return result;
+    // Loading toast functionality has been disabled
+    return null;
 };
 
-function createLoadingToast(message, persistent) {
-    const toastContainer = document.getElementById('toastContainer');
-    
-    // Create unique toast ID
-    loadingToastId = 'loading-toast-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-
-    // Create loading toast HTML with spinner
-    const toastHTML = `
-        <div id="${loadingToastId}" class="toast bg-primary text-white" role="status" aria-live="polite" aria-atomic="true" data-bs-autohide="false">
-            <div class="toast-header bg-primary text-white border-0">
-                <div class="spinner-border spinner-border-sm me-2" role="status" style="width: 1rem; height: 1rem; border-width: 0.15em;">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <strong class="me-auto text-white">Loading</strong>
-                ${persistent ? '' : '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>'}
-            </div>
-            <div class="toast-body text-white">
-                ${message}
-            </div>
-        </div>
-    `;
-
-    // Insert toast
-    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
-
-    // Initialize and show toast
-    const toastElement = document.getElementById(loadingToastId);
-    if (toastElement && typeof bootstrap !== 'undefined') {
-        try {
-            loadingToastInstance = new bootstrap.Toast(toastElement, {
-                autohide: false
-            });
-            
-            // Use requestAnimationFrame to ensure DOM is ready
-            requestAnimationFrame(function() {
-                if (loadingToastInstance && toastElement) {
-                    loadingToastInstance.show();
-                }
-            });
-            
-            return loadingToastId;
-        } catch (e) {
-            console.error('Error showing loading toast:', e);
-            // Fallback: show immediately
-            if (toastElement) {
-                toastElement.classList.add('show');
-            }
-            return loadingToastId;
-        }
-    }
-    return null;
-}
-
-// Hide loading toast
+// Hide loading toast - DISABLED (no-op function)
 window.hideLoadingToast = function() {
-    hideLoadingToastInternal();
+    // Loading toast functionality has been disabled
 };
 
 // Bootstrap Toast Notification System - Global Function
@@ -200,161 +80,14 @@ window.showToast = function(message, type = 'info', duration = 5000) {
     });
 };
 
-// Utility function to wrap async operations with loading toast
+// Utility function to wrap async operations with loading toast - DISABLED
 window.withLoadingToast = async function(asyncFunction, loadingMessage = 'Loading...') {
-    if (typeof showLoadingToast !== 'function') {
-        console.warn('showLoadingToast not available');
-        return await asyncFunction();
-    }
-    
-    const loadingId = showLoadingToast(loadingMessage);
-    try {
-        const result = await asyncFunction();
-        if (typeof hideLoadingToast === 'function') {
-            hideLoadingToast();
-        }
-        return result;
-    } catch (error) {
-        if (typeof hideLoadingToast === 'function') {
-            hideLoadingToast();
-        }
-        throw error;
-    }
+    // Loading toast functionality has been disabled, just execute the function
+    return await asyncFunction();
 };
 
-// Auto-integrate loading toasts with form submissions and fetch requests
+// Auto-integrate loading toasts with form submissions and fetch requests - DISABLED
 function initFormLoadingToasts() {
-    // Wait for Bootstrap to be fully loaded
-    if (typeof bootstrap === 'undefined' || typeof showLoadingToast !== 'function') {
-        // Retry after a short delay
-        setTimeout(initFormLoadingToasts, 100);
-        return;
-    }
-
-    // Handle all form submissions
-    document.querySelectorAll('form').forEach(function(form) {
-        form.addEventListener('submit', function(e) {
-            // Don't show loading for forms with data-no-loading attribute
-            if (form.hasAttribute('data-no-loading')) {
-                return;
-            }
-
-            // Get submit button to disable it
-            const submitButtons = form.querySelectorAll('button[type="submit"], input[type="submit"]');
-            
-            // Show loading toast (persistent until page changes or form error)
-            const loadingId = showLoadingToast('Processing your request...', true);
-            
-            if (!loadingId) {
-                console.warn('Failed to show loading toast');
-            }
-
-            // Disable submit buttons and add spinner
-            submitButtons.forEach(function(btn) {
-                btn.disabled = true;
-                if (!btn.dataset.originalText) {
-                    btn.dataset.originalText = btn.innerHTML || btn.value || 'Submit';
-                }
-                if (btn.tagName === 'BUTTON') {
-                    const originalContent = btn.innerHTML;
-                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
-                    btn.dataset.originalContent = originalContent;
-                } else if (btn.tagName === 'INPUT') {
-                    btn.dataset.originalValue = btn.value;
-                    btn.value = 'Processing...';
-                }
-            });
-
-            // Store form reference for cleanup
-            form.dataset.loadingId = loadingId;
-
-            // Re-enable buttons and hide loading if form validation fails
-            form.addEventListener('invalid', function(e) {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
-                    hideLoadingToast();
-                    submitButtons.forEach(function(btn) {
-                        btn.disabled = false;
-                        if (btn.tagName === 'BUTTON') {
-                            btn.innerHTML = btn.dataset.originalText || 'Submit';
-                        } else if (btn.tagName === 'INPUT') {
-                            btn.value = btn.dataset.originalValue || 'Submit';
-                        }
-                    });
-                    form.removeAttribute('data-loading-id');
-                }
-            }, true); // Use capture phase
-
-            // Cleanup on page unload/navigation
-            const cleanup = function() {
-                hideLoadingToast();
-                submitButtons.forEach(function(btn) {
-                    btn.disabled = false;
-                    if (btn.tagName === 'BUTTON') {
-                        btn.innerHTML = btn.dataset.originalText || 'Submit';
-                    } else if (btn.tagName === 'INPUT') {
-                        btn.value = btn.dataset.originalValue || 'Submit';
-                    }
-                });
-                form.removeAttribute('data-loading-id');
-            };
-
-            window.addEventListener('beforeunload', cleanup, { once: true });
-            
-            // Also cleanup after a timeout as fallback (in case form doesn't navigate)
-            setTimeout(function() {
-                if (form.dataset.loadingId) {
-                    cleanup();
-                }
-            }, 30000); // 30 seconds max
-        });
-    });
-
-    // Wrapper for fetch with automatic loading toast
-    const originalFetch = window.fetch;
-    window.fetch = function(...args) {
-        // Check if this fetch should show loading
-        // Skip loading if 'X-No-Loading' header is set or 'noLoading' option is true
-        const options = args[1] || {};
-        const headers = options.headers || {};
-        const shouldShowLoading = !options.noLoading && 
-            !(headers['X-No-Loading'] || headers['x-no-loading']);
-
-        let loadingId = null;
-        if (shouldShowLoading && typeof showLoadingToast === 'function') {
-            loadingId = showLoadingToast(options.loadingMessage || 'Loading...', false);
-        }
-
-        // Call original fetch
-        const fetchPromise = originalFetch.apply(this, args);
-        
-        // Hide loading when fetch completes (success or error)
-        fetchPromise
-            .then(function(response) {
-                if (loadingId && typeof hideLoadingToast === 'function') {
-                    // Small delay to ensure the toast was visible
-                    setTimeout(function() {
-                        hideLoadingToast();
-                    }, 300);
-                }
-                return response;
-            })
-            .catch(function(error) {
-                if (loadingId && typeof hideLoadingToast === 'function') {
-                    setTimeout(function() {
-                        hideLoadingToast();
-                    }, 300);
-                }
-                throw error;
-            });
-
-        return fetchPromise;
-    };
-}
-
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initFormLoadingToasts);
-} else {
-    // DOM already loaded
-    initFormLoadingToasts();
+    // Loading toast functionality has been disabled
+    // This function does nothing now
 }

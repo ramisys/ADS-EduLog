@@ -1766,6 +1766,13 @@
 
     // Add Assessment Modal
     function openAddAssessmentModal(category) {
+        // Reset button state when opening modal
+        const submitBtn = document.getElementById('addAssessmentSubmitBtn');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-plus me-1"></i>Add Assessment';
+        }
+        
         document.getElementById('assessmentCategory').value = category;
         
         // Populate subject dropdown - only show subjects for selected section (if section is selected)
@@ -1807,6 +1814,15 @@
         const maxScore = parseFloat(formData.get('maxScore'));
         const date = formData.get('date');
         const term = formData.get('term');
+        
+        // Get submit button and disable it during submission
+        const submitBtn = document.getElementById('addAssessmentSubmitBtn');
+        if (!submitBtn) {
+            console.error('Submit button not found');
+            return;
+        }
+        
+        const originalBtnText = submitBtn.innerHTML;
         
         // Validate required fields
         if (!name || !subject || !maxScore || !date) {
@@ -1854,6 +1870,10 @@
             return;
         }
         
+        // Disable button and show loading state
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Adding...';
+        
         // Submit via AJAX
         fetch('{% url "teachers:add_assessment" %}', {
             method: 'POST',
@@ -1872,6 +1892,10 @@
         })
         .then(response => response.json())
         .then(data => {
+            // Re-enable button
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+            
             if (data.success) {
                 // Add new assessment to allAssessments
                 allAssessments.push({
@@ -1912,6 +1936,9 @@
         })
         .catch(error => {
             console.error('Error:', error);
+            // Re-enable button on error
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
             showToast('An error occurred while adding the assessment', 'error');
         });
     }
@@ -2291,6 +2318,18 @@
         if (addAssessmentForm) {
             addAssessmentForm.addEventListener('submit', handleAddAssessment);
         }
+        
+        // Reset button state when modal is closed/hidden
+        const addAssessmentModal = document.getElementById('addAssessmentModal');
+        if (addAssessmentModal) {
+            addAssessmentModal.addEventListener('hidden.bs.modal', function() {
+                const submitBtn = document.getElementById('addAssessmentSubmitBtn');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-plus me-1"></i>Add Assessment';
+                }
+            });
+        }
     }
 
     if (document.readyState === 'loading') {
@@ -2408,7 +2447,7 @@
                     </div>
                     
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                        <button type="submit" class="btn btn-primary btn-sm flex-fill" id="addAssessmentSubmitBtn">
                             <i class="bi bi-plus me-1"></i>Add Assessment
                         </button>
                         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>

@@ -170,11 +170,37 @@ class Grade(models.Model):
 
 # ===== NOTIFICATION =====
 class Notification(models.Model):
-    recipient = models.ForeignKey(User, on_delete=models.CASCADE)
+    NOTIFICATION_TYPES = [
+        ('attendance_absent', 'Attendance - Absent'),
+        ('attendance_late', 'Attendance - Late'),
+        ('performance_at_risk', 'Performance - At Risk'),
+        ('performance_improved', 'Performance - Improved'),
+        ('performance_warning_attendance', 'Performance Warning - Low Attendance'),
+        ('performance_warning_gpa', 'Performance Warning - Low GPA'),
+        ('consecutive_absences', 'Consecutive Absences'),
+        ('teacher_student_at_risk', 'Teacher - Student At Risk'),
+        ('teacher_consecutive_absences', 'Teacher - Consecutive Absences'),
+        ('general', 'General'),
+    ]
+    
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
     message = models.TextField()
+    notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES, default='general')
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    # Track related objects for deduplication
+    related_student = models.ForeignKey('StudentProfile', on_delete=models.CASCADE, null=True, blank=True, related_name='related_notifications')
+    related_subject = models.ForeignKey('Subject', on_delete=models.CASCADE, null=True, blank=True, related_name='related_notifications')
+    # Track notification key for deduplication (e.g., "performance_at_risk_student_123")
+    notification_key = models.CharField(max_length=200, blank=True, null=True, db_index=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', 'is_read', '-created_at']),
+            models.Index(fields=['notification_key']),
+        ]
+    
     def __str__(self):
         return f"To: {self.recipient.username} - {self.message[:30]}..."
 

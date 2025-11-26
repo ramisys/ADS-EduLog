@@ -11,6 +11,7 @@ from core.models import (
     TeacherProfile, Subject, ClassSection, StudentProfile, Attendance, Grade, Notification,
     Assessment, AssessmentScore, CategoryWeights, AuditLog
 )
+from core.notifications import send_attendance_notification, check_and_send_performance_notifications, check_consecutive_absences
 from django.http import JsonResponse
 import json
 from django.views.decorators.http import require_http_methods
@@ -444,9 +445,20 @@ def attendance(request):
                         )
                         
                         # Update if already exists
+                        old_status = attendance_record.status if not created else None
                         if not created:
                             attendance_record.status = status
                             attendance_record.save()
+                        
+                        # Send notification for absent/late (only if status changed or newly created)
+                        if status in ['absent', 'late']:
+                            if created or old_status != status:
+                                send_attendance_notification(student, selected_subject, status, today)
+                                # Check for consecutive absences
+                                if status == 'absent':
+                                    check_consecutive_absences(student, selected_subject)
+                                # Check performance after attendance update
+                                check_and_send_performance_notifications(student, selected_subject)
                     except (StudentProfile.DoesNotExist, ValueError):
                         pass
             
@@ -793,6 +805,9 @@ def calculate_and_update_grade(student, subject, term='Midterm'):
                     term=term,
                     defaults={'grade': Decimal(str(final_grade))}
                 )
+                
+                # Check and send performance notifications after grade update
+                check_and_send_performance_notifications(student, subject)
                 # Explicitly save to ensure it's persisted
                 grade.save()
             
@@ -1070,7 +1085,39 @@ def reports(request):
     return render(request, 'teachers/reports.html', context)
 
 @login_required
+@login_required
 def notifications(request):
+    if request.user.role != 'teacher':
+        return redirect('dashboard')
+    
+    # Get all notifications for the teacher
+    all_notifications = Notification.objects.filter(recipient=request.user).order_by('-created_at')
+    
+    # Handle mark as read
+    if request.method == 'POST' and 'mark_read' in request.POST:
+        notification_id = request.POST.get('mark_read')
+        try:
+            notification = Notification.objects.get(id=notification_id, recipient=request.user)
+            notification.is_read = True
+            notification.save()
+            return redirect('teachers:notifications')
+        except Notification.DoesNotExist:
+            pass
+    
+    # Handle mark all as read
+    if request.method == 'POST' and 'mark_all_read' in request.POST:
+        Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+        return redirect('teachers:notifications')
+    
+    unread_count = all_notifications.filter(is_read=False).count()
+    
+    context = {
+        'page_title': 'Notifications',
+        'page_description': 'View and manage all your notifications and alerts.',
+        'notifications': all_notifications,
+        'unread_count': unread_count,
+    }
+    return render(request, 'teachers/notifications.html', context)
     if request.user.role != 'teacher':
         return redirect('dashboard')
     context = {

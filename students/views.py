@@ -106,8 +106,32 @@ def grades(request):
 def notifications(request):
     if request.user.role != 'student':
         return redirect('dashboard')
+    
+    # Get all notifications for the student
+    all_notifications = Notification.objects.filter(recipient=request.user).order_by('-created_at')
+    
+    # Handle mark as read
+    if request.method == 'POST' and 'mark_read' in request.POST:
+        notification_id = request.POST.get('mark_read')
+        try:
+            notification = Notification.objects.get(id=notification_id, recipient=request.user)
+            notification.is_read = True
+            notification.save()
+            return redirect('students:notifications')
+        except Notification.DoesNotExist:
+            pass
+    
+    # Handle mark all as read
+    if request.method == 'POST' and 'mark_all_read' in request.POST:
+        Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+        return redirect('students:notifications')
+    
+    unread_count = all_notifications.filter(is_read=False).count()
+    
     context = {
         'page_title': 'Notifications',
-        'page_description': 'View and manage all your notifications and alerts.'
+        'page_description': 'View and manage all your notifications and alerts.',
+        'notifications': all_notifications,
+        'unread_count': unread_count,
     }
     return render(request, 'students/notifications.html', context)

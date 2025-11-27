@@ -11,6 +11,7 @@ EduLog is a comprehensive educational management system designed to streamline s
 - [Usage](#usage)
 - [Project Structure](#project-structure)
 - [User Roles](#user-roles)
+- [Authors](#authors)
 
 ## ✨ Features
 
@@ -83,20 +84,6 @@ source venv/bin/activate
 ### Step 3: Install Dependencies
 
 ```bash
-pip install django==5.2.8
-pip install python-dotenv
-```
-
-Or create a `requirements.txt` file:
-
-```txt
-Django==5.2.8
-python-dotenv==1.0.0
-```
-
-Then install:
-
-```bash
 pip install -r requirements.txt
 ```
 
@@ -110,13 +97,13 @@ Create a `.env` file in the project root directory:
 DJANGO_SECRET_KEY=your-secret-key-here
 ```
 
-Generate a secret key:
+Generate a secret key by running:
 
-```python
-# Run in Python shell
-from django.core.management.utils import get_random_secret_key
-print(get_random_secret_key())
+```bash
+python generate_secret_key.py
 ```
+
+This will output a secret key that you can copy and paste into your `.env` file.
 
 ### Step 2: Run Migrations
 
@@ -140,6 +127,31 @@ python manage.py runserver
 ```
 
 The application will be available at `http://127.0.0.1:8000/`
+
+### Step 5: Seed Database (Optional)
+
+To populate the database with sample data for testing, run the seed script:
+
+```bash
+python seed_data.py
+```
+
+This script will generate:
+- **10 Teachers** - Each teacher is assigned to multiple sections and subjects
+- **5 Parents** - Each parent has at least one student
+- **120 Students** - Distributed across different sections
+- **6 Sections** - BSIT 1A, BSIT 1B, BSIT 2A, BSIT 2B, BSIT 3A, BSIT 3B
+- **18 Subjects** - 3 subjects per section, with teachers assigned across multiple sections
+
+**Note**: The seed script will clear existing data before generating new data. All generated users have default passwords:
+- Teachers: `TeacherPass123`
+- Students: `StudentPass123`
+- Parents: `ParentPass123`
+
+**Login Credentials**:
+- Teachers: `teacher1`, `teacher2`, etc. (or use Teacher ID)
+- Students: `student1`, `student2`, etc. (or use Student ID)
+- Parents: `parent1`, `parent2`, etc. (use email to login)
 
 ## 📖 Usage
 
@@ -332,6 +344,8 @@ ADS-EduLog/
 │   └── wsgi.py            # WSGI configuration
 │
 ├── manage.py              # Django management script
+├── seed_data.py           # Database seeding script for test data
+├── generate_secret_key.py # Script to generate Django secret key
 ├── db.sqlite3             # SQLite database (created after migrations)
 ├── .env                   # Environment variables (create this)
 └── README.md              # This file
@@ -397,6 +411,7 @@ ADS-EduLog/
 - **Password Storage**: The system supports both hashed and plain text passwords (for migration purposes)
 - **Auto-Dismissing Alerts**: Alert messages on the login page automatically disappear after 5 seconds
 - **Role-Based Redirects**: Users are automatically redirected to their role-specific dashboard after login
+- **Database Seeding**: Use `seed_data.py` to quickly populate the database with test data for development and testing purposes
 
 ## 🤝 Contributing
 
@@ -409,9 +424,18 @@ ADS-EduLog/
 
 This project is licensed under the MIT License.
 
-## 👤 Author
+## 👥 Authors
 
-ADS-EduLog Development Team
+**ADS-EduLog Development Team**
+- Fat, Ramcez James L.
+- Cagadas, Earl Rusty M.
+- Delmiguez, Ivan O.
+
+This project is developed and maintained by the ADS-EduLog Development Team.
+
+### Contributors
+
+We welcome contributions from the community! If you'd like to contribute to this project, please see the [Contributing](#-contributing) section above.
 
 ## 🙏 Acknowledgments
 

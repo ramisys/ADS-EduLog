@@ -16,9 +16,6 @@ from core.models import (
     StudentProfile,
     ClassSection,
     Subject,
-    Attendance,
-    Grade,
-    Notification,
 )
 
 User = get_user_model()
@@ -71,9 +68,6 @@ def atomic_section(title: str):
 
 def clear_existing_data():
     print("Clearing existing seed data ...", end=" ")
-    Notification.objects.all().delete()
-    Attendance.objects.all().delete()
-    Grade.objects.all().delete()
     Subject.objects.all().delete()
     StudentProfile.objects.all().delete()
     ParentProfile.objects.all().delete()
@@ -140,6 +134,8 @@ def create_sections(teachers):
 
 def create_students(parents, sections):
     students = []
+    # Ensure each parent has at least one student
+    parent_index = 0
     for i in range(NUM_STUDENTS):
         username = f"student{i+1}"
         first, last = rand_name()
@@ -151,9 +147,16 @@ def create_students(parents, sections):
             first_name=first,
             last_name=last,
         )
+        # Assign parent: first NUM_PARENTS students get unique parents, then random
+        if i < NUM_PARENTS:
+            parent = parents[parent_index]
+            parent_index += 1
+        else:
+            parent = random.choice(parents)
+        
         student = StudentProfile.objects.create(
             user=user,
-            parent=random.choice(parents),
+            parent=parent,
             course="BSIT",
             year_level=random.choice(["1st Year", "2nd Year", "3rd Year"]),
             section=random.choice(sections),
@@ -165,53 +168,46 @@ def create_students(parents, sections):
 
 def create_subjects(sections, teachers):
     subjects = []
+    # Create multiple subjects per section and ensure teachers teach multiple subjects across sections
+    subjects_per_section = 3  # 3 subjects per section
+    
+    # Track teacher assignments to ensure each teacher teaches multiple subjects and sections
+    teacher_assignments = {teacher.id: {'sections': set(), 'subjects': 0} for teacher in teachers}
+    
+    # First pass: assign at least 2 subjects per teacher across different sections
+    teacher_list = list(teachers)
+    teacher_idx = 0
     for section in sections:
-        for _ in range(2):  # two subjects per section
+        for _ in range(subjects_per_section):
             code, name = random.choice(SUBJECT_POOL)
+            
+            # For first few assignments, ensure each teacher gets at least 2 subjects
+            # After that, use random assignment
+            if teacher_idx < len(teachers) * 2:
+                teacher = teacher_list[teacher_idx % len(teachers)]
+                teacher_idx += 1
+            else:
+                # Random assignment but prefer teachers with fewer assignments
+                teacher = min(teachers, key=lambda t: teacher_assignments[t.id]['subjects'])
+            
             subject = Subject.objects.create(
                 code=f"{code}-{section.name.replace(' ', '')}",
                 name=name,
-                teacher=random.choice(teachers),
+                teacher=teacher,
                 section=section,
             )
             subjects.append(subject)
+            teacher_assignments[teacher.id]['sections'].add(section.id)
+            teacher_assignments[teacher.id]['subjects'] += 1
+    
+    # Verify assignments
+    teachers_with_multiple_sections = sum(1 for t in teacher_assignments.values() if len(t['sections']) > 1)
+    teachers_with_multiple_subjects = sum(1 for t in teacher_assignments.values() if t['subjects'] > 1)
+    
     print(f"   Created {len(subjects)} subjects")
+    print(f"   Teachers teaching multiple sections: {teachers_with_multiple_sections}/{len(teachers)}")
+    print(f"   Teachers teaching multiple subjects: {teachers_with_multiple_subjects}/{len(teachers)}")
     return subjects
-
-
-def create_attendance(students, subjects):
-    records = 0
-    for student in students:
-        for subject in random.sample(subjects, min(3, len(subjects))):
-            Attendance.objects.create(
-                student=student, subject=subject, status=random.choice(["present", "absent", "late"])
-            )
-            records += 1
-    print(f"   Created {records} attendance entries")
-
-
-def create_grades(students, subjects):
-    records = 0
-    for student in students:
-        for subject in random.sample(subjects, min(3, len(subjects))):
-            Grade.objects.create(
-                student=student,
-                subject=subject,
-                term=random.choice(["Midterm", "Finals"]),
-                grade=round(random.uniform(70, 99), 2),
-            )
-            records += 1
-    print(f"   Created {records} grade records")
-
-
-def create_notifications(students):
-    for student in students:
-        Notification.objects.create(
-            recipient=student.user,
-            message="Your grade has been updated.",
-            is_read=random.choice([True, False]),
-        )
-    print(f"   Created {len(students)} notifications")
 
 
 def main():
@@ -231,15 +227,6 @@ def main():
 
     with atomic_section("Generating subjects"):
         subjects = create_subjects(sections, teachers)
-
-    with atomic_section("Generating attendance"):
-        create_attendance(students, subjects)
-
-    with atomic_section("Generating grades"):
-        create_grades(students, subjects)
-
-    with atomic_section("Generating notifications"):
-        create_notifications(students)
 
     print("\n=== DATASET GENERATION COMPLETE ===")
 

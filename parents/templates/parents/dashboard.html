@@ -4,232 +4,268 @@
 {% block title %}Parent Dashboard - EduLog{% endblock %}
 
 {% block extra_css %}
+<style>
+    .card-custom {
+        border: 1px solid #e5e7eb;
+        border-radius: 1rem;
+        padding: 1.5rem;
+    }
+    .badge-custom {
+        font-weight: 500;
+        font-size: 0.8rem;
+        padding: 0.35em 0.7em;
+        border-radius: 0.375rem;
+    }
+    .bg-green-light {
+        background-color: #d1fae5;
+        color: #047857;
+    }
+    .bg-yellow-light {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+    .bg-blue-light {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+    .bg-red-light {
+        background-color: #fee2e2;
+        color: #b91c1c;
+    }
+    /* For icon containers */
+    .icon-bg {
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .icon-yellow {
+        background-color: #fef3c7;
+        color: #ca8a04;
+    }
+    .icon-green {
+        background-color: #d1fae5;
+        color: #16a34a;
+    }
+    .icon-blue {
+        background-color: #dbeafe;
+        color: #2563eb;
+    }
+    .icon-red {
+        background-color: #fee2e2;
+        color: #dc2626;
+    }
+    /* Progress bar custom height */
+    .progress {
+        height: 0.5rem;
+    }
+    /* Small circle for legend */
+    .legend-circle {
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="dashboard-container">
-    <!-- Dashboard Header -->
-    <div class="dashboard-header">
-        <h1>Welcome back, {{ parent_profile.user.get_full_name|default:parent_profile.user.username }}!</h1>
-        <p>Parent ID: {{ parent_profile.parent_id }}{% if parent_profile.contact_number %} | Contact: {{ parent_profile.contact_number }}{% endif %}</p>
-    </div>
+    <div class="container">
+        <!-- Child Selector Card -->
+        <div class="card card-custom mb-5">
+          <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-3">
+            <div>
+              <h3 class="text-primary mb-1">Monitoring</h3>
+              <p class="text-secondary small mb-0">Select a child to view their progress</p>
+            </div>
+            <select class="form-select rounded-pill w-100 w-md-auto" aria-label="Select Child">
+              <option value="sarah" selected>Sarah Johnson - Grade 10A</option>
+              <option value="michael">Michael Johnson - Grade 8B</option>
+            </select>
+          </div>
+        </div>
     
-    <!-- Statistics Cards -->
-    <div class="row">
-        <div class="col-md-3">
-            <div class="stats-card text-center">
-                <div class="stat-icon">
-                    <i class="bi bi-people"></i>
+        <!-- Quick Stats Grid -->
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4 mb-5">
+          <div class="col">
+            <div class="card card-custom h-100">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <p class="text-secondary small mb-1">Current GPA</p>
+                  <p class="text-primary h5 mb-2">3.7</p>
+                  <span class="badge bg-green-light">Above Average</span>
                 </div>
-                <h3>Children</h3>
-                <div class="stat-value">{{ children|length }}</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card text-center">
-                <div class="stat-icon">
-                    <i class="bi bi-award"></i>
+                <div class="icon-bg icon-yellow">
+                  <i class="bi bi-award fs-4"></i>
                 </div>
-                <h3>Avg Grade</h3>
-                <div class="stat-value">{{ overall_avg }}</div>
+              </div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card text-center">
-                <div class="stat-icon">
-                    <i class="bi bi-check-circle"></i>
-                </div>
-                <h3>Present</h3>
-                <div class="stat-value">{{ total_present }}</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card text-center">
-                <div class="stat-icon">
-                    <i class="bi bi-bell"></i>
-                </div>
-                <h3>Notifications</h3>
-                <div class="stat-value">{{ notifications|length }}</div>
-            </div>
-        </div>
-    </div>
+          </div>
     
-    <!-- Children Overview -->
-    {% if children_stats %}
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="bi bi-people"></i> Children Overview</h2>
+          <div class="col">
+            <div class="card card-custom h-100">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <p class="text-secondary small mb-1">Attendance Rate</p>
+                  <p class="text-primary h5 mb-2">92%</p>
+                  <span class="badge bg-green-light">Excellent</span>
                 </div>
-                {% for stat in children_stats %}
-                <div class="child-card">
-                    <h4>{{ stat.child.user.get_full_name|default:stat.child.user.username }}</h4>
-                    <p><strong>Student ID:</strong> {{ stat.child.student_id }}</p>
-                    <p><strong>Course:</strong> {{ stat.child.course }} - Year {{ stat.child.year_level }}{% if stat.child.section %} | Section: {{ stat.child.section.name }}{% endif %}</p>
-                    <div class="row mt-3">
-                        <div class="col-md-3">
-                            <p><strong>Average Grade:</strong> {{ stat.average_grade }}</p>
-                        </div>
-                        <div class="col-md-3">
-                            <p><strong>Attendance Rate:</strong> {{ stat.attendance_percentage }}%</p>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="--progress-width: {{ stat.attendance_percentage }}%; width: var(--progress-width);"></div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <p><strong>Present:</strong> {{ stat.present_count }}</p>
-                        </div>
-                        <div class="col-md-2">
-                            <p><strong>Absent:</strong> {{ stat.absent_count }}</p>
-                        </div>
-                        <div class="col-md-2">
-                            <p><strong>Late:</strong> {{ stat.late_count }}</p>
-                        </div>
+                <div class="icon-bg icon-green">
+                  <i class="bi bi-check-circle-fill fs-4"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+    
+          <div class="col">
+            <div class="card card-custom h-100">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <p class="text-secondary small mb-1">Average Grade</p>
+                  <p class="text-primary h5 mb-2">87%</p>
+                  <span class="badge bg-blue-light">Performing well</span>
+                </div>
+                <div class="icon-bg icon-blue">
+                  <i class="bi bi-bar-chart-line-fill fs-4"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+    
+          <div class="col">
+            <div class="card card-custom h-100">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <p class="text-secondary small mb-1">New Alerts</p>
+                  <p class="text-primary h5 mb-2">3</p>
+                  <span class="badge bg-yellow-light">Requires attention</span>
+                </div>
+                <div class="icon-bg icon-red">
+                  <i class="bi bi-exclamation-circle-fill fs-4"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+    
+        <!-- Charts Grid -->
+        <div class="row g-4 mb-5">
+          <div class="col-lg-6">
+            <div class="card card-custom h-100">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <h3 class="text-primary mb-1">Attendance Trend</h3>
+                  <p class="text-secondary small mb-0">6-month overview</p>
+                </div>
+                <i class="bi bi-calendar3 text-muted fs-5"></i>
+              </div>
+              <!-- Placeholder for Line Chart -->
+              <div class="border rounded p-3" style="height: 250px; display:flex; align-items:center; justify-content:center; color:#6b7280;">
+                <small>Line Chart Placeholder</small>
+              </div>
+            </div>
+          </div>
+    
+          <div class="col-lg-6">
+            <div class="card card-custom h-100">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <h3 class="text-primary mb-1">Academic Performance</h3>
+                  <p class="text-secondary small mb-0">Current vs previous term</p>
+                </div>
+                <i class="bi bi-graph-up-arrow text-muted fs-5"></i>
+              </div>
+              <!-- Placeholder for Bar Chart -->
+              <div class="border rounded p-3" style="height: 250px; display:flex; align-items:center; justify-content:center; color:#6b7280;">
+                <small>Bar Chart Placeholder</small>
+              </div>
+            </div>
+          </div>
+        </div>
+    
+        <!-- Performance Distribution and Skills -->
+        <div class="row g-4">
+          <div class="col-lg-4">
+            <div class="card card-custom h-100">
+              <div class="mb-4">
+                <h3 class="text-primary mb-1">Performance Distribution</h3>
+                <p class="text-secondary small mb-0">Grade breakdown</p>
+              </div>
+              <!-- Placeholder for Pie Chart -->
+              <div class="border rounded p-3 mb-3" style="height: 200px; display:flex; align-items:center; justify-content:center; color:#6b7280;">
+                <small>Pie Chart Placeholder</small>
+              </div>
+              <!-- Legend -->
+              <div class="d-flex flex-column gap-2">
+                <div class="d-flex justify-content-between text-secondary small">
+                  <div class="d-flex align-items-center">
+                    <span class="legend-circle" style="background-color:#3b82f6;"></span> A (90-100)
+                  </div>
+                  <span class="text-primary">40%</span>
+                </div>
+                <div class="d-flex justify-content-between text-secondary small">
+                  <div class="d-flex align-items-center">
+                    <span class="legend-circle" style="background-color:#10b981;"></span> B (80-89)
+                  </div>
+                  <span class="text-primary">35%</span>
+                </div>
+                <div class="d-flex justify-content-between text-secondary small">
+                  <div class="d-flex align-items-center">
+                    <span class="legend-circle" style="background-color:#facc15;"></span> C (70-79)
+                  </div>
+                  <span class="text-primary">15%</span>
+                </div>
+                <div class="d-flex justify-content-between text-secondary small">
+                  <div class="d-flex align-items-center">
+                    <span class="legend-circle" style="background-color:#ef4444;"></span> D (Below 70)
+                  </div>
+                  <span class="text-primary">10%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+    
+          <div class="col-lg-8">
+            <div class="card card-custom h-100">
+              <div class="mb-4">
+                <h3 class="text-primary mb-1">Subject Performance Overview</h3>
+                <p class="text-secondary small mb-0">Radar chart showing strengths and areas for improvement</p>
+              </div>
+              <div class="row g-4">
+                <div class="col-md-6">
+                  <!-- Placeholder for Radar Chart -->
+                  <div class="border rounded p-3" style="height: 250px; display:flex; align-items:center; justify-content:center; color:#6b7280;">
+                    <small>Radar Chart Placeholder</small>
+                  </div>
+                </div>
+                <div class="col-md-6 d-flex flex-column justify-content-center">
+                  <div class="mb-4">
+                    <div class="d-flex justify-content-between small text-secondary mb-2">
+                      <span>Overall Progress</span>
+                      <span class="text-primary">89%</span>
                     </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% else %}
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="empty-state">
-                    <i class="bi bi-people"></i>
-                    <p>No children registered yet</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-    
-    <div class="row">
-        <!-- Recent Grades -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="bi bi-clipboard-data"></i> Recent Grades</h2>
-                </div>
-                {% if children_grades %}
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Child</th>
-                            <th>Subject</th>
-                            <th>Term</th>
-                            <th>Grade</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for grade in children_grades %}
-                        <tr>
-                            <td>{{ grade.student.user.get_full_name|default:grade.student.user.username }}</td>
-                            <td>{{ grade.subject.code }}</td>
-                            <td>{{ grade.term }}</td>
-                            <td><strong>{{ grade.grade }}</strong></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <div class="empty-state">
-                    <i class="bi bi-clipboard"></i>
-                    <p>No grades available yet</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-        
-        <!-- Recent Attendance -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="bi bi-calendar-check"></i> Recent Attendance</h2>
-                </div>
-                {% if children_attendance %}
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Child</th>
-                            <th>Subject</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for attendance in children_attendance %}
-                        <tr>
-                            <td>{{ attendance.date|date:"M d, Y" }}</td>
-                            <td>{{ attendance.student.user.get_full_name|default:attendance.student.user.username }}</td>
-                            <td>{{ attendance.subject.code }}</td>
-                            <td>
-                                {% if attendance.status == 'present' %}
-                                <span class="badge badge-present">Present</span>
-                                {% elif attendance.status == 'absent' %}
-                                <span class="badge badge-absent">Absent</span>
-                                {% elif attendance.status == 'late' %}
-                                <span class="badge badge-late">Late</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <div class="empty-state">
-                    <i class="bi bi-calendar"></i>
-                    <p>No attendance records yet</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    
-    <!-- Overall Attendance Statistics -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="bi bi-bar-chart"></i> Overall Attendance Statistics</h2>
-                </div>
-                <div class="row text-center">
-                    <div class="col-md-4">
-                        <div class="stat-value stat-present">{{ total_present }}</div>
-                        <p style="color: #6b7280;">Present</p>
+                    <div class="progress" role="progressbar" aria-valuenow="89" aria-valuemin="0" aria-valuemax="100">
+                      <div class="progress-bar bg-primary" style="width: 89%;"></div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="stat-value stat-absent">{{ total_absent }}</div>
-                        <p style="color: #6b7280;">Absent</p>
+                  </div>
+                  <div class="small">
+                    <div class="d-flex align-items-center gap-2 mb-2 text-success">
+                      <i class="bi bi-bullseye fs-5"></i>
+                      <span>On track for semester goals</span>
                     </div>
-                    <div class="col-md-4">
-                        <div class="stat-value stat-late">{{ total_late }}</div>
-                        <p style="color: #6b7280;">Late</p>
+                    <div class="p-3 bg-success bg-opacity-10 rounded border border-success">
+                      <p class="mb-0 text-success">Great progress! Improved in 4 out of 6 subjects.</p>
                     </div>
+                  </div>
                 </div>
+              </div>
             </div>
+          </div>
         </div>
-    </div>
-    
-    <!-- Notifications -->
-    {% if notifications %}
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h2><i class="bi bi-bell"></i> Notifications</h2>
-                </div>
-                {% for notification in notifications %}
-                <div class="notification-item">
-                    <p>{{ notification.message }}</p>
-                    <small>{{ notification.created_at|date:"M d, Y H:i" }}</small>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
+      </div>
 </div>
 {% endblock %}
 

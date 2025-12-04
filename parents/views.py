@@ -32,6 +32,9 @@ def dashboard(request):
     # Get all children (students) of this parent
     children = StudentProfile.objects.filter(parent=parent_profile)
     
+    # Track selected child from query parameter
+    child_id = request.GET.get('child_id')
+    
     # Get grades for all children (recent)
     children_grades = (
         Grade.objects
@@ -241,8 +244,21 @@ def dashboard(request):
         subject_current_values.append(current_value)
         subject_prev_values.append(previous_value)
 
-    # Default "selected" child for the dashboard widgets (first child if any)
-    selected_child_stats = children_stats[0] if children_stats else None
+    # Determine which child is selected for dashboard widgets
+    selected_child_stats = None
+    if child_id and children_stats:
+        try:
+            child_id_int = int(child_id)
+        except ValueError:
+            child_id_int = None
+        if child_id_int is not None:
+            for stats in children_stats:
+                if stats['child'].id == child_id_int:
+                    selected_child_stats = stats
+                    break
+    
+    if not selected_child_stats and children_stats:
+        selected_child_stats = children_stats[0]
     
     grade_buckets = [
         {'label': 'Excellent (90-100)', 'count': a_count, 'color': '#10b981', 'css_class': 'legend-excellent'},

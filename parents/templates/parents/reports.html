@@ -1,6 +1,324 @@
 {% extends "base.html" %}
 {% block title %}Performance Reports | EduLog{% endblock %}
-{% block content %}
-{% include "parents/coming_soon.html" %}
+
+{% block extra_css %}
+<style>
+  .card-custom {
+    border: 1px solid #e5e7eb;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    transition: box-shadow 0.2s ease;
+  }
+  .card-custom:hover {
+    box-shadow: 0 0.75rem 1.5rem rgb(0 0 0 / 0.08);
+  }
+</style>
 {% endblock %}
 
+{% block content %}
+<div class="dashboard-container py-4">
+  <div class="mb-4">
+    <h2 class="text-primary mb-1">Performance Reports</h2>
+    <p class="text-secondary small mb-0">Comprehensive performance reports and analysis.</p>
+  </div>
+
+  {% if not child %}
+    <div class="alert alert-warning">
+      No linked student profiles were found. Please contact the administrator to connect your account.
+    </div>
+  {% else %}
+    {% if all_children|length > 1 %}
+    <div class="card card-custom mb-4">
+      <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-3">
+        <div>
+          <h3 class="text-primary mb-1">Select Student</h3>
+          <p class="text-secondary small mb-0">Choose which student's reports to view</p>
+        </div>
+        <select class="form-select rounded-pill w-100 w-md-auto" id="childSelector" aria-label="Select Child">
+          {% for child_option in all_children %}
+            <option value="{{ child_option.id }}"
+                    {% if child.id == child_option.id %}selected{% endif %}>
+              {{ child_option.user.get_full_name }} - {{ child_option.year_level }}{% if child_option.section %} ({{ child_option.section.name }}){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Current Performance Summary -->
+    <div class="card card-custom mb-4">
+      <h4 class="text-primary mb-3">Current Performance Summary</h4>
+
+      <div class="row g-4">
+        <div class="col-md-3">
+          <div class="text-center p-3 bg-light rounded">
+            <p class="text-muted small mb-1">Overall GPA</p>
+            <h5 class="text-primary">
+              {% if overall_gpa %}{{ overall_gpa }}{% else %}N/A{% endif %}
+            </h5>
+            {% if overall_gpa %}
+              {% if overall_gpa >= 3.5 %}
+                <span class="badge bg-success-subtle text-success">Excellent</span>
+              {% elif overall_gpa >= 3.0 %}
+                <span class="badge bg-info-subtle text-info">Good</span>
+              {% elif overall_gpa >= 2.5 %}
+                <span class="badge bg-warning-subtle text-warning">Average</span>
+              {% else %}
+                <span class="badge bg-danger-subtle text-danger">Needs Improvement</span>
+              {% endif %}
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div class="text-center p-3 bg-light rounded">
+            <p class="text-muted small mb-1">Attendance</p>
+            <h5 class="text-primary">
+              {% if overall_attendance %}{{ overall_attendance }}%{% else %}N/A{% endif %}
+            </h5>
+            {% if overall_attendance %}
+              {% if overall_attendance >= 95 %}
+                <span class="badge bg-success-subtle text-success">Excellent</span>
+              {% elif overall_attendance >= 85 %}
+                <span class="badge bg-info-subtle text-info">Good</span>
+              {% elif overall_attendance >= 75 %}
+                <span class="badge bg-warning-subtle text-warning">Monitor</span>
+              {% else %}
+                <span class="badge bg-danger-subtle text-danger">Low</span>
+              {% endif %}
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div class="text-center p-3 bg-light rounded">
+            <p class="text-muted small mb-1">Avg Grade</p>
+            <h5 class="text-primary">
+              {% if avg_grade %}{{ avg_grade }}%{% else %}N/A{% endif %}
+            </h5>
+            {% if avg_grade %}
+              {% if avg_grade >= 90 %}
+                <span class="badge bg-success-subtle text-success">A Average</span>
+              {% elif avg_grade >= 80 %}
+                <span class="badge bg-info-subtle text-info">B+ Average</span>
+              {% elif avg_grade >= 70 %}
+                <span class="badge bg-warning-subtle text-warning">C+ Average</span>
+              {% else %}
+                <span class="badge bg-danger-subtle text-danger">Needs Improvement</span>
+              {% endif %}
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div class="text-center p-3 bg-light rounded">
+            <p class="text-muted small mb-1">Subjects</p>
+            <h5 class="text-primary">{{ subjects_count }}</h5>
+            <span class="badge bg-secondary-subtle text-secondary">Active</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Historical Performance Reports -->
+    <div class="card card-custom mb-4">
+      <h4 class="text-primary mb-3">Historical Performance Reports</h4>
+
+      {% if historical_reports %}
+        <div class="vstack gap-3">
+          {% for report in historical_reports %}
+            <div class="p-3 border rounded hover-shadow">
+              <div class="d-flex justify-content-between">
+                <div>
+                  <div class="d-flex align-items-center gap-2 mb-2">
+                    <i class="bi bi-file-earmark-text text-primary fs-5"></i>
+                    <div>
+                      <h5 class="text-primary mb-0">{{ report.term }} Report</h5>
+                      <small class="text-muted">{{ report.period }}</small>
+                    </div>
+                  </div>
+
+                  <div class="row g-3 mt-2">
+                    <div class="col-4">
+                      <small class="text-muted d-block">Date Issued</small>
+                      <strong class="text-primary">{{ report.date_issued|date:"Y-m-d" }}</strong>
+                    </div>
+                    <div class="col-4">
+                      <small class="text-muted d-block">Overall GPA</small>
+                      <strong class="text-primary">{{ report.overall_gpa|default:"N/A" }}</strong>
+                    </div>
+                    <div class="col-4">
+                      <small class="text-muted d-block">Attendance</small>
+                      <strong class="text-primary">{{ report.attendance }}%</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <button class="btn btn-outline-primary btn-sm" onclick="window.print()">
+                  <i class="bi bi-download me-1"></i>Download
+                </button>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="alert alert-secondary mb-0">
+          No historical reports available yet. Reports are generated at the end of each term.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Subject-wise Performance -->
+    <div class="card card-custom mb-4">
+      <h4 class="text-primary mb-3">Subject-wise Performance Analysis</h4>
+
+      {% if subject_performance %}
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped">
+            <thead class="table-light">
+              <tr>
+                <th>Subject</th>
+                <th>Teacher</th>
+                <th>Current Grade</th>
+                <th>Attendance</th>
+                <th>Progress</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for subj in subject_performance %}
+                <tr>
+                  <td>{{ subj.subject.name }}</td>
+                  <td class="text-muted">{{ subj.teacher_name }}</td>
+
+                  <!-- Grade Badge -->
+                  <td>
+                    {% if subj.grade %}
+                      <span class="badge 
+                        {% if subj.grade >= 90 %}bg-success
+                        {% elif subj.grade >= 80 %}bg-primary
+                        {% elif subj.grade >= 70 %}bg-warning
+                        {% else %}bg-danger{% endif %}">
+                        {{ subj.grade }}%
+                      </span>
+                    {% else %}
+                      <span class="badge bg-secondary">No grades</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Attendance Badge -->
+                  <td>
+                    {% if subj.attendance %}
+                      <span class="badge 
+                        {% if subj.attendance >= 90 %}bg-success
+                        {% elif subj.attendance >= 75 %}bg-warning
+                        {% else %}bg-danger{% endif %}">
+                        {{ subj.attendance }}%
+                      </span>
+                    {% else %}
+                      <span class="badge bg-secondary">N/A</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Progress -->
+                  <td>
+                    {% if subj.improvement %}
+                      {% if subj.improvement > 0 %}
+                        <span class="text-success">
+                          <i class="bi bi-graph-up-arrow"></i> +{{ subj.improvement }}%
+                        </span>
+                      {% elif subj.improvement < 0 %}
+                        <span class="text-danger">
+                          <i class="bi bi-graph-down-arrow"></i> {{ subj.improvement }}%
+                        </span>
+                      {% else %}
+                        <span class="text-muted">No change</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="text-muted">No data</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="alert alert-secondary mb-0">
+          No subject performance data available.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Areas Requiring Attention -->
+    <div class="card card-custom {% if has_concern_subjects %}border-danger bg-light{% endif %}">
+      <h4 class="{% if has_concern_subjects %}text-danger{% else %}text-primary{% endif %} mb-3">Areas Requiring Attention</h4>
+
+      {% if has_concern_subjects %}
+        <div class="vstack gap-2">
+          {% for concern in concern_subjects %}
+            <div class="p-3 bg-white border border-danger rounded">
+              <div class="d-flex justify-content-between">
+                <h5 class="text-danger mb-0">{{ concern.subject.name }}</h5>
+                <span class="badge bg-danger">Action Needed</span>
+              </div>
+
+              <div class="mt-2 small text-danger">
+                {% if concern.grade and concern.grade < 80 %}
+                  <p>• Low grade: {{ concern.grade }}% - Consider tutoring or extra help</p>
+                {% endif %}
+                {% if concern.attendance and concern.attendance < 75 %}
+                  <p>• Critical attendance: {{ concern.attendance }}% - Discuss with teacher</p>
+                {% endif %}
+                {% if concern.teacher_email %}
+                  <p class="text-primary">• Teacher: {{ concern.teacher_name }} (<a href="mailto:{{ concern.teacher_email }}" class="text-decoration-underline">{{ concern.teacher_email }}</a>)</p>
+                {% else %}
+                  <p class="text-primary">• Teacher: {{ concern.teacher_name }}</p>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="alert alert-success mb-0">
+          <i class="bi bi-check-circle me-2"></i>
+          Great news! All subjects are performing well. No areas require immediate attention.
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // Check if child_id is in URL, if not, check sessionStorage and redirect
+    var urlParams = new URLSearchParams(window.location.search);
+    var childIdFromUrl = urlParams.get('child_id');
+    
+    if (!childIdFromUrl) {
+      var storedChildId = sessionStorage.getItem('selectedChildId');
+      if (storedChildId) {
+        var currentUrl = window.location.href.split('?')[0];
+        window.location.href = currentUrl + '?child_id=' + storedChildId;
+        return;
+      }
+    } else {
+      // Store the child_id from URL to sessionStorage
+      sessionStorage.setItem('selectedChildId', childIdFromUrl);
+    }
+
+    // Handle child selector change
+    var childSelector = document.getElementById('childSelector');
+    if (childSelector) {
+      childSelector.addEventListener('change', function () {
+        var childId = this.value;
+        sessionStorage.setItem('selectedChildId', childId);
+        var currentUrl = window.location.href.split('?')[0];
+        window.location.href = currentUrl + '?child_id=' + childId;
+      });
+    }
+  });
+</script>
+{% endblock %}

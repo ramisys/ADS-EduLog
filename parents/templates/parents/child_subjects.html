@@ -1,6 +1,218 @@
 {% extends "base.html" %}
 {% block title %}Child Subjects | EduLog{% endblock %}
-{% block content %}
-{% include "parents/coming_soon.html" %}
+
+{% block extra_css %}
+<style>
+  .card-custom {
+    border: 1px solid #e5e7eb;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    transition: box-shadow 0.2s ease;
+    height: 100%;
+  }
+  .card-custom:hover {
+    box-shadow: 0 0.75rem 1.5rem rgb(0 0 0 / 0.08);
+  }
+  .icon-bg {
+    background-color: #dbeafe;
+    padding: 0.5rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #2563eb;
+  }
+  .progress {
+    height: 0.45rem;
+  }
+  .badge-soft {
+    font-weight: 500;
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+  }
+  .badge-soft-success {
+    background-color: #d1fae5;
+    color: #047857;
+  }
+  .badge-soft-warning {
+    background-color: #fef3c7;
+    color: #92400e;
+  }
+  .badge-soft-danger {
+    background-color: #fee2e2;
+    color: #b91c1c;
+  }
+</style>
 {% endblock %}
 
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // Check if child_id is in URL, if not, check sessionStorage and redirect
+    var urlParams = new URLSearchParams(window.location.search);
+    var childIdFromUrl = urlParams.get('child_id');
+    
+    if (!childIdFromUrl) {
+      var storedChildId = sessionStorage.getItem('selectedChildId');
+      if (storedChildId) {
+        var currentUrl = window.location.href.split('?')[0];
+        window.location.href = currentUrl + '?child_id=' + storedChildId;
+        return;
+      }
+    } else {
+      // Store the child_id from URL to sessionStorage
+      sessionStorage.setItem('selectedChildId', childIdFromUrl);
+    }
+
+    document.querySelectorAll('[data-progress]').forEach(function (bar) {
+      var value = parseFloat(bar.getAttribute('data-progress'));
+      if (isNaN(value)) {
+        value = 0;
+      }
+      bar.style.width = value + '%';
+    });
+
+    // Handle child selector change
+    var childSelector = document.getElementById('childSelector');
+    if (childSelector) {
+      childSelector.addEventListener('change', function () {
+        var childId = this.value;
+        sessionStorage.setItem('selectedChildId', childId);
+        var currentUrl = window.location.href.split('?')[0];
+        window.location.href = currentUrl + '?child_id=' + childId;
+      });
+    }
+  });
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container py-4">
+  <div class="mb-4">
+    <h2 class="text-primary mb-1">Subjects Overview</h2>
+    <p class="text-secondary small mb-0">Track the classes your child is currently enrolled in.</p>
+  </div>
+
+  {% if not children_subjects %}
+    <div class="alert alert-warning">
+      No linked student profiles were found. Please contact the administrator to connect your account.
+    </div>
+  {% else %}
+    {% if all_children|length > 1 %}
+    <div class="card card-custom mb-4">
+      <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-3">
+        <div>
+          <h3 class="text-primary mb-1">Select Student</h3>
+          <p class="text-secondary small mb-0">Choose which student's subjects to view</p>
+        </div>
+        <select class="form-select rounded-pill w-100 w-md-auto" id="childSelector" aria-label="Select Child">
+          {% for child in all_children %}
+            <option value="{{ child.id }}"
+                    {% if children_subjects.0.child.id == child.id %}selected{% endif %}>
+              {{ child.user.get_full_name }} - {{ child.year_level }}{% if child.section %} ({{ child.section.name }}){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    {% endif %}
+
+    {% for child_data in children_subjects %}
+      <div class="mb-5">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+          <div>
+            <h4 class="mb-1 text-primary">{{ child_data.child.user.get_full_name }}</h4>
+            <p class="small text-secondary mb-0">
+              {{ child_data.child.course }} • Year {{ child_data.child.year_level }}
+              {% if child_data.child.section %} • Section {{ child_data.child.section.name }}{% endif %}
+            </p>
+          </div>
+          <span class="badge bg-light text-primary text-uppercase small">
+            {{ child_data.subjects|length }} Subject{% if child_data.subjects|length != 1 %}s{% endif %}
+          </span>
+        </div>
+
+        {% if child_data.subjects %}
+          <div class="row row-cols-1 row-cols-md-2 g-4">
+            {% for subject_card in child_data.subjects %}
+              <div class="col">
+                <div class="card card-custom">
+                  <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="d-flex align-items-center gap-3">
+                      <div class="icon-bg">
+                        <i class="bi bi-book fs-5"></i>
+                      </div>
+                      <div>
+                        <h5 class="mb-1 text-primary">{{ subject_card.subject.name }}</h5>
+                        <p class="text-secondary small mb-0">{{ subject_card.subject.code }}</p>
+                      </div>
+                    </div>
+                    {% if subject_card.avg_grade %}
+                      {% if subject_card.avg_grade >= 90 %}
+                        <span class="badge-soft badge-soft-success">{{ subject_card.avg_grade }}%</span>
+                      {% elif subject_card.avg_grade >= 75 %}
+                        <span class="badge-soft badge-soft-warning">{{ subject_card.avg_grade }}%</span>
+                      {% else %}
+                        <span class="badge-soft badge-soft-danger">{{ subject_card.avg_grade }}%</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="badge-soft badge-soft-warning">No grades</span>
+                    {% endif %}
+                  </div>
+
+                  <div class="d-flex flex-column gap-3">
+                    <div class="d-flex justify-content-between small text-secondary">
+                      <span>Teacher</span>
+                      <span class="text-primary">{{ subject_card.teacher_name }}</span>
+                    </div>
+                    {% if subject_card.teacher_email %}
+                      <div class="d-flex justify-content-between small text-secondary">
+                        <span>Email</span>
+                        <a href="mailto:{{ subject_card.teacher_email }}" class="text-primary text-decoration-underline">{{ subject_card.teacher_email }}</a>
+                      </div>
+                    {% endif %}
+                    <div class="d-flex justify-content-between small text-secondary">
+                      <span>Assignments</span>
+                      <span class="text-primary">{{ subject_card.assignment_summary }}</span>
+                    </div>
+                    <div>
+                      <div class="d-flex justify-content-between small mb-1">
+                        <span class="text-secondary">Attendance</span>
+                        <span class="text-primary">
+                          {% if subject_card.attendance_rate %}
+                            {{ subject_card.attendance_rate }}%
+                          {% else %}
+                            Not available
+                          {% endif %}
+                        </span>
+                      </div>
+                      <div class="progress">
+                        <div class="progress-bar {% if subject_card.attendance_rate and subject_card.attendance_rate < 75 %}bg-danger{% else %}bg-primary{% endif %}"
+                             role="progressbar"
+                             data-progress="{{ subject_card.attendance_rate|default:0 }}"
+                             style="width: 0%;"
+                             aria-valuenow="{{ subject_card.attendance_rate|default:0 }}"
+                             aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                      </div>
+                      {% if subject_card.attendance_rate and subject_card.attendance_rate < 75 %}
+                        <div class="small text-danger mt-2">
+                          ⚠ Low attendance may impact performance.
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="alert alert-secondary mb-0">
+            No subjects assigned to this student yet.
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

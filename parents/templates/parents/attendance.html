@@ -1,6 +1,268 @@
 {% extends "base.html" %}
 {% block title %}Attendance | EduLog{% endblock %}
-{% block content %}
-{% include "parents/coming_soon.html" %}
+
+{% block extra_css %}
+<style>
+  .card-custom {
+    border: 1px solid #e5e7eb;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    transition: box-shadow 0.2s ease;
+  }
+  .card-custom:hover {
+    box-shadow: 0 0.75rem 1.5rem rgb(0 0 0 / 0.08);
+  }
+  .icon-bg {
+    background-color: #dbeafe;
+    padding: 0.5rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #2563eb;
+  }
+  .progress {
+    height: 0.45rem;
+  }
+</style>
 {% endblock %}
 
+{% block content %}
+<div class="dashboard-container py-4">
+  <div class="mb-4">
+    <h2 class="text-primary mb-1">Attendance Overview</h2>
+    <p class="text-secondary small mb-0">Track attendance records for your child.</p>
+  </div>
+
+  {% if not attendance_data %}
+    <div class="alert alert-warning">
+      No linked student profiles were found. Please contact the administrator to connect your account.
+    </div>
+  {% else %}
+    {% if all_children|length > 1 %}
+    <div class="card card-custom mb-4">
+      <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-3">
+        <div>
+          <h3 class="text-primary mb-1">Select Student</h3>
+          <p class="text-secondary small mb-0">Choose which student's attendance to view</p>
+        </div>
+        <select class="form-select rounded-pill w-100 w-md-auto" id="childSelector" aria-label="Select Child">
+          {% for child in all_children %}
+            <option value="{{ child.id }}"
+                    {% if attendance_data.child.id == child.id %}selected{% endif %}>
+              {{ child.user.get_full_name }} - {{ child.year_level }}{% if child.section %} ({{ child.section.name }}){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Attendance Summary -->
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4 mb-4">
+      <!-- Present -->
+      <div class="col">
+        <div class="card card-custom h-100">
+          <div class="d-flex align-items-center gap-3">
+            <div class="bg-success bg-opacity-25 p-3 rounded">
+              <i class="bi bi-check-circle text-success fs-4"></i>
+            </div>
+            <div>
+              <p class="text-secondary small mb-0">Present</p>
+              <p class="fw-bold text-primary mb-0">{{ attendance_data.present_count }} days</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Absent -->
+      <div class="col">
+        <div class="card card-custom h-100">
+          <div class="d-flex align-items-center gap-3">
+            <div class="bg-danger bg-opacity-25 p-3 rounded">
+              <i class="bi bi-x-circle text-danger fs-4"></i>
+            </div>
+            <div>
+              <p class="text-secondary small mb-0">Absent</p>
+              <p class="fw-bold text-primary mb-0">{{ attendance_data.absent_count }} days</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Late -->
+      <div class="col">
+        <div class="card card-custom h-100">
+          <div class="d-flex align-items-center gap-3">
+            <div class="bg-warning bg-opacity-25 p-3 rounded">
+              <i class="bi bi-clock text-warning fs-4"></i>
+            </div>
+            <div>
+              <p class="text-secondary small mb-0">Late</p>
+              <p class="fw-bold text-primary mb-0">{{ attendance_data.late_count }} times</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Overall Rate -->
+      <div class="col">
+        <div class="card card-custom h-100">
+          <div class="d-flex align-items-center gap-3">
+            <div class="bg-primary bg-opacity-25 p-3 rounded">
+              <i class="bi bi-calendar text-primary fs-4"></i>
+            </div>
+            <div>
+              <p class="text-secondary small mb-0">Overall Rate</p>
+              <p class="fw-bold text-primary mb-0">{{ attendance_data.overall_rate }}%</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subject-wise Attendance -->
+    <div class="card card-custom mb-4">
+      <h4 class="text-primary mb-3">Subject-wise Attendance</h4>
+
+      {% if subject_attendance %}
+        <div class="list-group">
+          {% for subj_att in subject_attendance %}
+            <div class="list-group-item py-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                  <h5 class="mb-1 text-primary">{{ subj_att.subject.name }}</h5>
+                  <small class="text-muted">Teacher: {{ subj_att.teacher_name }}</small>
+                </div>
+
+                {% if subj_att.rate >= 75 %}
+                  <span class="badge bg-success">{{ subj_att.rate }}%</span>
+                {% elif subj_att.rate >= 50 %}
+                  <span class="badge bg-warning">{{ subj_att.rate }}%</span>
+                {% else %}
+                  <span class="badge bg-danger">{{ subj_att.rate }}%</span>
+                {% endif %}
+              </div>
+
+              <div class="progress mb-2" style="height: 6px;">
+                <div class="progress-bar {% if subj_att.rate >= 75 %}bg-success{% elif subj_att.rate >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                     data-width="{{ subj_att.rate }}"></div>
+              </div>
+
+              {% if subj_att.rate < 75 %}
+                <div class="text-danger small d-flex align-items-center">
+                  <i class="bi bi-exclamation-circle me-2"></i>
+                  Low attendance may impact final grade
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="alert alert-secondary mb-0">
+          No attendance records found for this student.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Recent Attendance Records -->
+    <div class="card card-custom">
+      <h4 class="text-primary mb-3">Recent Attendance History</h4>
+
+      {% if recent_attendance %}
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+          <table class="table table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Date</th>
+                <th>Subject</th>
+                <th>Teacher</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for record in recent_attendance %}
+                <tr>
+                  <td>{{ record.date|date:"Y-m-d" }}</td>
+                  <td>{{ record.subject.name }}</td>
+                  <td class="text-muted">
+                    {% if record.subject.teacher and record.subject.teacher.user %}
+                      {{ record.subject.teacher.user.get_full_name }}
+                    {% else %}
+                      N/A
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if record.status == 'present' %}
+                      <span class="badge bg-success bg-opacity-25 text-success">
+                        <i class="bi bi-check-circle me-1"></i> Present
+                      </span>
+                    {% elif record.status == 'absent' %}
+                      <span class="badge bg-danger bg-opacity-25 text-danger">
+                        <i class="bi bi-x-circle me-1"></i> Absent
+                      </span>
+                    {% elif record.status == 'late' %}
+                      <span class="badge bg-warning bg-opacity-25 text-warning">
+                        <i class="bi bi-clock me-1"></i> Late
+                      </span>
+                    {% else %}
+                      <span class="badge bg-secondary bg-opacity-25 text-secondary">
+                        {{ record.status|title }}
+                      </span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="alert alert-secondary mb-0">
+          No recent attendance records found.
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // Check if child_id is in URL, if not, check sessionStorage and redirect
+    var urlParams = new URLSearchParams(window.location.search);
+    var childIdFromUrl = urlParams.get('child_id');
+    
+    if (!childIdFromUrl) {
+      var storedChildId = sessionStorage.getItem('selectedChildId');
+      if (storedChildId) {
+        var currentUrl = window.location.href.split('?')[0];
+        window.location.href = currentUrl + '?child_id=' + storedChildId;
+        return;
+      }
+    } else {
+      // Store the child_id from URL to sessionStorage
+      sessionStorage.setItem('selectedChildId', childIdFromUrl);
+    }
+
+    // Handle child selector change
+    var childSelector = document.getElementById('childSelector');
+    if (childSelector) {
+      childSelector.addEventListener('change', function () {
+        var childId = this.value;
+        sessionStorage.setItem('selectedChildId', childId);
+        var currentUrl = window.location.href.split('?')[0];
+        window.location.href = currentUrl + '?child_id=' + childId;
+      });
+    }
+
+    // Set progress bar widths from data attributes
+    document.querySelectorAll('.progress-bar[data-width]').forEach(function (bar) {
+      var width = parseFloat(bar.getAttribute('data-width'));
+      if (!isNaN(width)) {
+        bar.style.width = width + '%';
+      }
+    });
+  });
+</script>
+{% endblock %}

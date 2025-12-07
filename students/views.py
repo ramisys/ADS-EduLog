@@ -3,7 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Q
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
+from django.utils.safestring import mark_safe
 from datetime import timedelta
+import json
 from core.models import StudentProfile, Grade, Attendance, Subject, Notification, Assessment, AssessmentScore
 
 @login_required
@@ -261,6 +263,12 @@ def dashboard(request):
         'grade_progress_by_subject': grade_progress_by_subject,
         'subject_performance_data': subject_performance_data,
         'subject_labels': subject_labels,
+        'performance_distribution': {
+            'excellent': excellent_count,
+            'good': good_count,
+            'average': average_count,
+            'needsImprovement': needs_improvement_count,
+        },
     }
     
     return render(request, 'students/dashboard.html', context)

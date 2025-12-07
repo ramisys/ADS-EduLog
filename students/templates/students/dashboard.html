@@ -184,9 +184,7 @@
                       <span class="text-primary fw-bold">{{ average_grade|default:"0" }}%</span>
                     </div>
                     <div class="progress" style="height:5px;">
-                      {% with progress_width=average_grade|default:0 %}
-                      <div class="progress-bar" role="progressbar" style="width: {{ progress_width }}%;"></div>
-                      {% endwith %}
+                      <div class="progress-bar" role="progressbar" data-progress="{{ average_grade|default:0 }}"></div>
                     </div>
                   </div>
       
@@ -231,63 +229,32 @@
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
+{{ attendance_trend_data|json_script:"attendance-trend-data" }}
+{{ grade_progress_by_subject|json_script:"grade-progress-data" }}
+{{ subject_performance_data|json_script:"subject-performance-data" }}
+{{ subject_labels|json_script:"subject-labels-data" }}
+{{ performance_distribution|json_script:"performance-distribution-data" }}
+
 <script>
-// Attendance Trend Data
-const attendanceTrendData = [
-    {% for trend in attendance_trend_data %}
-    { month: '{{ trend.month }}', rate: {{ trend.rate }} }{% if not forloop.last %},{% endif %}
-    {% empty %}
-    { month: 'No Data', rate: 0 }
-    {% endfor %}
-];
+// Set progress bar width from data attribute
+document.addEventListener('DOMContentLoaded', function() {
+    const progressBar = document.querySelector('.progress-bar[data-progress]');
+    if (progressBar) {
+        const progress = progressBar.getAttribute('data-progress');
+        progressBar.style.width = progress + '%';
+    }
+});
 
-// Grade Progress Data (Current vs Previous Term by Subject)
-const gradeProgressData = {
-    subjects: [
-        {% for progress in grade_progress_by_subject %}
-        '{{ progress.subject }}'{% if not forloop.last %},{% endif %}
-        {% endfor %}
-    ],
-    current: [
-        {% for progress in grade_progress_by_subject %}
-        {{ progress.current }}{% if not forloop.last %},{% endif %}
-        {% endfor %}
-    ],
-    previous: [
-        {% for progress in grade_progress_by_subject %}
-        {{ progress.previous }}{% if not forloop.last %},{% endif %}
-        {% endfor %}
-    ]
-};
-
-// Performance Distribution Data
-const performanceDistribution = {
-    excellent: {{ excellent_count|default:"0" }},
-    good: {{ good_count|default:"0" }},
-    average: {{ average_count|default:"0" }},
-    needsImprovement: {{ needs_improvement_count|default:"0" }}
-};
-
-// Subject Performance Data
-const subjectPerformanceData = [
-    {% for value in subject_performance_data %}
-    {{ value }}{% if not forloop.last %},{% endif %}
-    {% empty %}
-    0
-    {% endfor %}
-];
-
-const subjectLabels = [
-    {% for label in subject_labels %}
-    '{{ label }}'{% if not forloop.last %},{% endif %}
-    {% empty %}
-    'No Data'
-    {% endfor %}
-];
+// Chart data from Django template (using json_script to avoid linter errors)
+const attendanceTrendData = JSON.parse(document.getElementById('attendance-trend-data').textContent);
+const gradeProgressData = JSON.parse(document.getElementById('grade-progress-data').textContent);
+const performanceDistribution = JSON.parse(document.getElementById('performance-distribution-data').textContent);
+const subjectPerformanceData = JSON.parse(document.getElementById('subject-performance-data').textContent);
+const subjectLabels = JSON.parse(document.getElementById('subject-labels-data').textContent);
 
 // Initialize Attendance Trend Chart
 const attendanceTrendCtx = document.getElementById('attendanceTrendChart');
-if (attendanceTrendCtx) {
+if (attendanceTrendCtx && attendanceTrendData && attendanceTrendData.length > 0) {
     new Chart(attendanceTrendCtx, {
         type: 'line',
         data: {
@@ -329,22 +296,25 @@ if (attendanceTrendCtx) {
 
 // Initialize Grade Progress Chart (Current vs Previous Term)
 const gradeProgressCtx = document.getElementById('gradeProgressChart');
-if (gradeProgressCtx && gradeProgressData.subjects.length > 0) {
+if (gradeProgressCtx && gradeProgressData && gradeProgressData.length > 0) {
+    const subjects = gradeProgressData.map(p => p.subject);
+    const current = gradeProgressData.map(p => p.current);
+    const previous = gradeProgressData.map(p => p.previous);
     new Chart(gradeProgressCtx, {
         type: 'bar',
         data: {
-            labels: gradeProgressData.subjects,
+            labels: subjects,
             datasets: [
                 {
                     label: 'Current Term',
-                    data: gradeProgressData.current,
+                    data: current,
                     backgroundColor: 'rgba(34, 197, 94, 0.8)',
                     borderColor: 'rgba(34, 197, 94, 1)',
                     borderWidth: 2
                 },
                 {
                     label: 'Previous Term',
-                    data: gradeProgressData.previous,
+                    data: previous,
                     backgroundColor: 'rgba(156, 163, 175, 0.8)',
                     borderColor: 'rgba(156, 163, 175, 1)',
                     borderWidth: 2

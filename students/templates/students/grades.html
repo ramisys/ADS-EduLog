@@ -1,6 +1,271 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Grades | EduLog{% endblock %}
 {% block content %}
-{% include "students/coming_soon.html" %}
-{% endblock %}
 
+<style>
+    body { background: #f5f7fa; }
+    .card { border-radius: 16px; }
+    .card.rounded-3 { border-radius: 1rem !important; }
+    .progress-bar { background-color: #3b82f6; }
+</style>
+
+<div class="dashboard-container container py-4">
+    <div class="container my-4">
+        <!-- Header -->
+        <div class="mb-4">
+            <h2 class="text-primary mb-2">Grades</h2>
+            <p class="text-muted">Detailed grade breakdown and performance analysis</p>
+        </div>
+
+        <!-- SUMMARY CARDS -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="card p-4 rounded-3 border">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted small mb-1">Current GPA</p>
+                            <h3 class="text-primary fw-bold mb-2">{{ current_gpa|default:"0.0" }}</h3>
+                            <span class="badge {{ gpa_badge_class|default:'bg-info-subtle text-info' }}">{{ gpa_badge|default:"N/A" }}</span>
+                        </div>
+                        <div class="bg-warning-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                            <i class="bi bi-award text-warning fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-4 rounded-3 border">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted small mb-1">Cumulative GPA</p>
+                            <h3 class="text-primary fw-bold mb-2">{{ cumulative_gpa|default:"0.0" }}</h3>
+                            <span class="badge bg-primary-subtle text-primary">Overall Avg</span>
+                        </div>
+                        <div class="bg-primary-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                            <i class="bi bi-graph-up-arrow text-primary fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-4 rounded-3 border">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted small mb-1">Total Credits</p>
+                            <h3 class="text-primary fw-bold mb-2">{{ total_credits|default:"0" }}</h3>
+                            <span class="badge bg-success-subtle text-success">This Semester</span>
+                        </div>
+                        <div class="bg-success-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                            <i class="bi bi-award text-success fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-4 rounded-3 border">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted small mb-1">Class Rank</p>
+                            <h3 class="text-primary fw-bold mb-2">
+                                {% if class_rank != "N/A" and total_students > 0 %}
+                                    {{ class_rank }}/{{ total_students }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </h3>
+                            <span class="badge bg-warning-subtle text-warning">
+                                {% if student_profile.section %}{{ student_profile.section.name }}{% else %}N/A{% endif %}
+                            </span>
+                        </div>
+                        <div class="bg-warning-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                            <i class="bi bi-trophy text-warning fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHARTS -->
+        <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+                <div class="card p-4 rounded-3 border shadow-sm">
+                    <h5>GPA Trend Over Time</h5>
+                    <canvas id="gpaTrend"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card p-4 rounded-3 border shadow-sm text-center">
+                    <h5>Grade Distribution</h5>
+                    <canvas id="gradePie"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- COURSE TABLE -->
+        <div class="card p-4 rounded-3 border shadow-sm mb-4">
+            <h5 class="mb-3">Course Grades</h5>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Course</th>
+                            <th>Teacher</th>
+                            <th>Grade</th>
+                            <th>Percentage</th>
+                            <th>Credits</th>
+                            <th>Progress</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if course_grades %}
+                            {% for course in course_grades %}
+                            <tr>
+                                <td>{{ course.subject.name }}</td>
+                                <td>{{ course.teacher_name }}</td>
+                                <td>
+                                    <span class="badge bg-success-subtle text-success">{{ course.grade_letter }}</span>
+                                </td>
+                                <td>{{ course.percentage }}%</td>
+                                <td>{{ course.credits }}</td>
+                                <td>
+                                    <div class="progress" style="height:6px;">
+                                        <div class="progress-bar" style="width:{{ course.percentage }}%;"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-3">No grades recorded yet</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PERFORMANCE SECTIONS -->
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="card p-4 rounded-3 border shadow-sm">
+                    <h5>Academic Strengths</h5>
+                    <ul class="list-group list-group-flush mt-3">
+                        {% if strengths %}
+                            {% for strength in strengths %}
+                            <li class="list-group-item">
+                                <i class="bi bi-check-circle-fill text-success me-2"></i>{{ strength }}
+                            </li>
+                            {% endfor %}
+                        {% else %}
+                            <li class="list-group-item text-muted">No strengths identified yet</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card p-4 rounded-3 border shadow-sm">
+                    <h5>Growth Opportunities</h5>
+                    <ul class="list-group list-group-flush mt-3">
+                        {% if growth_opportunities %}
+                            {% for opportunity in growth_opportunities %}
+                            <li class="list-group-item">
+                                <i class="bi bi-arrow-up-circle-fill text-warning me-2"></i>{{ opportunity }}
+                            </li>
+                            {% endfor %}
+                        {% else %}
+                            <li class="list-group-item text-muted">Great job! Keep up the excellent work.</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+// Grade Distribution Data
+const gradeDistribution = [
+    {% for dist in grade_distribution %}
+    { name: '{{ dist.name }}', value: {{ dist.value }}, count: {{ dist.count }} }{% if not forloop.last %},{% endif %}
+    {% empty %}
+    { name: 'No Data', value: 0, count: 0 }
+    {% endfor %}
+];
+
+// Semester GPA Data
+const semesterGPA = [
+    {% for semester in semester_gpa %}
+    { semester: '{{ semester.semester }}', gpa: {{ semester.gpa }} }{% if not forloop.last %},{% endif %}
+    {% empty %}
+    { semester: 'Current', gpa: {{ current_gpa|default:"0.0" }} }
+    {% endfor %}
+];
+
+// Initialize GPA Trend Chart
+const gpaTrendCtx = document.getElementById('gpaTrend');
+if (gpaTrendCtx) {
+    new Chart(gpaTrendCtx, {
+        type: 'line',
+        data: {
+            labels: semesterGPA.map(x => x.semester),
+            datasets: [{
+                label: 'GPA',
+                data: semesterGPA.map(x => x.gpa),
+                borderColor: 'rgba(59, 130, 246, 1)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 4.0
+                }
+            }
+        }
+    });
+}
+
+// Initialize Grade Distribution Pie Chart
+const gradePieCtx = document.getElementById('gradePie');
+if (gradePieCtx) {
+    new Chart(gradePieCtx, {
+        type: 'pie',
+        data: {
+            labels: gradeDistribution.map(x => x.name),
+            datasets: [{
+                data: gradeDistribution.map(x => x.count),
+                backgroundColor: [
+                    'rgba(34, 197, 94, 0.8)',
+                    'rgba(59, 130, 246, 0.8)',
+                    'rgba(251, 191, 36, 0.8)',
+                    'rgba(239, 68, 68, 0.8)',
+                    'rgba(168, 85, 247, 0.8)',
+                    'rgba(236, 72, 153, 0.8)',
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+</script>
+
+{% endblock %}

@@ -1,97 +1,353 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Notifications | EduLog{% endblock %}
 {% block content %}
-<div class="dashboard-container">
-    <div class="dashboard-header">
-        <h1>Notifications</h1>
-        <p>View and manage all your notifications and alerts.</p>
-    </div>
 
-    <div class="card">
-        <div class="card-header">
-            <h2>All Notifications</h2>
-            {% if unread_count > 0 %}
-            <form method="POST" style="display: inline;">
-                {% csrf_token %}
-                <button type="submit" name="mark_all_read" class="btn btn-sm btn-primary">
-                    <i class="bi bi-check-all me-1"></i>Mark All as Read
+<style>
+    body { background: #f5f7fa; }
+    .card { border-radius: 16px; }
+    .task-card:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        transition: box-shadow 0.2s;
+    }
+</style>
+
+<div class="dashboard-container container py-4">
+    <div class="container my-4">
+        <!-- Header -->
+        <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="text-primary mb-2">Notifications</h2>
+                    <p class="text-muted">Track all your pending and upcoming work</p>
+                </div>
+                <button class="btn btn-primary">
+                    <i class="bi bi-download me-2"></i> Export Tasks
                 </button>
-            </form>
-            {% endif %}
+            </div>
         </div>
 
-        {% if notifications %}
-        <div class="notification-list">
-            {% for notification in notifications %}
-            <div class="notification-item {% if not notification.is_read %}notification-unread{% endif %}">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div class="flex-grow-1">
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                            {% if not notification.is_read %}
-                            <span class="badge bg-primary">New</span>
-                            {% endif %}
-                            <span class="badge 
-                                {% if notification.notification_type == 'attendance_absent' or notification.notification_type == 'performance_at_risk' or notification.notification_type == 'consecutive_absences' %}bg-danger-subtle text-danger
-                                {% elif notification.notification_type == 'attendance_late' or notification.notification_type == 'performance_warning_attendance' or notification.notification_type == 'performance_warning_gpa' %}bg-warning-subtle text-warning
-                                {% elif notification.notification_type == 'performance_improved' %}bg-success-subtle text-success
-                                {% else %}bg-secondary-subtle text-secondary{% endif %}">
-                                {{ notification.get_notification_type_display }}
-                            </span>
+        <!-- Summary Stats -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="card p-4 rounded-3 border shadow-sm">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted small mb-1">Pending Tasks</p>
+                            <h3 class="text-primary mb-2">{{ pending_tasks_count|default:"0" }}</h3>
+                            <span class="badge bg-warning-subtle text-warning">Need attention</span>
                         </div>
-                        <p class="mb-1">{{ notification.message }}</p>
-                        <small class="text-muted">
-                            <i class="bi bi-clock me-1"></i>{{ notification.created_at|date:"F d, Y g:i A" }}
-                        </small>
+                        <div class="bg-warning-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                            <i class="bi bi-clock text-warning fs-4"></i>
+                        </div>
                     </div>
-                    {% if not notification.is_read %}
-                    <form method="POST" style="display: inline;">
-                        {% csrf_token %}
-                        <button type="submit" name="mark_read" value="{{ notification.id }}" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-check"></i>
-                        </button>
-                    </form>
-                    {% endif %}
                 </div>
             </div>
-            {% endfor %}
+            <div class="col-md-3">
+                <div class="card p-4 rounded-3 border shadow-sm">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted small mb-1">In Progress</p>
+                            <h3 class="text-primary mb-2">{{ in_progress_tasks_count|default:"0" }}</h3>
+                            <span class="badge bg-info-subtle text-info">Working on</span>
+                        </div>
+                        <div class="bg-info-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                            <i class="bi bi-arrow-repeat text-info fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-4 rounded-3 border shadow-sm">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted small mb-1">Completed</p>
+                            <h3 class="text-primary mb-2">{{ completed_tasks_count|default:"0" }}</h3>
+                            <span class="badge bg-success-subtle text-success">Done</span>
+                        </div>
+                        <div class="bg-success-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                            <i class="bi bi-check-circle text-success fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-4 rounded-3 border shadow-sm">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted small mb-1">High Priority</p>
+                            <h3 class="text-primary mb-2">{{ high_priority_tasks_count|default:"0" }}</h3>
+                            <span class="badge bg-danger-subtle text-danger">Urgent</span>
+                        </div>
+                        <div class="bg-danger-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                            <i class="bi bi-exclamation-circle text-danger fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        {% else %}
-        <div class="empty-state">
-            <i class="bi bi-bell-slash"></i>
-            <h3>No notifications</h3>
-            <p>You're all caught up! No new notifications at this time.</p>
+
+        <!-- Filters -->
+        <div class="card p-4 rounded-3 border shadow-sm mb-4">
+            <h5 class="text-primary mb-3">Filter Tasks</h5>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="position-relative">
+                        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                        <input type="text" id="searchInput" class="form-control ps-5" placeholder="Search tasks...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select id="statusFilter" class="form-select">
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="priorityFilter" class="form-select">
+                        <option value="all">All Priority</option>
+                        <option value="high">High Priority</option>
+                        <option value="medium">Medium Priority</option>
+                        <option value="low">Low Priority</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="subjectFilter" class="form-select">
+                        <option value="all">All Subjects</option>
+                        {% for subject in subject_list %}
+                            <option value="{{ subject }}">{{ subject }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
         </div>
-        {% endif %}
+
+        <!-- Tasks List -->
+        <div id="tasksList">
+            {% if tasks %}
+                {% for task in tasks %}
+                <div class="card p-4 border-0 shadow-sm mb-3 task-card" data-task-id="{{ task.id }}" 
+                     data-status="{{ task.status }}" data-priority="{{ task.priority }}" data-subject="{{ task.subject }}">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                <h5 class="text-primary mb-0">{{ task.title }}</h5>
+                                <span class="badge 
+                                    {% if task.status == 'completed' %}bg-success-subtle text-success
+                                    {% elif task.status == 'in-progress' %}bg-info-subtle text-info
+                                    {% else %}bg-warning-subtle text-warning{% endif %}">
+                                    {% if task.status == 'completed' %}Completed
+                                    {% elif task.status == 'in-progress' %}In Progress
+                                    {% else %}Pending{% endif %}
+                                </span>
+                                <span class="badge 
+                                    {% if task.priority == 'high' %}bg-danger-subtle text-danger
+                                    {% elif task.priority == 'medium' %}bg-warning-subtle text-warning
+                                    {% else %}bg-secondary-subtle text-secondary{% endif %}">
+                                    {{ task.priority|capfirst }} Priority
+                                </span>
+                            </div>
+                            <p class="text-muted small mb-2">{{ task.subject }} • {{ task.teacher }}</p>
+                            <p class="text-dark mb-0">{{ task.description }}</p>
+                        </div>
+                        <div class="p-3 rounded 
+                            {% if task.status == 'completed' %}bg-success-subtle
+                            {% elif task.status == 'in-progress' %}bg-info-subtle
+                            {% else %}bg-warning-subtle{% endif %}">
+                            {% if task.status == 'completed' %}
+                                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            {% else %}
+                                <i class="bi bi-clock text-warning fs-5"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 bg-light rounded p-3 mb-3">
+                        <div class="col-md-3">
+                            <p class="text-muted small mb-1">Due Date</p>
+                            <p class="text-primary small mb-0">{{ task.dueDate }}</p>
+                            <p class="text-muted small mb-0">{{ task.dueTime }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="text-muted small mb-1">Type</p>
+                            <p class="text-primary small mb-0 text-capitalize">{{ task.type }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="text-muted small mb-1">Points</p>
+                            <p class="text-primary small mb-0">{{ task.points }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="text-muted small mb-1">Est. Time</p>
+                            <p class="text-primary small mb-0">{{ task.estimatedTime }}</p>
+                        </div>
+                    </div>
+
+                    {% if task.status != 'completed' %}
+                    <div class="alert alert-info mb-3" role="alert" id="dueDateAlert-{{ task.id }}">
+                        <i class="bi bi-calendar-event me-2"></i>
+                        <span id="dueDateInfo-{{ task.id }}">Calculating...</span>
+                    </div>
+                    {% endif %}
+
+                    {% if task.status == 'completed' and task.completedDate %}
+                    <div class="alert alert-success mb-3" role="alert">
+                        <i class="bi bi-check-circle me-2"></i>
+                        Completed on {{ task.completedDate }}
+                    </div>
+                    {% endif %}
+
+                    {% if task.status != 'completed' %}
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary btn-sm" onclick="markTask('{{ task.id }}', '{{ task.status }}')">
+                            Mark as {% if task.status == 'pending' %}In Progress{% else %}Completed{% endif %}
+                        </button>
+                        <button class="btn btn-primary btn-sm">View Details</button>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="card p-5 border-0 shadow-sm text-center">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px;">
+                        <i class="bi bi-check-circle text-muted fs-3"></i>
+                    </div>
+                    <h5 class="text-primary mb-2">No tasks found</h5>
+                    <p class="text-muted">Try adjusting your filters to see more results</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 
-<style>
-.notification-list {
-    max-height: 600px;
-    overflow-y: auto;
+<script>
+// Task filtering functionality
+const allTasks = [
+    {% for task in tasks %}
+    {
+        id: {{ task.id }},
+        title: '{{ task.title|escapejs }}',
+        subject: '{{ task.subject|escapejs }}',
+        teacher: '{{ task.teacher|escapejs }}',
+        description: '{{ task.description|escapejs }}',
+        dueDate: '{{ task.dueDate }}',
+        dueTime: '{{ task.dueTime }}',
+        type: '{{ task.type }}',
+        points: {{ task.points }},
+        estimatedTime: '{{ task.estimatedTime }}',
+        status: '{{ task.status }}',
+        priority: '{{ task.priority }}',
+        completedDate: {% if task.completedDate %}'{{ task.completedDate }}'{% else %}null{% endif %}
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
+
+function getDaysUntilDue(dueDate) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate);
+    due.setHours(0, 0, 0, 0);
+    const diffTime = due.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
 }
 
-.notification-item {
-    padding: 16px;
-    border-bottom: 1px solid #e5e7eb;
-    transition: background-color 0.2s;
+function updateDueDateInfo() {
+    allTasks.forEach(task => {
+        if (task.status !== 'completed') {
+            const daysUntil = getDaysUntilDue(task.dueDate);
+            const infoElement = document.getElementById('dueDateInfo-' + task.id);
+            const alertElement = document.getElementById('dueDateAlert-' + task.id);
+            
+            if (infoElement) {
+                if (daysUntil < 0) {
+                    infoElement.textContent = `Overdue by ${Math.abs(daysUntil)} day${Math.abs(daysUntil) !== 1 ? 's' : ''}`;
+                    if (alertElement) {
+                        alertElement.className = 'alert alert-danger mb-3';
+                    }
+                } else if (daysUntil <= 2) {
+                    infoElement.textContent = `Due in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}`;
+                    if (alertElement) {
+                        alertElement.className = 'alert alert-warning mb-3';
+                    }
+                } else {
+                    infoElement.textContent = `Due in ${daysUntil} days`;
+                    if (alertElement) {
+                        alertElement.className = 'alert alert-info mb-3';
+                    }
+                }
+            }
+        }
+    });
 }
 
-.notification-item:last-child {
-    border-bottom: none;
+function filterTasks() {
+    const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilter').value;
+    const priorityFilter = document.getElementById('priorityFilter').value;
+    const subjectFilter = document.getElementById('subjectFilter').value;
+
+    const taskCards = document.querySelectorAll('.task-card');
+    
+    taskCards.forEach(card => {
+        const taskId = parseInt(card.dataset.taskId);
+        const task = allTasks.find(t => t.id === taskId);
+        
+        if (!task) {
+            card.style.display = 'none';
+            return;
+        }
+
+        const matchesSearch = task.title.toLowerCase().includes(searchQuery) ||
+                            task.subject.toLowerCase().includes(searchQuery);
+        const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+        const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
+        const matchesSubject = subjectFilter === 'all' || task.subject === subjectFilter;
+
+        if (matchesSearch && matchesStatus && matchesPriority && matchesSubject) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    // Show empty state if no tasks visible
+    const visibleTasks = Array.from(taskCards).filter(card => card.style.display !== 'none');
+    const emptyState = document.querySelector('.card.p-5.text-center');
+    if (visibleTasks.length === 0 && allTasks.length > 0) {
+        if (!emptyState) {
+            const tasksList = document.getElementById('tasksList');
+            tasksList.innerHTML = `
+                <div class="card p-5 border-0 shadow-sm text-center">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px;">
+                        <i class="bi bi-check-circle text-muted fs-3"></i>
+                    </div>
+                    <h5 class="text-primary mb-2">No tasks found</h5>
+                    <p class="text-muted">Try adjusting your filters to see more results</p>
+                </div>
+            `;
+        }
+    } else if (emptyState && visibleTasks.length > 0) {
+        // Restore original tasks if filters are cleared
+        location.reload();
+    }
 }
 
-.notification-item:hover {
-    background-color: #f9fafb;
+function markTask(taskId, currentStatus) {
+    // This would typically make an AJAX call to update the task status
+    alert('Task status update functionality would be implemented here');
 }
 
-.notification-unread {
-    background-color: #eff6ff;
-    border-left: 4px solid #2563eb;
-}
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    updateDueDateInfo();
+    
+    document.getElementById('searchInput').addEventListener('input', filterTasks);
+    document.getElementById('statusFilter').addEventListener('change', filterTasks);
+    document.getElementById('priorityFilter').addEventListener('change', filterTasks);
+    document.getElementById('subjectFilter').addEventListener('change', filterTasks);
+});
+</script>
 
-.notification-unread:hover {
-    background-color: #dbeafe;
-}
-</style>
 {% endblock %}

@@ -1,6 +1,379 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Attendance | EduLog{% endblock %}
 {% block content %}
-{% include "students/coming_soon.html" %}
-{% endblock %}
 
+<style>
+    body { background: #f8fafc; }
+    .card { border-radius: 15px; }
+</style>
+
+<div class="dashboard-container container py-4">
+    <div class="container my-4">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="text-primary mb-2">Attendance</h2>
+                <p class="text-muted">Detailed attendance history and statistics</p>
+            </div>
+            <button class="btn btn-primary">
+                <i class="bi bi-download me-1"></i> Export Report
+            </button>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="card p-4 rounded-3 border">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted small mb-1">Present Days</p>
+                            <h3 class="text-primary fw-bold mb-2">{{ present_count|default:"0" }}</h3>
+                            <span class="badge bg-success-subtle text-success">
+                                {% if total_count > 0 %}
+                                    {% widthratio present_count total_count 100 %}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="bg-success-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                            <i class="bi bi-check-circle text-success fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-4 rounded-3 border">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted small mb-1">Absent Days</p>
+                            <h3 class="text-primary fw-bold mb-2">{{ absent_count|default:"0" }}</h3>
+                            <span class="badge bg-danger-subtle text-danger">
+                                {% if total_count > 0 %}
+                                    {% widthratio absent_count total_count 100 %}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="bg-danger-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                            <i class="bi bi-x-circle text-danger fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-4 rounded-3 border">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted small mb-1">Late Days</p>
+                            <h3 class="text-primary fw-bold mb-2">{{ late_count|default:"0" }}</h3>
+                            <span class="badge bg-warning-subtle text-warning">
+                                {% if total_count > 0 %}
+                                    {% widthratio late_count total_count 100 %}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="bg-warning-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                            <i class="bi bi-clock text-warning fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-4 rounded-3 border">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted small mb-1">Attendance Rate</p>
+                            <h3 class="text-primary fw-bold mb-2">{{ attendance_rate|default:"0" }}%</h3>
+                            <span class="badge {{ attendance_badge_class|default:'bg-info-subtle text-info' }}">
+                                {{ attendance_badge|default:"N/A" }}
+                            </span>
+                        </div>
+                        <div class="bg-info-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                            <i class="bi bi-calendar-check text-info fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="row g-4 mb-5">
+            <div class="col-lg-6">
+                <div class="card p-4 rounded-3 border">
+                    <h5 class="text-primary">Monthly Attendance Breakdown</h5>
+                    <canvas id="monthlyAttendanceChart" height="200"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card p-4 rounded-3 border">
+                    <h5 class="text-primary">Attendance Rate Over Time</h5>
+                    <canvas id="attendanceTrendChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance by Subject -->
+        <div class="card p-4 rounded-3 border mb-5">
+            <h5 class="text-primary">Attendance by Subject</h5>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Present</th>
+                            <th>Absent</th>
+                            <th>Late</th>
+                            <th>Rate</th>
+                            <th>Progress</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if attendance_by_subject %}
+                            {% for item in attendance_by_subject %}
+                            <tr>
+                                <td>{{ item.subject.name }}</td>
+                                <td>{{ item.present }}</td>
+                                <td>{{ item.absent }}</td>
+                                <td>{{ item.late }}</td>
+                                <td>
+                                    <span class="badge bg-primary-subtle text-primary">{{ item.rate }}%</span>
+                                </td>
+                                <td>
+                                    <div class="progress" style="width:150px; height:8px;">
+                                        <div class="progress-bar bg-primary" style="width:{{ item.rate }}%"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-3">No attendance records found</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Attendance History -->
+        <div class="card p-4 rounded-3 border mb-5">
+            <h5 class="text-primary mb-3">Attendance History</h5>
+
+            <!-- Filters -->
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <input id="searchInput" class="form-control" placeholder="Search by subject or date" />
+                </div>
+                <div class="col-md-4">
+                    <select id="statusFilter" class="form-select">
+                        <option value="all">All Status</option>
+                        <option value="present">Present</option>
+                        <option value="absent">Absent</option>
+                        <option value="late">Late</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <select id="subjectFilter" class="form-select">
+                        <option value="all">All Subjects</option>
+                        {% for subject_name in subject_list %}
+                            <option value="{{ subject_name }}">{{ subject_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered" id="historyTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Subject</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if attendance_history %}
+                            {% for record in attendance_history %}
+                            <tr>
+                                <td>{{ record.date }}</td>
+                                <td>{{ record.subject }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if record.status == 'present' %}bg-success
+                                        {% elif record.status == 'absent' %}bg-danger
+                                        {% elif record.status == 'late' %}bg-warning
+                                        {% else %}bg-info{% endif %}">
+                                        {{ record.status|capfirst }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted py-3">No attendance history found</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+// Monthly Attendance Data
+const monthlyAttendance = [
+    {% for month in monthly_attendance %}
+    { month: '{{ month.month }}', present: {{ month.present }}, late: {{ month.late }}, absent: {{ month.absent }} }{% if not forloop.last %},{% endif %}
+    {% empty %}
+    { month: 'No Data', present: 0, late: 0, absent: 0 }
+    {% endfor %}
+];
+
+// Attendance Trend Data
+const attendanceTrend = [
+    {% for trend in attendance_trend %}
+    { month: '{{ trend.month }}', rate: {{ trend.rate }} }{% if not forloop.last %},{% endif %}
+    {% empty %}
+    { month: 'No Data', rate: 0 }
+    {% endfor %}
+];
+
+// Initialize Monthly Attendance Chart
+const monthlyCtx = document.getElementById('monthlyAttendanceChart');
+if (monthlyCtx) {
+    new Chart(monthlyCtx, {
+        type: 'bar',
+        data: {
+            labels: monthlyAttendance.map(m => m.month),
+            datasets: [
+                {
+                    label: 'Present',
+                    data: monthlyAttendance.map(m => m.present),
+                    backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                    borderColor: 'rgba(34, 197, 94, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Late',
+                    data: monthlyAttendance.map(m => m.late),
+                    backgroundColor: 'rgba(251, 191, 36, 0.8)',
+                    borderColor: 'rgba(251, 191, 36, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Absent',
+                    data: monthlyAttendance.map(m => m.absent),
+                    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                    borderColor: 'rgba(239, 68, 68, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Initialize Attendance Trend Chart
+const trendCtx = document.getElementById('attendanceTrendChart');
+if (trendCtx) {
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: attendanceTrend.map(m => m.month),
+            datasets: [{
+                label: 'Attendance Rate (%)',
+                data: attendanceTrend.map(m => m.rate),
+                borderColor: 'rgba(59, 130, 246, 1)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+}
+
+// Filter functionality for attendance history
+const attendanceHistory = [
+    {% for record in attendance_history %}
+    { date: '{{ record.date }}', subject: '{{ record.subject }}', status: '{{ record.status }}' }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+];
+
+function updateHistory() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const status = document.getElementById('statusFilter').value;
+    const subject = document.getElementById('subjectFilter').value;
+
+    const filtered = attendanceHistory.filter(r =>
+        (r.subject.toLowerCase().includes(search) || r.date.includes(search)) &&
+        (status === 'all' || r.status === status) &&
+        (subject === 'all' || r.subject === subject)
+    );
+
+    const historyTable = document.getElementById('historyTable');
+    if (historyTable) {
+        historyTable.innerHTML = `
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Subject</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${filtered.length > 0 ? filtered.map(r => `
+                    <tr>
+                        <td>${r.date}</td>
+                        <td>${r.subject}</td>
+                        <td>
+                            <span class="badge ${r.status === 'present' ? 'bg-success' : r.status === 'absent' ? 'bg-danger' : r.status === 'late' ? 'bg-warning' : 'bg-info'}">
+                                ${r.status.charAt(0).toUpperCase() + r.status.slice(1)}
+                            </span>
+                        </td>
+                    </tr>
+                `).join('') : '<tr><td colspan="3" class="text-center text-muted py-3">No records found</td></tr>'}
+            </tbody>
+        `;
+    }
+}
+
+// Attach event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const subjectFilter = document.getElementById('subjectFilter');
+    
+    if (searchInput) searchInput.addEventListener('input', updateHistory);
+    if (statusFilter) statusFilter.addEventListener('change', updateHistory);
+    if (subjectFilter) subjectFilter.addEventListener('change', updateHistory);
+});
+</script>
+
+{% endblock %}

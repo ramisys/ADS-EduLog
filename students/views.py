@@ -8,6 +8,44 @@ from datetime import timedelta
 import json
 from core.models import StudentProfile, Grade, Attendance, Subject, Notification, Assessment, AssessmentScore
 
+def percentage_to_gwa(percentage):
+    """
+    Convert percentage grade (0-100) to GWA (General Weighted Average) scale.
+    GWA scale: 1.0 (excellent) to 5.0 (failing), where lower is better.
+    
+    Scale:
+    - 97-100% = 1.0
+    - 94-96% = 1.25
+    - 91-93% = 1.5
+    - 88-90% = 1.75
+    - 85-87% = 2.0
+    - 82-84% = 2.25
+    - 79-81% = 2.5
+    - 76-78% = 2.75
+    - 75% = 3.0
+    - Below 75% = 5.0
+    """
+    if percentage >= 97:
+        return 1.0
+    elif percentage >= 94:
+        return 1.25
+    elif percentage >= 91:
+        return 1.5
+    elif percentage >= 88:
+        return 1.75
+    elif percentage >= 85:
+        return 2.0
+    elif percentage >= 82:
+        return 2.25
+    elif percentage >= 79:
+        return 2.5
+    elif percentage >= 76:
+        return 2.75
+    elif percentage >= 75:
+        return 3.0
+    else:
+        return 5.0
+
 @login_required
 def dashboard(request):
     # Ensure user is a student
@@ -47,24 +85,27 @@ def dashboard(request):
     notifications = Notification.objects.filter(recipient=request.user, is_read=False).order_by('-created_at')[:5]
     alerts_count = notifications.count()
     
-    # Calculate GPA (convert percentage to 4.0 scale)
+    # Calculate GWA (General Weighted Average) from percentage grade
     # Assuming grades are stored as percentages (0-100)
-    gpa = (float(average_grade) / 100) * 4.0 if average_grade > 0 else 0.0
-    gpa = round(gpa, 2)
+    gwa = percentage_to_gwa(float(average_grade)) if average_grade > 0 else 5.0
+    gwa = round(gwa, 2)
     
-    # Determine GPA ranking badge (simplified - can be enhanced with actual ranking)
-    if gpa >= 3.7:
-        gpa_badge = "Top 15%"
-        gpa_badge_class = "bg-success-subtle text-success"
-    elif gpa >= 3.3:
-        gpa_badge = "Top 30%"
-        gpa_badge_class = "bg-success-subtle text-success"
-    elif gpa >= 3.0:
-        gpa_badge = "Above Average"
-        gpa_badge_class = "bg-info-subtle text-info"
+    # Determine GWA ranking badge (for GWA, lower is better)
+    if gwa <= 1.5:
+        gwa_badge = "Excellent"
+        gwa_badge_class = "bg-success-subtle text-success"
+    elif gwa <= 2.0:
+        gwa_badge = "Very Good"
+        gwa_badge_class = "bg-success-subtle text-success"
+    elif gwa <= 2.75:
+        gwa_badge = "Good"
+        gwa_badge_class = "bg-info-subtle text-info"
+    elif gwa <= 3.0:
+        gwa_badge = "Passing"
+        gwa_badge_class = "bg-warning-subtle text-warning"
     else:
-        gpa_badge = "Average"
-        gpa_badge_class = "bg-warning-subtle text-warning"
+        gwa_badge = "Needs Improvement"
+        gwa_badge_class = "bg-danger-subtle text-danger"
     
     # Determine attendance badge
     if attendance_percentage >= 95:
@@ -245,9 +286,9 @@ def dashboard(request):
         'notifications': notifications,
         'alerts_count': alerts_count,
         'grades_by_subject': grades_by_subject,
-        'gpa': gpa,
-        'gpa_badge': gpa_badge,
-        'gpa_badge_class': gpa_badge_class,
+        'gwa': gwa,
+        'gwa_badge': gwa_badge,
+        'gwa_badge_class': gwa_badge_class,
         'attendance_badge': attendance_badge,
         'attendance_badge_class': attendance_badge_class,
         'grade_badge': grade_badge,
@@ -531,13 +572,13 @@ def grades(request):
     # Get all grades
     all_grades = Grade.objects.filter(student=student_profile).select_related('subject', 'subject__teacher__user')
     
-    # Calculate current GPA (from all grades)
+    # Calculate current GWA (from all grades)
     average_grade = all_grades.aggregate(Avg('grade'))['grade__avg'] or 0
-    current_gpa = (float(average_grade) / 100) * 4.0 if average_grade > 0 else 0.0
-    current_gpa = round(current_gpa, 2)
+    current_gwa = percentage_to_gwa(float(average_grade)) if average_grade > 0 else 5.0
+    current_gwa = round(current_gwa, 2)
     
-    # For cumulative GPA, we'll use the same for now (can be enhanced with historical data)
-    cumulative_gpa = current_gpa
+    # For cumulative GWA, we'll use the same for now (can be enhanced with historical data)
+    cumulative_gwa = current_gwa
     
     # Get subjects with grades
     subjects = []
@@ -604,35 +645,38 @@ def grades(request):
                 'value': count * 10  # For chart visualization
             })
     
-    # Get GPA trend by term (semester)
+    # Get GWA trend by term (semester)
     terms = all_grades.values_list('term', flat=True).distinct().order_by('term')
-    semester_gpa = []
+    semester_gwa = []
     for term in terms:
         term_grades = all_grades.filter(term=term)
         term_avg = term_grades.aggregate(Avg('grade'))['grade__avg'] or 0
-        term_gpa = (float(term_avg) / 100) * 4.0 if term_avg > 0 else 0.0
-        semester_gpa.append({
+        term_gwa = percentage_to_gwa(float(term_avg)) if term_avg > 0 else 5.0
+        semester_gwa.append({
             'semester': term,
-            'gpa': round(term_gpa, 2)
+            'gwa': round(term_gwa, 2)
         })
     
     # If no term data, create placeholder
-    if not semester_gpa:
-        semester_gpa = [{'semester': 'Current', 'gpa': current_gpa}]
+    if not semester_gwa:
+        semester_gwa = [{'semester': 'Current', 'gwa': current_gwa}]
     
-    # Determine GPA badge
-    if current_gpa >= 3.7:
-        gpa_badge = "Top 15%"
-        gpa_badge_class = "bg-success-subtle text-success"
-    elif current_gpa >= 3.3:
-        gpa_badge = "Top 30%"
-        gpa_badge_class = "bg-success-subtle text-success"
-    elif current_gpa >= 3.0:
-        gpa_badge = "Above Average"
-        gpa_badge_class = "bg-info-subtle text-info"
+    # Determine GWA badge (for GWA, lower is better)
+    if current_gwa <= 1.5:
+        gwa_badge = "Excellent"
+        gwa_badge_class = "bg-success-subtle text-success"
+    elif current_gwa <= 2.0:
+        gwa_badge = "Very Good"
+        gwa_badge_class = "bg-success-subtle text-success"
+    elif current_gwa <= 2.75:
+        gwa_badge = "Good"
+        gwa_badge_class = "bg-info-subtle text-info"
+    elif current_gwa <= 3.0:
+        gwa_badge = "Passing"
+        gwa_badge_class = "bg-warning-subtle text-warning"
     else:
-        gpa_badge = "Average"
-        gpa_badge_class = "bg-warning-subtle text-warning"
+        gwa_badge = "Needs Improvement"
+        gwa_badge_class = "bg-danger-subtle text-danger"
     
     # Calculate strengths and growth opportunities
     strengths = []
@@ -652,16 +696,16 @@ def grades(request):
         'page_title': 'Grades',
         'page_description': 'View your grades and academic performance.',
         'student_profile': student_profile,
-        'current_gpa': current_gpa,
-        'cumulative_gpa': cumulative_gpa,
+        'current_gwa': current_gwa,
+        'cumulative_gwa': cumulative_gwa,
         'total_credits': total_credits,
         'class_rank': class_rank,
         'total_students': total_students,
-        'gpa_badge': gpa_badge,
-        'gpa_badge_class': gpa_badge_class,
+        'gwa_badge': gwa_badge,
+        'gwa_badge_class': gwa_badge_class,
         'course_grades': course_grades,
         'grade_distribution': grade_distribution_data,
-        'semester_gpa': semester_gpa,
+        'semester_gwa': semester_gwa,
         'strengths': strengths,
         'growth_opportunities': growth_opportunities,
     }

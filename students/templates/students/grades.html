@@ -24,9 +24,9 @@
                 <div class="card p-4 rounded-3 border">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
-                            <p class="text-muted small mb-1">Current GPA</p>
-                            <h3 class="text-primary fw-bold mb-2">{{ current_gpa|default:"0.0" }}</h3>
-                            <span class="badge {{ gpa_badge_class|default:'bg-info-subtle text-info' }}">{{ gpa_badge|default:"N/A" }}</span>
+                            <p class="text-muted small mb-1">Current GWA</p>
+                            <h3 class="text-primary fw-bold mb-2">{{ current_gwa|default:"5.0" }}</h3>
+                            <span class="badge {{ gwa_badge_class|default:'bg-info-subtle text-info' }}">{{ gwa_badge|default:"N/A" }}</span>
                         </div>
                         <div class="bg-warning-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
                             <i class="bi bi-award text-warning fs-4"></i>
@@ -38,8 +38,8 @@
                 <div class="card p-4 rounded-3 border">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
-                            <p class="text-muted small mb-1">Cumulative GPA</p>
-                            <h3 class="text-primary fw-bold mb-2">{{ cumulative_gpa|default:"0.0" }}</h3>
+                            <p class="text-muted small mb-1">Cumulative GWA</p>
+                            <h3 class="text-primary fw-bold mb-2">{{ cumulative_gwa|default:"5.0" }}</h3>
                             <span class="badge bg-primary-subtle text-primary">Overall Avg</span>
                         </div>
                         <div class="bg-primary-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
@@ -90,8 +90,8 @@
         <div class="row g-4 mb-4">
             <div class="col-lg-6">
                 <div class="card p-4 rounded-3 border shadow-sm">
-                    <h5>GPA Trend Over Time</h5>
-                    <canvas id="gpaTrend"></canvas>
+                    <h5>GWA Trend Over Time</h5>
+                    <canvas id="gwaTrend"></canvas>
                 </div>
             </div>
             <div class="col-lg-6">
@@ -197,25 +197,25 @@ const gradeDistribution = [
     {% endfor %}
 ];
 
-// Semester GPA Data
-const semesterGPA = [
-    {% for semester in semester_gpa %}
-    { semester: '{{ semester.semester }}', gpa: {{ semester.gpa }} }{% if not forloop.last %},{% endif %}
+// Semester GWA Data
+const semesterGWA = [
+    {% for semester in semester_gwa %}
+    { semester: '{{ semester.semester }}', gwa: {{ semester.gwa }} }{% if not forloop.last %},{% endif %}
     {% empty %}
-    { semester: 'Current', gpa: {{ current_gpa|default:"0.0" }} }
+    { semester: 'Current', gwa: {{ current_gwa|default:"5.0" }} }
     {% endfor %}
 ];
 
-// Initialize GPA Trend Chart
-const gpaTrendCtx = document.getElementById('gpaTrend');
-if (gpaTrendCtx) {
-    new Chart(gpaTrendCtx, {
+// Initialize GWA Trend Chart
+const gwaTrendCtx = document.getElementById('gwaTrend');
+if (gwaTrendCtx) {
+    new Chart(gwaTrendCtx, {
         type: 'line',
         data: {
-            labels: semesterGPA.map(x => x.semester),
+            labels: semesterGWA.map(x => x.semester),
             datasets: [{
-                label: 'GPA',
-                data: semesterGPA.map(x => x.gpa),
+                label: 'GWA',
+                data: semesterGWA.map(x => x.gwa),
                 borderColor: 'rgba(59, 130, 246, 1)',
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                 borderWidth: 3,
@@ -229,7 +229,8 @@ if (gpaTrendCtx) {
             scales: {
                 y: {
                     beginAtZero: true,
-                    max: 4.0
+                    max: 5.0,
+                    reverse: true  // Lower GWA (better) appears at top
                 }
             }
         }

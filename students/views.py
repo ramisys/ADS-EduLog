@@ -692,6 +692,40 @@ def grades(request):
     class_rank = "N/A"
     total_students = StudentProfile.objects.filter(section=student_profile.section).count() if student_profile.section else 0
     
+    # Prepare subject summary data for the grade summary cards (first 3 subjects)
+    subject_summary = []
+    for course in course_grades[:3]:
+        subject_summary.append({
+            'id': course['subject'].id,
+            'name': course['subject'].name,
+            'grade': round(course['percentage'], 0),  # Round for display
+        })
+    
+    # Get detailed assessment scores for grade records
+    assessment_scores = (
+        AssessmentScore.objects
+        .filter(student=student_profile)
+        .select_related('assessment', 'assessment__subject', 'recorded_by__user')
+        .order_by('-assessment__date', '-created_at')[:50]
+    )
+    
+    detailed_grade_records = []
+    for score in assessment_scores:
+        assessment = score.assessment
+        percentage = round(float(score.percentage), 2) if score.percentage else 0
+        
+        detailed_grade_records.append({
+            'id': f'r{score.id}',
+            'title': assessment.name,
+            'grade': round(float(score.score), 2),
+            'maxGrade': round(float(assessment.max_score), 2),
+            'percentage': percentage,  # Add percentage for badge calculation
+            'subject': assessment.subject.name,
+            'type': assessment.category,
+            'date': assessment.date.strftime('%Y-%m-%d') if assessment.date else '',
+            'remarks': '',  # AssessmentScore doesn't have remarks field, but template handles empty strings
+        })
+    
     context = {
         'page_title': 'Grades',
         'page_description': 'View your grades and academic performance.',
@@ -708,6 +742,8 @@ def grades(request):
         'semester_gwa': semester_gwa,
         'strengths': strengths,
         'growth_opportunities': growth_opportunities,
+        'subject_summary': subject_summary,
+        'detailed_grade_records': detailed_grade_records,
     }
     return render(request, 'students/grades.html', context)
 

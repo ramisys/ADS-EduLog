@@ -4,269 +4,219 @@
 {% block content %}
 
 <style>
-    body { background: #f5f7fa; }
-    .card { border-radius: 16px; }
-    .card.rounded-3 { border-radius: 1rem !important; }
-    .progress-bar { background-color: #3b82f6; }
+    body {
+        background: #f5f7fa;
+    }
+
+    .card {
+        border-radius: 16px;
+    }
+
+    .card.rounded-3 {
+        border-radius: 1rem !important;
+    }
+
+    .progress-bar {
+        background-color: #3b82f6;
+    }
 </style>
 
-<div class="dashboard-container container py-4">
-    <div class="container my-4">
-        <!-- Header -->
-        <div class="mb-4">
-            <h2 class="text-primary mb-2">Grades</h2>
-            <p class="text-muted">Detailed grade breakdown and performance analysis</p>
-        </div>
+<div class="dashboard-container py-4">
+    <div class="mb-4">
+        <h2 class="text-primary">My Grades</h2>
+        <p class="text-muted small">View detailed grades and teacher feedback</p>
+    </div>
 
-        <!-- SUMMARY CARDS -->
-        <div class="row g-4 mb-4">
-            <div class="col-md-3">
-                <div class="card p-4 rounded-3 border">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <p class="text-muted small mb-1">Current GWA</p>
-                            <h3 class="text-primary fw-bold mb-2">{{ current_gwa|default:"5.0" }}</h3>
-                            <span class="badge {{ gwa_badge_class|default:'bg-info-subtle text-info' }}">{{ gwa_badge|default:"N/A" }}</span>
-                        </div>
-                        <div class="bg-warning-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
-                            <i class="bi bi-award text-warning fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card p-4 rounded-3 border">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <p class="text-muted small mb-1">Cumulative GWA</p>
-                            <h3 class="text-primary fw-bold mb-2">{{ cumulative_gwa|default:"5.0" }}</h3>
-                            <span class="badge bg-primary-subtle text-primary">Overall Avg</span>
-                        </div>
-                        <div class="bg-primary-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
-                            <i class="bi bi-graph-up-arrow text-primary fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card p-4 rounded-3 border">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <p class="text-muted small mb-1">Total Credits</p>
-                            <h3 class="text-primary fw-bold mb-2">{{ total_credits|default:"0" }}</h3>
-                            <span class="badge bg-success-subtle text-success">This Semester</span>
-                        </div>
-                        <div class="bg-success-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
-                            <i class="bi bi-award text-success fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card p-4 rounded-3 border">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <p class="text-muted small mb-1">Class Rank</p>
-                            <h3 class="text-primary fw-bold mb-2">
-                                {% if class_rank != "N/A" and total_students > 0 %}
-                                    {{ class_rank }}/{{ total_students }}
-                                {% else %}
-                                    N/A
-                                {% endif %}
-                            </h3>
-                            <span class="badge bg-warning-subtle text-warning">
-                                {% if student_profile.section %}{{ student_profile.section.name }}{% else %}N/A{% endif %}
-                            </span>
-                        </div>
-                        <div class="bg-warning-subtle p-3 rounded d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
-                            <i class="bi bi-trophy text-warning fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- Grade Summary by Subject -->
+    <div class="row g-3 mb-4" id="grade-summary-row">
+        <!-- cards injected by JS -->
+    </div>
 
-        <!-- CHARTS -->
-        <div class="row g-4 mb-4">
-            <div class="col-lg-6">
-                <div class="card p-4 rounded-3 border shadow-sm">
-                    <h5>GWA Trend Over Time</h5>
-                    <canvas id="gwaTrend"></canvas>
-                </div>
-            </div>
-            <div class="col-lg-6">
-                <div class="card p-4 rounded-3 border shadow-sm text-center">
-                    <h5>Grade Distribution</h5>
-                    <canvas id="gradePie"></canvas>
-                </div>
-            </div>
-        </div>
+    <!-- Detailed Grade Records -->
+    <div class="card card-round border-light shadow-sm p-4">
+        <h3 class="text-primary mb-4">Grade Details with Remarks</h3>
 
-        <!-- COURSE TABLE -->
-        <div class="card p-4 rounded-3 border shadow-sm mb-4">
-            <h5 class="mb-3">Course Grades</h5>
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Course</th>
-                            <th>Teacher</th>
-                            <th>Grade</th>
-                            <th>Percentage</th>
-                            <th>Credits</th>
-                            <th>Progress</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if course_grades %}
-                            {% for course in course_grades %}
-                            <tr>
-                                <td>{{ course.subject.name }}</td>
-                                <td>{{ course.teacher_name }}</td>
-                                <td>
-                                    <span class="badge bg-success-subtle text-success">{{ course.grade_letter }}</span>
-                                </td>
-                                <td>{{ course.percentage }}%</td>
-                                <td>{{ course.credits }}</td>
-                                <td>
-                                    <div class="progress" style="height:6px;">
-                                        <div class="progress-bar" style="width:{{ course.percentage }}%;"></div>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td colspan="6" class="text-center text-muted py-3">No grades recorded yet</td>
-                            </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- PERFORMANCE SECTIONS -->
-        <div class="row g-4">
-            <div class="col-lg-6">
-                <div class="card p-4 rounded-3 border shadow-sm">
-                    <h5>Academic Strengths</h5>
-                    <ul class="list-group list-group-flush mt-3">
-                        {% if strengths %}
-                            {% for strength in strengths %}
-                            <li class="list-group-item">
-                                <i class="bi bi-check-circle-fill text-success me-2"></i>{{ strength }}
-                            </li>
-                            {% endfor %}
-                        {% else %}
-                            <li class="list-group-item text-muted">No strengths identified yet</li>
-                        {% endif %}
-                    </ul>
-                </div>
-            </div>
-
-            <div class="col-lg-6">
-                <div class="card p-4 rounded-3 border shadow-sm">
-                    <h5>Growth Opportunities</h5>
-                    <ul class="list-group list-group-flush mt-3">
-                        {% if growth_opportunities %}
-                            {% for opportunity in growth_opportunities %}
-                            <li class="list-group-item">
-                                <i class="bi bi-arrow-up-circle-fill text-warning me-2"></i>{{ opportunity }}
-                            </li>
-                            {% endfor %}
-                        {% else %}
-                            <li class="list-group-item text-muted">Great job! Keep up the excellent work.</li>
-                        {% endif %}
-                    </ul>
-                </div>
-            </div>
+        <div class="scroll-area" id="grade-records">
+            <!-- grade records injected by JS -->
         </div>
     </div>
 </div>
 
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{{ subject_summary|json_script:"subject-summary-data" }}
+{{ detailed_grade_records|json_script:"detailed-grade-records-data" }}
 
 <script>
-// Grade Distribution Data
-const gradeDistribution = [
-    {% for dist in grade_distribution %}
-    { name: '{{ dist.name }}', value: {{ dist.value }}, count: {{ dist.count }} }{% if not forloop.last %},{% endif %}
-    {% empty %}
-    { name: 'No Data', value: 0, count: 0 }
-    {% endfor %}
-];
+    // Data from Django database
+    const subjects = JSON.parse(document.getElementById('subject-summary-data').textContent || '[]');
+    const gradeRecords = JSON.parse(document.getElementById('detailed-grade-records-data').textContent || '[]');
 
-// Semester GWA Data
-const semesterGWA = [
-    {% for semester in semester_gwa %}
-    { semester: '{{ semester.semester }}', gwa: {{ semester.gwa }} }{% if not forloop.last %},{% endif %}
-    {% empty %}
-    { semester: 'Current', gwa: {{ current_gwa|default:"5.0" }} }
-    {% endfor %}
-];
+        // Utility: determine badge class by numeric grade
+        function badgeClassForGrade(grade) {
+      if (grade >= 90) return 'bg-success text-white';
+      if (grade >= 80) return 'bg-primary text-white';
+      if (grade >= 70) return 'bg-warning text-dark';
+        return 'bg-danger text-white';
+    }
 
-// Initialize GWA Trend Chart
-const gwaTrendCtx = document.getElementById('gwaTrend');
-if (gwaTrendCtx) {
-    new Chart(gwaTrendCtx, {
-        type: 'line',
-        data: {
-            labels: semesterGWA.map(x => x.semester),
-            datasets: [{
-                label: 'GWA',
-                data: semesterGWA.map(x => x.gwa),
-                borderColor: 'rgba(59, 130, 246, 1)',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 3,
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 5.0,
-                    reverse: true  // Lower GWA (better) appears at top
-                }
-            }
+        // Render the first 3 subjects (like subjects.slice(0, 3))
+        (function renderSubjects() {
+      const container = document.getElementById('grade-summary-row');
+        const slice = subjects.slice(0, 3);
+      slice.forEach(subject => {
+        const col = document.createElement('div');
+        col.className = 'col-12 col-md-4';
+
+        const card = document.createElement('div');
+        card.className = 'card card-round p-3 h-100 border-light shadow-sm';
+
+        // header row
+        const header = document.createElement('div');
+        header.className = 'd-flex align-items-center justify-content-between mb-3';
+        const title = document.createElement('h5');
+        title.className = 'mb-0 text-primary';
+        title.textContent = subject.name;
+        const badge = document.createElement('span');
+        badge.className = 'badge-grade badge ' + badgeClassForGrade(subject.grade);
+        badge.textContent = subject.grade + '%';
+
+        header.appendChild(title);
+        header.appendChild(badge);
+
+        // progress
+        const progressWrapper = document.createElement('div');
+        progressWrapper.className = 'mb-2';
+        const prog = document.createElement('div');
+        prog.className = 'progress';
+        prog.setAttribute('style', 'height: .5rem;');
+        const bar = document.createElement('div');
+        bar.className = 'progress-bar';
+        bar.setAttribute('role', 'progressbar');
+        bar.style.width = Math.min(100, Math.max(0, subject.grade)) + '%';
+        bar.setAttribute('aria-valuenow', subject.grade);
+        bar.setAttribute('aria-valuemin', 0);
+        bar.setAttribute('aria-valuemax', 100);
+
+        prog.appendChild(bar);
+        progressWrapper.appendChild(prog);
+
+        const p = document.createElement('p');
+        p.className = 'text-muted small mb-0';
+        p.textContent = 'Current average';
+
+        card.appendChild(header);
+        card.appendChild(progressWrapper);
+        card.appendChild(p);
+
+        col.appendChild(card);
+        container.appendChild(col);
+      });
+    })();
+
+        // Render gradeRecords
+        (function renderRecords() {
+      const container = document.getElementById('grade-records');
+      gradeRecords.forEach(record => {
+        const item = document.createElement('div');
+        item.className = 'mb-3 p-3 rounded border';
+        const percentage = record.percentage || (record.maxGrade > 0 ? (record.grade / record.maxGrade * 100) : 0);
+        if (percentage < 70) {
+            item.classList.add('border-danger', 'bg-light');
+        } else {
+            item.classList.add('border-1', 'border-light');
         }
-    });
-}
 
-// Initialize Grade Distribution Pie Chart
-const gradePieCtx = document.getElementById('gradePie');
-if (gradePieCtx) {
-    new Chart(gradePieCtx, {
-        type: 'pie',
-        data: {
-            labels: gradeDistribution.map(x => x.name),
-            datasets: [{
-                data: gradeDistribution.map(x => x.count),
-                backgroundColor: [
-                    'rgba(34, 197, 94, 0.8)',
-                    'rgba(59, 130, 246, 0.8)',
-                    'rgba(251, 191, 36, 0.8)',
-                    'rgba(239, 68, 68, 0.8)',
-                    'rgba(168, 85, 247, 0.8)',
-                    'rgba(236, 72, 153, 0.8)',
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                }
-            }
+        // top flex
+        const top = document.createElement('div');
+        top.className = 'd-flex w-100 justify-content-between mb-2';
+
+        const left = document.createElement('div');
+        left.className = 'flex-grow-1';
+
+        // title + badge
+        const titleRow = document.createElement('div');
+        titleRow.className = 'd-flex align-items-center gap-2 mb-2';
+
+        const title = document.createElement('h5');
+        title.className = 'mb-0 text-primary';
+        title.textContent = record.title;
+
+        const badge = document.createElement('span');
+        badge.className = 'badge-grade badge ' + badgeClassForGrade(percentage);
+        badge.textContent = record.grade + '/' + record.maxGrade;
+
+        titleRow.appendChild(title);
+        titleRow.appendChild(badge);
+
+        // metadata row
+        const meta = document.createElement('div');
+        meta.className = 'd-flex gap-2 small text-muted mb-2 align-items-center';
+        const subj = document.createElement('span'); subj.textContent = record.subject;
+        const dot1 = document.createElement('span'); dot1.textContent = '•';
+        const type = document.createElement('span'); type.textContent = record.type;
+        const dot2 = document.createElement('span'); dot2.textContent = '•';
+        const date = document.createElement('span'); date.textContent = record.date;
+
+        meta.appendChild(subj);
+        meta.appendChild(dot1);
+        meta.appendChild(type);
+        meta.appendChild(dot2);
+        meta.appendChild(date);
+
+        left.appendChild(titleRow);
+        left.appendChild(meta);
+
+        // remarks (optional)
+        if (record.remarks && record.remarks.trim().length > 0) {
+          const remarksWrap = document.createElement('div');
+        remarksWrap.className = 'd-flex align-items-start gap-2 mt-2 remarks-box';
+
+        const iconOuter = document.createElement('div');
+        iconOuter.className = 'bg-primary text-white rounded-circle d-flex align-items-center justify-content-center';
+        iconOuter.setAttribute('style', 'width:28px;height:28px;');
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-chat-left-text-fill';
+        iconOuter.appendChild(icon);
+
+        const remarksText = document.createElement('div');
+        const label = document.createElement('p');
+        label.className = 'mb-0 small text-primary';
+        label.textContent = "Teacher's Remarks:";
+        const message = document.createElement('p');
+        message.className = 'mb-0 small text-primary fw-semibold';
+        message.textContent = record.remarks;
+
+        remarksText.appendChild(label);
+        remarksText.appendChild(message);
+
+        remarksWrap.appendChild(iconOuter);
+        remarksWrap.appendChild(remarksText);
+
+        left.appendChild(remarksWrap);
         }
-    });
-}
+
+        top.appendChild(left);
+
+        item.appendChild(top);
+
+        // needs improvement line
+        if (percentage < 70) {
+          const needDiv = document.createElement('div');
+        needDiv.className = 'mt-3 d-flex align-items-center gap-2 small needs-improvement';
+
+        const warnIcon = document.createElement('i');
+        warnIcon.className = 'bi bi-exclamation-circle-fill';
+        needDiv.appendChild(warnIcon);
+
+        const span = document.createElement('span');
+        span.textContent = 'Needs improvement - Consider speaking with your teacher';
+        needDiv.appendChild(span);
+
+        item.appendChild(needDiv);
+        }
+
+        container.appendChild(item);
+      });
+    })();
 </script>
 
 {% endblock %}

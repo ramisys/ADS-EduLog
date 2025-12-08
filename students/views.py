@@ -49,7 +49,7 @@ def dashboard(request):
     
     # Calculate GPA (convert percentage to 4.0 scale)
     # Assuming grades are stored as percentages (0-100)
-    gpa = (average_grade / 100) * 4.0 if average_grade > 0 else 0.0
+    gpa = (float(average_grade) / 100) * 4.0 if average_grade > 0 else 0.0
     gpa = round(gpa, 2)
     
     # Determine GPA ranking badge (simplified - can be enhanced with actual ranking)
@@ -533,7 +533,7 @@ def grades(request):
     
     # Calculate current GPA (from all grades)
     average_grade = all_grades.aggregate(Avg('grade'))['grade__avg'] or 0
-    current_gpa = (average_grade / 100) * 4.0 if average_grade > 0 else 0.0
+    current_gpa = (float(average_grade) / 100) * 4.0 if average_grade > 0 else 0.0
     current_gpa = round(current_gpa, 2)
     
     # For cumulative GPA, we'll use the same for now (can be enhanced with historical data)
@@ -610,7 +610,7 @@ def grades(request):
     for term in terms:
         term_grades = all_grades.filter(term=term)
         term_avg = term_grades.aggregate(Avg('grade'))['grade__avg'] or 0
-        term_gpa = (term_avg / 100) * 4.0 if term_avg > 0 else 0.0
+        term_gpa = (float(term_avg) / 100) * 4.0 if term_avg > 0 else 0.0
         semester_gpa.append({
             'semester': term,
             'gpa': round(term_gpa, 2)

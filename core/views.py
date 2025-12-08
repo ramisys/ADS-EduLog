@@ -46,6 +46,9 @@ def index(request):
 def about(request):
     return render(request, 'about.html')
 
+def user_manual(request):
+    return render(request, 'user_manual.html')
+
 @login_required
 def dashboard(request):
     user = request.user

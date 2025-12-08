@@ -1,0 +1,1079 @@
+{% extends 'base.html' %}
+
+{% block title %}User Manual - EduLog{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        --card-shadow-hover: 0 15px 40px rgba(0, 0, 0, 0.15);
+        --border-radius: 16px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+    }
+
+    .manual-wrapper {
+        display: flex;
+        gap: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+        align-items: flex-start;
+        position: relative;
+    }
+
+    .manual-wrapper.nav-hidden .manual-container {
+        margin-left: 0;
+    }
+
+    .manual-container {
+        flex: 1;
+        min-width: 0; /* Prevents flex item from overflowing */
+    }
+
+    .manual-header {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 4rem 2rem;
+        border-radius: var(--border-radius);
+        margin-bottom: 3rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--card-shadow);
+    }
+
+    .manual-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse 4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 0.5; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .manual-header h1 {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        font-weight: 700;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+
+    .manual-header p {
+        font-size: 1.25rem;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+        font-weight: 300;
+    }
+
+    .nav-toggle-btn {
+        position: fixed;
+        top: 84px; /* 64px navbar height + 20px margin */
+        left: 20px;
+        z-index: 1001;
+        background: var(--primary-gradient);
+        color: white;
+        border: none;
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: var(--card-shadow);
+        transition: var(--transition);
+    }
+
+    .nav-toggle-btn:hover {
+        transform: scale(1.1);
+        box-shadow: var(--card-shadow-hover);
+    }
+
+    .nav-toggle-btn i {
+        font-size: 1.5rem;
+    }
+
+    .manual-nav {
+        background: white;
+        padding: 2rem 1.5rem;
+        border-radius: var(--border-radius);
+        position: sticky;
+        top: 84px; /* 64px navbar height + 20px margin */
+        z-index: 100;
+        box-shadow: var(--card-shadow);
+        backdrop-filter: blur(10px);
+        width: 280px;
+        flex-shrink: 0;
+        max-height: calc(100vh - 104px); /* Account for navbar + margin */
+        overflow-y: auto;
+        transition: var(--transition);
+    }
+
+    .manual-nav.hidden {
+        transform: translateX(-100%);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    @media (min-width: 1025px) {
+        .manual-nav.hidden {
+            width: 0;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+        }
+    }
+
+    .manual-nav::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .manual-nav::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
+
+    .manual-nav::-webkit-scrollbar-thumb {
+        background: var(--primary-gradient);
+        border-radius: 3px;
+    }
+
+    .manual-nav h5 {
+        color: #667eea;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #f0f0f0;
+    }
+
+    .manual-nav ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .manual-nav li {
+        margin: 0;
+    }
+
+    .manual-nav a {
+        color: #495057;
+        text-decoration: none;
+        padding: 0.875rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border-radius: 10px;
+        transition: var(--transition);
+        font-weight: 500;
+        border: 2px solid transparent;
+        font-size: 0.95rem;
+    }
+
+    .manual-nav a:hover {
+        background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+        color: #667eea;
+        border-color: #667eea30;
+        transform: translateX(5px);
+    }
+
+    .manual-nav a i {
+        font-size: 1rem;
+        width: 20px;
+        text-align: center;
+    }
+
+    .section-card {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 3rem;
+        margin-bottom: 2.5rem;
+        box-shadow: var(--card-shadow);
+        transition: var(--transition);
+        border: 1px solid rgba(102, 126, 234, 0.1);
+    }
+
+    .section-card:hover {
+        box-shadow: var(--card-shadow-hover);
+        transform: translateY(-5px);
+    }
+
+    .section-title {
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 2.25rem;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 3px solid;
+        border-image: var(--primary-gradient) 1;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .section-title i {
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 2rem;
+    }
+
+    .subsection-title {
+        color: #2d3748;
+        font-size: 1.6rem;
+        margin-top: 2.5rem;
+        margin-bottom: 1.25rem;
+        font-weight: 600;
+        position: relative;
+        padding-left: 1rem;
+    }
+
+    .subsection-title::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 4px;
+        height: 100%;
+        background: var(--primary-gradient);
+        border-radius: 2px;
+    }
+
+    .subsection-title h4 {
+        color: #4a5568;
+        font-size: 1.3rem;
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+    }
+
+    .feature-list {
+        list-style: none;
+        padding: 0;
+        margin: 1.5rem 0;
+    }
+
+    .feature-list li {
+        padding: 1rem 0 1rem 3rem;
+        position: relative;
+        color: #4a5568;
+        line-height: 1.7;
+        transition: var(--transition);
+    }
+
+    .feature-list li:hover {
+        color: #667eea;
+        transform: translateX(5px);
+    }
+
+    .feature-list li:before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        top: 1rem;
+        color: #10b981;
+        font-weight: bold;
+        font-size: 1.5rem;
+        width: 2rem;
+        height: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #10b98115 0%, #05966915 100%);
+        border-radius: 50%;
+        border: 2px solid #10b98130;
+    }
+
+    .step-box {
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        padding: 1.75rem;
+        border-left: 5px solid;
+        border-image: var(--primary-gradient) 1;
+        margin: 1.5rem 0;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1);
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .step-box::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 5px;
+        height: 100%;
+        background: var(--primary-gradient);
+    }
+
+    .step-box:hover {
+        transform: translateX(5px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+    }
+
+    .step-box strong {
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-weight: 700;
+        font-size: 1.05rem;
+    }
+
+    .step-box ul {
+        margin: 0.75rem 0 0 1.5rem;
+        padding: 0;
+    }
+
+    .step-box ul li {
+        margin: 0.5rem 0;
+        color: #4a5568;
+        line-height: 1.6;
+    }
+
+    .info-box {
+        background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+        border-left: 5px solid #0ea5e9;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(14, 165, 233, 0.1);
+        position: relative;
+    }
+
+    .info-box h5 {
+        color: #0369a1;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .info-box p {
+        color: #0c4a6e;
+        margin: 0.5rem 0;
+        line-height: 1.6;
+    }
+
+    .warning-box {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-left: 5px solid #f59e0b;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.1);
+    }
+
+    .warning-box strong {
+        color: #92400e;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .back-to-top {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        background: var(--primary-gradient);
+        color: white;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        transition: var(--transition);
+        z-index: 1000;
+    }
+
+    .back-to-top:hover {
+        transform: translateY(-5px) scale(1.1);
+        box-shadow: 0 12px 35px rgba(102, 126, 234, 0.5);
+        color: white;
+    }
+
+    .back-to-top i {
+        font-size: 1.5rem;
+    }
+
+    /* Overlay for mobile */
+    .nav-overlay {
+        display: none;
+        position: fixed;
+        top: 64px; /* Start below navbar */
+        left: 0;
+        width: 100%;
+        height: calc(100% - 64px); /* Full height minus navbar */
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 99;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .nav-overlay.active {
+        display: block;
+        opacity: 1;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1024px) {
+        .nav-toggle-btn {
+            top: 84px; /* Keep below navbar on mobile too */
+        }
+
+        .manual-nav {
+            position: fixed;
+            top: 64px; /* Start below navbar */
+            left: 0;
+            height: calc(100vh - 64px); /* Full height minus navbar */
+            width: 280px;
+            max-height: calc(100vh - 64px);
+            border-radius: 0;
+            z-index: 1000;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .manual-nav:not(.hidden) {
+            transform: translateX(0);
+        }
+
+        .manual-nav.hidden {
+            transform: translateX(-100%);
+        }
+
+        .manual-wrapper {
+            flex-direction: row;
+        }
+    }
+
+    @media (min-width: 1025px) {
+        .nav-toggle-btn {
+            display: flex;
+        }
+
+        .nav-overlay {
+            display: none !important;
+        }
+
+        .manual-nav.hidden {
+            width: 0;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .manual-header h1 {
+            font-size: 2rem;
+        }
+
+        .manual-header p {
+            font-size: 1rem;
+        }
+
+        .section-card {
+            padding: 2rem 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.75rem;
+        }
+
+        .manual-nav {
+            padding: 1.5rem;
+        }
+
+        .manual-nav ul {
+            grid-template-columns: 1fr;
+        }
+
+        .back-to-top {
+            width: 48px;
+            height: 48px;
+            bottom: 1rem;
+            right: 1rem;
+        }
+    }
+
+    /* Smooth scroll behavior */
+    html {
+        scroll-behavior: smooth;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--primary-gradient);
+        border-radius: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #764ba2;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hamburger Toggle Button -->
+<button class="nav-toggle-btn" id="navToggleBtn" aria-label="Toggle navigation">
+    <i class="bi bi-list" id="navToggleIcon"></i>
+</button>
+
+<!-- Overlay for mobile -->
+<div class="nav-overlay" id="navOverlay"></div>
+
+<div class="manual-wrapper" id="manualWrapper">
+    <!-- Side Navigation -->
+    <nav class="manual-nav" id="manualNav">
+        <h5><i class="bi bi-list"></i> Quick Navigation</h5>
+        <ul>
+            <li><a href="#getting-started"><i class="bi bi-rocket-takeoff"></i> Getting Started</a></li>
+            <li><a href="#teacher-guide"><i class="bi bi-person-badge"></i> Teacher Guide</a></li>
+            <li><a href="#student-guide"><i class="bi bi-person"></i> Student Guide</a></li>
+            <li><a href="#parent-guide"><i class="bi bi-people"></i> Parent Guide</a></li>
+            <li><a href="#faq"><i class="bi bi-question-circle"></i> FAQ</a></li>
+            <li><a href="#support"><i class="bi bi-headset"></i> Support</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="manual-container">
+        <!-- Header -->
+        <div class="manual-header">
+            <h1><i class="bi bi-book"></i> EduLog User Manual</h1>
+            <p>Complete guide to using EduLog for Teachers, Students, and Parents</p>
+        </div>
+
+    <!-- Getting Started Section -->
+    <div class="section-card" id="getting-started">
+        <h2 class="section-title"><i class="bi bi-rocket-takeoff"></i> Getting Started</h2>
+        
+        <h3 class="subsection-title">Creating an Account</h3>
+        <p>To get started with EduLog, you need to create an account based on your role:</p>
+        <div class="step-box">
+            <strong>Step 1:</strong> Click on the "Sign Up" button on the login page<br>
+            <strong>Step 2:</strong> Select your role (Teacher, Student, or Parent)<br>
+            <strong>Step 3:</strong> Fill in your personal information<br>
+            <strong>Step 4:</strong> Create a secure password<br>
+            <strong>Step 5:</strong> Submit the form and verify your email (if required)
+        </div>
+
+        <h3 class="subsection-title">Logging In</h3>
+        <p>After creating your account, you can log in using:</p>
+        <ul class="feature-list">
+            <li>Your username</li>
+            <li>Your email address</li>
+            <li>Your ID number (Teacher ID, Student ID, etc.)</li>
+        </ul>
+        <div class="info-box">
+            <strong><i class="bi bi-info-circle"></i> Note:</strong> Make sure to select the correct role tab (Teacher, Student, or Parent) before logging in.
+        </div>
+
+        <h3 class="subsection-title">Password Recovery</h3>
+        <p>If you forget your password:</p>
+        <div class="step-box">
+            <strong>Step 1:</strong> Click "Forgot password?" on the login page<br>
+            <strong>Step 2:</strong> Enter your email address<br>
+            <strong>Step 3:</strong> Check your email for password reset instructions<br>
+            <strong>Step 4:</strong> Follow the link to create a new password
+        </div>
+    </div>
+
+    <!-- Teacher Guide Section -->
+    <div class="section-card" id="teacher-guide">
+        <h2 class="section-title"><i class="bi bi-person-badge"></i> Teacher Guide</h2>
+        
+        <h3 class="subsection-title">Dashboard Overview</h3>
+        <p>As a teacher, your dashboard provides:</p>
+        <ul class="feature-list">
+            <li>Overview of all your assigned sections</li>
+            <li>Quick access to student attendance records</li>
+            <li>Performance analytics and grade summaries</li>
+            <li>Notifications about student attendance issues</li>
+            <li>Recent activity feed</li>
+        </ul>
+
+        <h3 class="subsection-title">Managing Students</h3>
+        <h4>Viewing Student List</h4>
+        <div class="step-box">
+            Navigate to the "Students" section from the sidebar menu. You'll see a list of all students in your assigned sections with their basic information.
+        </div>
+
+        <h4>Viewing Student Details</h4>
+        <div class="step-box">
+            Click on any student's name to view their detailed profile, including:
+            <ul>
+                <li>Attendance history</li>
+                <li>Grade breakdown by subject</li>
+                <li>Performance trends</li>
+                <li>Assessment scores</li>
+            </ul>
+        </div>
+
+        <h3 class="subsection-title">Attendance Management</h3>
+        <h4>Recording Attendance</h4>
+        <div class="step-box">
+            <strong>Step 1:</strong> Go to "Attendance" from the sidebar<br>
+            <strong>Step 2:</strong> Select the section and subject<br>
+            <strong>Step 3:</strong> Choose the date<br>
+            <strong>Step 4:</strong> Mark each student as Present, Absent, or Late<br>
+            <strong>Step 5:</strong> Save the attendance record
+        </div>
+
+        <h4>Viewing Attendance Reports</h4>
+        <p>You can view attendance reports by:</p>
+        <ul class="feature-list">
+            <li>Individual student</li>
+            <li>Section/Class</li>
+            <li>Subject</li>
+            <li>Date range</li>
+        </ul>
+
+        <h3 class="subsection-title">Grade Management</h3>
+        <h4>Creating Assessments</h4>
+        <div class="step-box">
+            <strong>Step 1:</strong> Navigate to "Grades" or "Assessments"<br>
+            <strong>Step 2:</strong> Click "Add New Assessment"<br>
+            <strong>Step 3:</strong> Fill in the details:
+            <ul>
+                <li>Assessment name</li>
+                <li>Category (Activity, Quiz, Project, Exam)</li>
+                <li>Subject</li>
+                <li>Maximum score</li>
+                <li>Date</li>
+                <li>Term (Midterm/Final)</li>
+            </ul>
+            <strong>Step 4:</strong> Save the assessment
+        </div>
+
+        <h4>Recording Student Scores</h4>
+        <div class="step-box">
+            <strong>Step 1:</strong> Select an assessment from the list<br>
+            <strong>Step 2:</strong> Click "Add Scores" or "Record Scores"<br>
+            <strong>Step 3:</strong> Enter scores for each student<br>
+            <strong>Step 4:</strong> Save the scores
+        </div>
+
+        <h4>Setting Category Weights</h4>
+        <p>You can customize how different assessment categories contribute to the final grade:</p>
+        <div class="step-box">
+            <strong>Step 1:</strong> Go to "Category Weights" in the Grades section<br>
+            <strong>Step 2:</strong> Select a subject<br>
+            <strong>Step 3:</strong> Set percentage weights for:
+            <ul>
+                <li>Activities</li>
+                <li>Quizzes</li>
+                <li>Projects</li>
+                <li>Exams</li>
+            </ul>
+            <strong>Step 4:</strong> Ensure weights total 100%<br>
+            <strong>Step 5:</strong> Save the weights
+        </div>
+        <div class="warning-box">
+            <strong><i class="bi bi-exclamation-triangle"></i> Important:</strong> Category weights must sum to exactly 100% for the system to calculate grades correctly.
+        </div>
+
+        <h3 class="subsection-title">Notifications</h3>
+        <p>You'll receive automatic notifications for:</p>
+        <ul class="feature-list">
+            <li>Students with consecutive absences</li>
+            <li>Students at risk (low attendance or grades)</li>
+            <li>Students showing improvement</li>
+            <li>Important updates and announcements</li>
+        </ul>
+    </div>
+
+    <!-- Student Guide Section -->
+    <div class="section-card" id="student-guide">
+        <h2 class="section-title"><i class="bi bi-person"></i> Student Guide</h2>
+        
+        <h3 class="subsection-title">Dashboard Overview</h3>
+        <p>Your student dashboard shows:</p>
+        <ul class="feature-list">
+            <li>Your current subjects and sections</li>
+            <li>Recent attendance status</li>
+            <li>Overall grade summary</li>
+            <li>Upcoming assessments</li>
+            <li>Notifications and announcements</li>
+        </ul>
+
+        <h3 class="subsection-title">Viewing Your Grades</h3>
+        <h4>Subject Grades</h4>
+        <div class="step-box">
+            <strong>Step 1:</strong> Navigate to "Grades" from the sidebar<br>
+            <strong>Step 2:</strong> Select a subject to view detailed breakdown<br>
+            <strong>Step 3:</strong> View your scores for:
+            <ul>
+                <li>Activities</li>
+                <li>Quizzes</li>
+                <li>Projects</li>
+                <li>Exams</li>
+            </ul>
+            <strong>Step 4:</strong> See your overall grade and percentage
+        </div>
+
+        <h4>Understanding Your Grades</h4>
+        <p>Your final grade is calculated based on:</p>
+        <ul class="feature-list">
+            <li>Weighted average of all assessment categories</li>
+            <li>Each category has a specific weight (set by your teacher)</li>
+            <li>Your performance in each assessment</li>
+        </ul>
+
+        <h3 class="subsection-title">Checking Attendance</h3>
+        <div class="step-box">
+            <strong>Step 1:</strong> Go to "Attendance" from the sidebar<br>
+            <strong>Step 2:</strong> View your attendance record by:
+            <ul>
+                <li>Subject</li>
+                <li>Date range</li>
+                <li>Status (Present, Absent, Late)</li>
+            </ul>
+            <strong>Step 3:</strong> Check your attendance percentage for each subject
+        </div>
+
+        <h3 class="subsection-title">Notifications</h3>
+        <p>You'll receive notifications about:</p>
+        <ul class="feature-list">
+            <li>Absences and late arrivals</li>
+            <li>Low performance warnings</li>
+            <li>Grade updates</li>
+            <li>Important announcements from teachers</li>
+        </ul>
+    </div>
+
+    <!-- Parent Guide Section -->
+    <div class="section-card" id="parent-guide">
+        <h2 class="section-title"><i class="bi bi-people"></i> Parent Guide</h2>
+        
+        <h3 class="subsection-title">Dashboard Overview</h3>
+        <p>As a parent, your dashboard provides:</p>
+        <ul class="feature-list">
+            <li>Overview of all your children's academic performance</li>
+            <li>Recent attendance updates</li>
+            <li>Grade summaries for each child</li>
+            <li>Notifications about important events</li>
+            <li>Quick access to each child's detailed information</li>
+        </ul>
+
+        <h3 class="subsection-title">Monitoring Your Child's Progress</h3>
+        <h4>Viewing Grades</h4>
+        <div class="step-box">
+            <strong>Step 1:</strong> Select a child from the dashboard<br>
+            <strong>Step 2:</strong> Navigate to "Grades"<br>
+            <strong>Step 3:</strong> View subject-wise breakdown<br>
+            <strong>Step 4:</strong> Check individual assessment scores<br>
+            <strong>Step 5:</strong> Review overall performance trends
+        </div>
+
+        <h4>Understanding Grade Reports</h4>
+        <p>You can see:</p>
+        <ul class="feature-list">
+            <li>Current grade for each subject</li>
+            <li>Breakdown by assessment type (Activities, Quizzes, Projects, Exams)</li>
+            <li>Performance trends over time</li>
+            <li>Comparison with class average (if available)</li>
+        </ul>
+
+        <h3 class="subsection-title">Tracking Attendance</h3>
+        <div class="step-box">
+            <strong>Step 1:</strong> Select a child<br>
+            <strong>Step 2:</strong> Go to "Attendance"<br>
+            <strong>Step 3:</strong> View attendance records by:
+            <ul>
+                <li>Subject</li>
+                <li>Date</li>
+                <li>Status (Present, Absent, Late)</li>
+            </ul>
+            <strong>Step 4:</strong> Check attendance percentage and patterns
+        </div>
+
+        <h3 class="subsection-title">Notifications</h3>
+        <p>You'll automatically receive notifications for:</p>
+        <ul class="feature-list">
+            <li>Your child's absences</li>
+            <li>Late arrivals</li>
+            <li>Low performance warnings</li>
+            <li>Consecutive absences</li>
+            <li>Grade updates</li>
+            <li>Important announcements</li>
+        </ul>
+        <div class="info-box">
+            <strong><i class="bi bi-info-circle"></i> Tip:</strong> Enable email notifications to stay updated even when you're not logged in.
+        </div>
+    </div>
+
+    <!-- FAQ Section -->
+    <div class="section-card" id="faq">
+        <h2 class="section-title"><i class="bi bi-question-circle"></i> Frequently Asked Questions</h2>
+        
+        <h3 class="subsection-title">General Questions</h3>
+        
+        <h4>Q: How do I reset my password?</h4>
+        <div class="step-box">
+            A: Click "Forgot password?" on the login page, enter your email, and follow the instructions sent to your email.
+        </div>
+
+        <h4>Q: Can I change my email address?</h4>
+        <div class="step-box">
+            A: Yes, you can update your email address in your profile settings after logging in.
+        </div>
+
+        <h4>Q: Is my data secure?</h4>
+        <div class="step-box">
+            A: Yes, EduLog uses enterprise-grade security measures to protect all user data. Your information is encrypted and stored securely.
+        </div>
+
+        <h3 class="subsection-title">Teacher Questions</h3>
+        
+        <h4>Q: How do I add a new assessment?</h4>
+        <div class="step-box">
+            A: Go to the Grades section, click "Add New Assessment", fill in the required details, and save.
+        </div>
+
+        <h4>Q: Can I edit assessment scores after recording them?</h4>
+        <div class="step-box">
+            A: Yes, you can edit scores at any time. Navigate to the assessment, click on the score you want to change, and update it.
+        </div>
+
+        <h4>Q: How are final grades calculated?</h4>
+        <div class="step-box">
+            A: Final grades are calculated using weighted averages based on the category weights you set for each subject. The system multiplies each category's average by its weight and sums them up.
+        </div>
+
+        <h3 class="subsection-title">Student Questions</h3>
+        
+        <h4>Q: Why can't I see my grades for a subject?</h4>
+        <div class="step-box">
+            A: Grades may not be visible if your teacher hasn't recorded scores yet, or if the assessment hasn't been completed. Contact your teacher for more information.
+        </div>
+
+        <h4>Q: How do I know if I'm at risk of failing?</h4>
+        <div class="step-box">
+            A: You'll receive notifications if your grades or attendance fall below acceptable levels. You can also check your dashboard for performance warnings.
+        </div>
+
+        <h3 class="subsection-title">Parent Questions</h3>
+        
+        <h4>Q: Can I see grades for multiple children?</h4>
+        <div class="step-box">
+            A: Yes, if you have multiple children registered, you can switch between them using the dropdown menu on your dashboard.
+        </div>
+
+        <h4>Q: How often is attendance updated?</h4>
+        <div class="step-box">
+            A: Attendance is updated in real-time as teachers record it. You'll receive notifications immediately when your child is marked absent or late.
+        </div>
+    </div>
+
+    <!-- Support Section -->
+    <div class="section-card" id="support">
+        <h2 class="section-title"><i class="bi bi-headset"></i> Support & Contact</h2>
+        
+        <h3 class="subsection-title">Need Help?</h3>
+        <p>If you need additional assistance, here are ways to get help:</p>
+        
+        <div class="info-box">
+            <h5><i class="bi bi-envelope"></i> Email Support</h5>
+            <p>Send an email to: <strong>support@edulog.edu</strong></p>
+            <p>We typically respond within 24-48 hours.</p>
+        </div>
+
+        <div class="info-box">
+            <h5><i class="bi bi-telephone"></i> Phone Support</h5>
+            <p>Call us at: <strong>+1 (555) 123-4567</strong></p>
+            <p>Available Monday-Friday, 9 AM - 5 PM</p>
+        </div>
+
+        <div class="info-box">
+            <h5><i class="bi bi-chat-dots"></i> Live Chat</h5>
+            <p>Use the live chat feature available in the bottom-right corner of your screen during business hours.</p>
+        </div>
+
+        <h3 class="subsection-title">Reporting Issues</h3>
+        <p>If you encounter any bugs or technical issues:</p>
+        <div class="step-box">
+            <strong>Step 1:</strong> Take a screenshot of the issue (if possible)<br>
+            <strong>Step 2:</strong> Note what you were doing when the issue occurred<br>
+            <strong>Step 3:</strong> Contact support with the details<br>
+            <strong>Step 4:</strong> Include your browser and device information
+        </div>
+    </div>
+
+    </div>
+</div>
+
+<!-- Back to Top Button -->
+<a href="#" class="back-to-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;">
+    <i class="bi bi-arrow-up"></i>
+</a>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Toggle sidebar navigation
+    const navToggleBtn = document.getElementById('navToggleBtn');
+    const navToggleIcon = document.getElementById('navToggleIcon');
+    const manualNav = document.getElementById('manualNav');
+    const navOverlay = document.getElementById('navOverlay');
+    const manualWrapper = document.getElementById('manualWrapper');
+
+    function toggleNav() {
+        manualNav.classList.toggle('hidden');
+        navOverlay.classList.toggle('active');
+        
+        // Change icon
+        if (manualNav.classList.contains('hidden')) {
+            navToggleIcon.className = 'bi bi-list';
+        } else {
+            navToggleIcon.className = 'bi bi-x-lg';
+        }
+    }
+
+    navToggleBtn.addEventListener('click', toggleNav);
+    
+    // Close nav when clicking overlay
+    navOverlay.addEventListener('click', toggleNav);
+    
+    // Close nav when clicking a nav link (mobile only)
+    if (window.innerWidth <= 1024) {
+        document.querySelectorAll('.manual-nav a').forEach(link => {
+            link.addEventListener('click', function() {
+                if (!manualNav.classList.contains('hidden')) {
+                    toggleNav();
+                }
+            });
+        });
+    }
+
+    // Smooth scrolling for navigation links with offset
+    document.querySelectorAll('.manual-nav a').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href');
+            const target = document.querySelector(targetId);
+            if (target) {
+                const offset = 100; // Offset for sticky nav
+                const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - offset;
+                window.scrollTo({
+                    top: targetPosition,
+                    behavior: 'smooth'
+                });
+            }
+        });
+    });
+
+    // Show/hide back to top button with fade effect
+    const backToTop = document.querySelector('.back-to-top');
+    window.addEventListener('scroll', function() {
+        if (window.pageYOffset > 300) {
+            backToTop.style.display = 'flex';
+            setTimeout(() => {
+                backToTop.style.opacity = '1';
+            }, 10);
+        } else {
+            backToTop.style.opacity = '0';
+            setTimeout(() => {
+                backToTop.style.display = 'none';
+            }, 300);
+        }
+    });
+
+    // Active navigation highlighting
+    const sections = document.querySelectorAll('.section-card');
+    const navLinks = document.querySelectorAll('.manual-nav a');
+
+    function highlightNav() {
+        let current = '';
+        sections.forEach(section => {
+            const sectionTop = section.getBoundingClientRect().top;
+            const sectionHeight = section.clientHeight;
+            if (sectionTop <= 150 && sectionTop + sectionHeight > 150) {
+                current = section.getAttribute('id');
+            }
+        });
+
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === `#${current}`) {
+                link.classList.add('active');
+            }
+        });
+    }
+
+    window.addEventListener('scroll', highlightNav);
+    highlightNav(); // Initial call
+
+    // Add active class styling
+    const style = document.createElement('style');
+    style.textContent = `
+        .manual-nav a.active {
+            background: var(--primary-gradient) !important;
+            color: white !important;
+            border-color: transparent !important;
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .manual-nav a.active i {
+            color: white;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Handle window resize
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 1024) {
+            // Desktop: always show nav, remove overlay
+            manualNav.classList.remove('hidden');
+            navOverlay.classList.remove('active');
+            navToggleIcon.className = 'bi bi-list';
+        }
+    });
+</script>
+{% endblock %}

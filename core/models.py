@@ -36,6 +36,12 @@ class User(AbstractUser):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='student')
     
     objects = UserManager()
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['role', 'is_active']),
+            models.Index(fields=['email']),
+        ]
 
     def __str__(self):
         return f"{self.username} ({self.role})"
@@ -76,6 +82,11 @@ class ParentProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     parent_id = models.CharField(max_length=20, unique=True, editable=False, null=True, blank=True)
     contact_number = models.CharField(max_length=15, blank=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['parent_id']),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.parent_id:  # <-- fixed reference
@@ -91,6 +102,12 @@ class TeacherProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     teacher_id = models.CharField(max_length=20, unique=True, editable=False, null=True, blank=True)
     department = models.CharField(max_length=100)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['teacher_id']),
+            models.Index(fields=['department']),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.teacher_id:  # <-- fixed reference
@@ -106,6 +123,12 @@ class TeacherProfile(models.Model):
 class ClassSection(models.Model):
     name = models.CharField(max_length=50)
     adviser = models.ForeignKey(TeacherProfile, on_delete=models.SET_NULL, null=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['name']),
+            models.Index(fields=['adviser']),
+        ]
 
     def __str__(self):
         return self.name
@@ -119,6 +142,13 @@ class StudentProfile(models.Model):
     course = models.CharField(max_length=100)
     year_level = models.CharField(max_length=20)
     section = models.ForeignKey('ClassSection', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['student_id']),
+            models.Index(fields=['section', 'course']),
+            models.Index(fields=['section', 'year_level']),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.student_id:  # ✅ Fixed reference
@@ -136,6 +166,13 @@ class Subject(models.Model):
     name = models.CharField(max_length=100)
     teacher = models.ForeignKey(TeacherProfile, on_delete=models.SET_NULL, null=True)
     section = models.ForeignKey(ClassSection, on_delete=models.CASCADE)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['code']),
+            models.Index(fields=['teacher', 'section']),
+            models.Index(fields=['section', 'code']),
+        ]
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -152,6 +189,18 @@ class Attendance(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
     date = models.DateField(auto_now_add=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['student', 'date']),
+            models.Index(fields=['subject', 'date']),
+            models.Index(fields=['student', 'subject', 'date']),
+            models.Index(fields=['date', 'status']),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['student', 'subject', 'date'], name='unique_attendance_per_day'),
+        ]
+        ordering = ['-date', 'student']
 
     def __str__(self):
         return f"{self.student.student_id} - {self.subject.code} ({self.status})"
@@ -163,6 +212,17 @@ class Grade(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
     term = models.CharField(max_length=20, default="Midterm")
     grade = models.DecimalField(max_digits=5, decimal_places=2)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['student', 'subject']),
+            models.Index(fields=['student', 'term']),
+            models.Index(fields=['subject', 'term']),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['student', 'subject', 'term'], name='unique_grade_per_term'),
+        ]
+        ordering = ['-term', 'subject']
 
     def __str__(self):
         return f"{self.student.student_id} - {self.subject.code}: {self.grade}"
@@ -231,6 +291,12 @@ class Assessment(models.Model):
     
     class Meta:
         ordering = ['-date', 'name']
+        indexes = [
+            models.Index(fields=['subject', 'date']),
+            models.Index(fields=['subject', 'term']),
+            models.Index(fields=['category', 'date']),
+            models.Index(fields=['created_by', 'date']),
+        ]
     
     def __str__(self):
         return f"{self.name} ({self.category}) - {self.subject.code}"
@@ -248,6 +314,11 @@ class AssessmentScore(models.Model):
     class Meta:
         unique_together = ['student', 'assessment']
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['student', 'assessment']),
+            models.Index(fields=['assessment', 'score']),
+            models.Index(fields=['recorded_by', 'created_at']),
+        ]
     
     def __str__(self):
         return f"{self.student.student_id} - {self.assessment.name}: {self.score}/{self.assessment.max_score}"
@@ -325,6 +396,11 @@ class AuditLog(models.Model):
         ordering = ['-timestamp']
         verbose_name = 'Audit Log'
         verbose_name_plural = 'Audit Logs'
+        indexes = [
+            models.Index(fields=['user', 'timestamp']),
+            models.Index(fields=['action', 'timestamp']),
+            models.Index(fields=['student', 'timestamp']),
+        ]
     
     def __str__(self):
         return f"{self.action} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"

@@ -12,6 +12,7 @@ from core.models import (
     Assessment, AssessmentScore, CategoryWeights, AuditLog
 )
 from core.notifications import send_attendance_notification, check_and_send_performance_notifications, check_consecutive_absences
+from core.permissions import role_required, validate_input, validate_teacher_access
 from django.http import JsonResponse
 import json
 from django.views.decorators.http import require_http_methods
@@ -409,10 +410,8 @@ def students(request):
     return render(request, 'teachers/students.html', context)
 
 @login_required
+@role_required('teacher')
 def attendance(request):
-    if request.user.role != 'teacher':
-        return redirect('dashboard')
-    
     try:
         teacher_profile = TeacherProfile.objects.get(user=request.user)
     except TeacherProfile.DoesNotExist:
@@ -420,23 +419,42 @@ def attendance(request):
     
     # Handle POST request to save attendance
     if request.method == 'POST':
-        selected_subject_id = request.POST.get('subject')
+        # Validate and sanitize input
+        selected_subject_id = validate_input(request.POST.get('subject'), 'integer')
+        if not selected_subject_id:
+            messages.error(request, 'Invalid subject selected.')
+            return redirect('teachers:attendance')
+        
+        # Validate teacher has access to this subject
+        has_access, subject_or_error = validate_teacher_access(request, subject_id=selected_subject_id)
+        if not has_access:
+            messages.error(request, subject_or_error)
+            return redirect('teachers:attendance')
+        
+        selected_subject = subject_or_error
         today = timezone.now().date()
         
-        try:
-            selected_subject = Subject.objects.get(id=selected_subject_id, teacher=teacher_profile)
-            
-            # Process each student's attendance
+        # Process each student's attendance within a transaction
+        with transaction.atomic():
             for key, value in request.POST.items():
                 if key.startswith('student_') and value:
-                    student_id = key.replace('student_', '')
-                    status = value  # 'present', 'absent', or 'late'
+                    student_id = validate_input(key.replace('student_', ''), 'integer')
+                    status = validate_input(value, 'string')
+                    
+                    # Validate status
+                    if status not in ['present', 'absent', 'late']:
+                        continue
+                    
+                    if not student_id:
+                        continue
                     
                     try:
-                        student = StudentProfile.objects.get(id=student_id, section=selected_subject.section)
+                        student = StudentProfile.objects.select_for_update().get(
+                            id=student_id, 
+                            section=selected_subject.section
+                        )
                         
                         # Check if attendance already exists for today
-                        # Note: date has auto_now_add=True, so it will be automatically set to today when created
                         attendance_record, created = Attendance.objects.get_or_create(
                             student=student,
                             subject=selected_subject,
@@ -460,11 +478,9 @@ def attendance(request):
                                 # Check performance after attendance update
                                 check_and_send_performance_notifications(student, selected_subject)
                     except (StudentProfile.DoesNotExist, ValueError):
-                        pass
+                        continue
             
             return redirect(reverse('teachers:attendance') + '?subject=' + str(selected_subject_id) + '&saved=true')
-        except Subject.DoesNotExist:
-            pass
     
     # Get teacher's subjects
     subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code')
@@ -647,12 +663,11 @@ def grades(request):
     return render(request, 'teachers/grades.html', context)
 
 @login_required
+@role_required('teacher')
 @require_http_methods(["POST"])
+@transaction.atomic
 def add_assessment(request):
-    """AJAX endpoint to add a new assessment"""
-    if request.user.role != 'teacher':
-        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
-    
+    """AJAX endpoint to add a new assessment with input validation and transaction"""
     try:
         teacher_profile = TeacherProfile.objects.get(user=request.user)
     except TeacherProfile.DoesNotExist:
@@ -662,28 +677,58 @@ def add_assessment(request):
         import json
         data = json.loads(request.body)
         
-        # Get subject
-        try:
-            subject = Subject.objects.get(id=data.get('subject_id'), teacher=teacher_profile)
-        except Subject.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Subject not found'}, status=404)
+        # Validate and sanitize input
+        subject_id = validate_input(data.get('subject_id'), 'integer')
+        if not subject_id:
+            return JsonResponse({'success': False, 'error': 'Invalid subject ID'}, status=400)
+        
+        # Validate teacher has access to this subject
+        has_access, subject_or_error = validate_teacher_access(request, subject_id=subject_id)
+        if not has_access:
+            return JsonResponse({'success': False, 'error': subject_or_error}, status=403)
+        
+        subject = subject_or_error
+        
+        # Validate assessment name
+        assessment_name = validate_input(data.get('name'), 'string', max_length=200)
+        if not assessment_name:
+            return JsonResponse({'success': False, 'error': 'Invalid assessment name'}, status=400)
         
         # Check for duplicate assessment name in the same subject
-        assessment_name = data.get('name', '').strip()
         if Assessment.objects.filter(subject=subject, name=assessment_name).exists():
             return JsonResponse({
                 'success': False,
                 'error': f'An assessment with the name "{assessment_name}" already exists for this subject.'
             }, status=400)
         
-        # Create assessment
+        # Validate category
+        category = validate_input(data.get('category'), 'string')
+        if category not in ['Activities', 'Quizzes', 'Projects', 'Exams']:
+            return JsonResponse({'success': False, 'error': 'Invalid category'}, status=400)
+        
+        # Validate max_score
+        max_score = validate_input(data.get('max_score'), 'decimal')
+        if not max_score or max_score <= 0:
+            return JsonResponse({'success': False, 'error': 'Invalid max score'}, status=400)
+        
+        # Validate date
+        assessment_date = validate_input(data.get('date'), 'date')
+        if not assessment_date:
+            return JsonResponse({'success': False, 'error': 'Invalid date format'}, status=400)
+        
+        # Validate term
+        term = validate_input(data.get('term', 'Midterm'), 'string')
+        if term not in ['Midterm', 'Final']:
+            term = 'Midterm'
+        
+        # Create assessment within transaction
         assessment = Assessment.objects.create(
-            name=data.get('name'),
-            category=data.get('category'),
+            name=assessment_name,
+            category=category,
             subject=subject,
-            max_score=data.get('max_score'),
-            date=data.get('date'),
-            term=data.get('term', 'Midterm'),
+            max_score=Decimal(str(max_score)),
+            date=assessment_date,
+            term=term,
             created_by=teacher_profile
         )
         
@@ -700,8 +745,11 @@ def add_assessment(request):
             'assessment_id': assessment.id,
             'message': 'Assessment added successfully'
         })
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        logger.error(f"Error adding assessment: {str(e)}", exc_info=True)
+        return JsonResponse({'success': False, 'error': 'An error occurred while adding the assessment'}, status=500)
 
 def recalculate_all_grades_for_subject(subject, term=None):
     """
@@ -822,12 +870,11 @@ def calculate_and_update_grade(student, subject, term='Midterm'):
         return None
 
 @login_required
+@role_required('teacher')
 @require_http_methods(["POST"])
+@transaction.atomic
 def update_score(request):
-    """AJAX endpoint to update or create an assessment score"""
-    if request.user.role != 'teacher':
-        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
-    
+    """AJAX endpoint to update or create an assessment score with input validation and transaction"""
     try:
         teacher_profile = TeacherProfile.objects.get(user=request.user)
     except TeacherProfile.DoesNotExist:
@@ -837,34 +884,40 @@ def update_score(request):
         import json
         data = json.loads(request.body)
         
-        student_id = data.get('student_id')
-        assessment_id = data.get('assessment_id')
+        # Validate and sanitize input
+        student_id = validate_input(data.get('student_id'), 'integer')
+        assessment_id = validate_input(data.get('assessment_id'), 'integer')
         score_value = data.get('score')
         
         # Validate required fields
         if not student_id or not assessment_id:
             return JsonResponse({'success': False, 'error': 'Student ID and Assessment ID are required'}, status=400)
         
-        # Get student and assessment
+        # Validate teacher has access to this assessment
+        has_access, assessment_or_error = validate_teacher_access(request, assessment_id=assessment_id)
+        if not has_access:
+            return JsonResponse({'success': False, 'error': assessment_or_error}, status=403)
+        
+        assessment = assessment_or_error
+        
+        # Get student
         try:
-            student = StudentProfile.objects.get(id=student_id)
-            assessment = Assessment.objects.get(id=assessment_id, subject__teacher=teacher_profile)
-        except (StudentProfile.DoesNotExist, Assessment.DoesNotExist):
-            return JsonResponse({'success': False, 'error': 'Student or Assessment not found'}, status=404)
+            student = StudentProfile.objects.select_for_update().get(id=student_id)
+        except StudentProfile.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Student not found'}, status=404)
         
         # Validate score if provided
         if score_value is not None:
-            try:
-                score_value = float(score_value)
-                if score_value < 0:
-                    return JsonResponse({'success': False, 'error': 'Score cannot be negative'}, status=400)
-                if score_value > assessment.max_score:
-                    return JsonResponse({
-                        'success': False,
-                        'error': f'Score cannot exceed maximum score of {assessment.max_score}'
-                    }, status=400)
-            except (ValueError, TypeError):
+            score_value = validate_input(score_value, 'decimal')
+            if score_value is False:
                 return JsonResponse({'success': False, 'error': 'Invalid score value'}, status=400)
+            if score_value < 0:
+                return JsonResponse({'success': False, 'error': 'Score cannot be negative'}, status=400)
+            if score_value > float(assessment.max_score):
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Score cannot exceed maximum score of {assessment.max_score}'
+                }, status=400)
         
         # Handle score deletion or update/create
         try:
@@ -938,12 +991,11 @@ def update_score(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 @login_required
+@role_required('teacher')
 @require_http_methods(["POST"])
+@transaction.atomic
 def update_category_weights(request):
-    """AJAX endpoint to update category weights for a subject"""
-    if request.user.role != 'teacher':
-        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
-    
+    """AJAX endpoint to update category weights for a subject with input validation and transaction"""
     try:
         teacher_profile = TeacherProfile.objects.get(user=request.user)
     except TeacherProfile.DoesNotExist:
@@ -953,23 +1005,28 @@ def update_category_weights(request):
         import json
         data = json.loads(request.body)
         
-        subject_id = data.get('subject_id')
-        weights = data.get('weights', {})
-        
+        # Validate and sanitize input
+        subject_id = validate_input(data.get('subject_id'), 'integer')
         if not subject_id:
             return JsonResponse({'success': False, 'error': 'Subject ID is required'}, status=400)
         
-        # Get subject
-        try:
-            subject = Subject.objects.get(id=subject_id, teacher=teacher_profile)
-        except Subject.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Subject not found'}, status=404)
+        # Validate teacher has access to this subject
+        has_access, subject_or_error = validate_teacher_access(request, subject_id=subject_id)
+        if not has_access:
+            return JsonResponse({'success': False, 'error': subject_or_error}, status=403)
+        
+        subject = subject_or_error
+        
+        weights = data.get('weights', {})
         
         # Validate weights
-        activities_weight = int(weights.get('Activities', 20))
-        quizzes_weight = int(weights.get('Quizzes', 20))
-        projects_weight = int(weights.get('Projects', 30))
-        exams_weight = int(weights.get('Exams', 30))
+        activities_weight = validate_input(weights.get('Activities', 20), 'integer')
+        quizzes_weight = validate_input(weights.get('Quizzes', 20), 'integer')
+        projects_weight = validate_input(weights.get('Projects', 30), 'integer')
+        exams_weight = validate_input(weights.get('Exams', 30), 'integer')
+        
+        if not all([activities_weight, quizzes_weight, projects_weight, exams_weight]):
+            return JsonResponse({'success': False, 'error': 'Invalid weight values'}, status=400)
         
         total = activities_weight + quizzes_weight + projects_weight + exams_weight
         if total != 100:
@@ -978,8 +1035,8 @@ def update_category_weights(request):
                 'error': f'Category weights must total 100%. Current total: {total}%'
             }, status=400)
         
-        # Update or create category weights
-        category_weights, created = CategoryWeights.objects.update_or_create(
+        # Update or create category weights within transaction
+        category_weights, created = CategoryWeights.objects.select_for_update().update_or_create(
             subject=subject,
             defaults={
                 'activities_weight': activities_weight,
@@ -998,7 +1055,7 @@ def update_category_weights(request):
         # Create audit log
         AuditLog.objects.create(
             user=request.user,
-            action='Category Weights Updated',
+            action='Category Weight Changed',
             details=f'Updated category weights for {subject.code}: Activities {activities_weight}%, Quizzes {quizzes_weight}%, Projects {projects_weight}%, Exams {exams_weight}%'
         )
         
@@ -1006,9 +1063,11 @@ def update_category_weights(request):
             'success': True,
             'message': 'Category weights updated successfully'
         })
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
     except Exception as e:
         logger.error(f"Error updating category weights: {str(e)}", exc_info=True)
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        return JsonResponse({'success': False, 'error': 'An error occurred while updating category weights'}, status=500)
 
 @login_required
 def reports(request):

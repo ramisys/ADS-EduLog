@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}About - EduLog{% endblock %}
 
@@ -162,7 +163,7 @@
                 </div>
                 <div class="col-md-6">
                     <div class="about-image">
-                        <img src="https://images.unsplash.com/photo-1758522275261-4ab586242ce0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWFjaGVyJTIwc3R1ZGVudCUyMGNvbGxhYm9yYXRpb258ZW58MXx8fHwxNzYyNDcxNDE3fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral" 
+                        <img src="{% static 'core/jpg/3kupals.jpg' %}" 
                              alt="Teacher and student collaboration" 
                              class="img-fluid">
                     </div>

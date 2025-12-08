@@ -131,20 +131,168 @@
     </div>
 </section>
 
-<!-- CTA Section -->
-<section class="cta-section">
+<!-- User Feedback Section -->
+<section class="feedback-section py-5" style="background-color: #f8f9fa;">
     <div class="container">
-        <div class="text-center">
-            <h2 class="cta-title">Ready to Transform Your School's Monitoring System?</h2>
-            <p class="cta-description">
-                Join hundreds of schools already using EduLog to improve student outcomes
+        <div class="text-center mb-5">
+            <h2 class="section-title">What Our Users Say</h2>
+            <p class="section-subtitle">
+                Hear from teachers and parents who are using EduLog
             </p>
-            <a href="{% url 'login' %}" class="btn btn-cta">
-                Start Free Trial
-            </a>
+        </div>
+
+        <!-- Teachers Feedback -->
+        <div class="mb-5">
+            <h3 class="text-center mb-4 text-primary">
+                <i class="bi bi-person-badge me-2"></i>Teacher Feedback
+            </h3>
+            <div class="row g-4">
+                <!-- Teacher Feedback 1 -->
+                <div class="col-md-6">
+                    <div class="card h-100 shadow-sm border-0" style="border-radius: 1rem;">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                    <i class="bi bi-person-circle text-primary fs-4"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h5 class="mb-0">Mrs. Alejandra Catenza Abella</h5>
+                                    <small class="text-muted">Mathematics Teacher</small>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                            </div>
+                            <p class="text-muted mb-0">
+                                "EduLog has completely transformed how I track my students' progress. The real-time attendance feature saves me so much time, and the performance analytics help me identify students who need extra support immediately. It's become an essential tool in my classroom."
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Teacher Feedback 2 -->
+                <div class="col-md-6">
+                    <div class="card h-100 shadow-sm border-0" style="border-radius: 1rem;">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                    <i class="bi bi-person-circle text-success fs-4"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h5 class="mb-0">Mr. Eric Locsonon</h5>
+                                    <small class="text-muted">English Teacher</small>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                            </div>
+                            <p class="text-muted mb-0">
+                                "The detailed reports feature is fantastic! I can generate comprehensive performance reports in minutes instead of hours. Parents appreciate the transparency, and it's helped improve communication between school and home. Highly recommend EduLog to any educator."
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Parents Feedback -->
+        <div>
+            <h3 class="text-center mb-4 text-primary">
+                <i class="bi bi-people me-2"></i>Parent Feedback
+            </h3>
+            <div class="row g-4">
+                <!-- Parent Feedback 1 -->
+                <div class="col-md-4">
+                    <div class="card h-100 shadow-sm border-0" style="border-radius: 1rem;">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="bg-info bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                    <i class="bi bi-person-circle text-info fs-4"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h5 class="mb-0">Gemma Gallaza</h5>
+                                    <small class="text-muted">Parent</small>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                            </div>
+                            <p class="text-muted mb-0">
+                                "As a busy parent, EduLog gives me peace of mind. I can check my daughter's attendance and grades anytime, anywhere. The notifications keep me informed about any concerns, and I love being able to track her progress throughout the semester."
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parent Feedback 2 -->
+                <div class="col-md-4">
+                    <div class="card h-100 shadow-sm border-0" style="border-radius: 1rem;">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                    <i class="bi bi-person-circle text-warning fs-4"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h5 class="mb-0">Marites Enciso</h5>
+                                    <small class="text-muted">Parent</small>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                            </div>
+                            <p class="text-muted mb-0">
+                                "The parent portal is incredibly user-friendly. I can see all my son's subjects, grades, and attendance in one place. The subject-wise breakdown helps me understand where he's excelling and where he might need extra help. It's made parent-teacher communication so much easier."
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parent Feedback 3 -->
+                <div class="col-md-4">
+                    <div class="card h-100 shadow-sm border-0" style="border-radius: 1rem;">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="bg-danger bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                    <i class="bi bi-person-circle text-danger fs-4"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h5 class="mb-0">Lisa Cinco</h5>
+                                    <small class="text-muted">Parent</small>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                                <i class="bi bi-star-fill text-warning"></i>
+                            </div>
+                            <p class="text-muted mb-0">
+                                "EduLog has been a game-changer for our family. The real-time updates mean I'm always in the loop about my child's academic performance. The detailed reports help me have meaningful conversations with my child about their progress. I can't imagine going back to the old way!"
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    </section>
+</section>
 </div>
 {% endblock %}
 

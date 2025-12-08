@@ -68,14 +68,20 @@ def logout_view(request):
     return redirect('login')
 
 def login_view(request):
+    context = {}
+    
     if request.method == 'POST':
         identifier = request.POST.get('identifier', '').strip()
         password = request.POST.get('password', '')
         role = request.POST.get('role')
         
+        # Preserve form data in context
+        context['identifier'] = identifier
+        context['role'] = role
+        
         if not identifier or not password or not role:
             messages.error(request, 'Please fill in all fields.')
-            return render(request, 'login.html')
+            return render(request, 'login.html', context)
         
         user = None
         
@@ -177,7 +183,7 @@ def login_view(request):
             else:
                 messages.error(request, 'Invalid username, ID, email or password.')
     
-    return render(request, 'login.html')
+    return render(request, 'login.html', context)
 
 def signup_view(request):
     if request.user.is_authenticated:

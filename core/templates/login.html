@@ -23,19 +23,19 @@
             <!-- Tabs -->
             <ul class="nav nav-tabs" id="roleTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="teacher-tab" data-bs-toggle="tab" data-bs-target="#teacher" type="button" role="tab">Teacher</button>
+                    <button class="nav-link {% if not role or role == 'teacher' %}active{% endif %}" id="teacher-tab" data-bs-toggle="tab" data-bs-target="#teacher" type="button" role="tab">Teacher</button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="student-tab" data-bs-toggle="tab" data-bs-target="#student" type="button" role="tab">Student</button>
+                    <button class="nav-link {% if role == 'student' %}active{% endif %}" id="student-tab" data-bs-toggle="tab" data-bs-target="#student" type="button" role="tab">Student</button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="parent-tab" data-bs-toggle="tab" data-bs-target="#parent" type="button" role="tab">Parent</button>
+                    <button class="nav-link {% if role == 'parent' %}active{% endif %}" id="parent-tab" data-bs-toggle="tab" data-bs-target="#parent" type="button" role="tab">Parent</button>
                 </li>
             </ul>
             
             <div class="tab-content" id="roleTabContent">
                 <!-- Teacher Form -->
-                <div class="tab-pane fade show active" id="teacher" role="tabpanel">
+                <div class="tab-pane fade {% if not role or role == 'teacher' %}show active{% endif %}" id="teacher" role="tabpanel">
                     <form method="post" id="teacher-form">
                         {% csrf_token %}
                         <input type="hidden" name="role" value="teacher">
@@ -44,7 +44,7 @@
                             <label for="teacher-identifier" class="form-label">Email, Username or Teacher ID</label>
                             <div class="input-group-icon">
                                 <i class="bi bi-envelope"></i>
-                                <input type="text" class="form-control" id="teacher-identifier" name="identifier" placeholder="teacher@school.edu, username or T12345" required>
+                                <input type="text" class="form-control" id="teacher-identifier" name="identifier" value="{% if role == 'teacher' %}{{ identifier|default:'' }}{% endif %}" placeholder="teacher@school.edu, username or T12345" required>
                             </div>
                         </div>
                         
@@ -65,7 +65,7 @@
                 </div>
                 
                 <!-- Student Form -->
-                <div class="tab-pane fade" id="student" role="tabpanel">
+                <div class="tab-pane fade {% if role == 'student' %}show active{% endif %}" id="student" role="tabpanel">
                     <form method="post" id="student-form">
                         {% csrf_token %}
                         <input type="hidden" name="role" value="student">
@@ -74,7 +74,7 @@
                             <label for="student-identifier" class="form-label">Email, Username or Student ID</label>
                             <div class="input-group-icon">
                                 <i class="bi bi-envelope"></i>
-                                <input type="text" class="form-control" id="student-identifier" name="identifier" placeholder="student@school.edu, username or S12345" required>
+                                <input type="text" class="form-control" id="student-identifier" name="identifier" value="{% if role == 'student' %}{{ identifier|default:'' }}{% endif %}" placeholder="student@school.edu, username or S12345" required>
                             </div>
                         </div>
                         
@@ -95,7 +95,7 @@
                 </div>
                 
                 <!-- Parent Form -->
-                <div class="tab-pane fade" id="parent" role="tabpanel">
+                <div class="tab-pane fade {% if role == 'parent' %}show active{% endif %}" id="parent" role="tabpanel">
                     <form method="post" id="parent-form">
                         {% csrf_token %}
                         <input type="hidden" name="role" value="parent">
@@ -104,7 +104,7 @@
                             <label for="parent-identifier" class="form-label">Email</label>
                             <div class="input-group-icon">
                                 <i class="bi bi-envelope"></i>
-                                <input type="email" class="form-control" id="parent-identifier" name="identifier" placeholder="parent@email.com" required>
+                                <input type="email" class="form-control" id="parent-identifier" name="identifier" value="{% if role == 'parent' %}{{ identifier|default:'' }}{% endif %}" placeholder="parent@email.com" required>
                             </div>
                         </div>
                         
@@ -138,5 +138,29 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+    // Activate the correct tab if there was a login error
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if role %}
+        var role = '{{ role }}';
+        var tabButton = document.getElementById(role + '-tab');
+        var tabPane = document.getElementById(role);
+        
+        if (tabButton && tabPane) {
+            // Remove active class from all tabs and panes
+            document.querySelectorAll('.nav-link').forEach(function(link) {
+                link.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-pane').forEach(function(pane) {
+                pane.classList.remove('show', 'active');
+            });
+            
+            // Activate the correct tab and pane
+            tabButton.classList.add('active');
+            tabPane.classList.add('show', 'active');
+        }
+        {% endif %}
+    });
+</script>
 {% endblock %}
 

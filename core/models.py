@@ -404,3 +404,51 @@ class AuditLog(models.Model):
     
     def __str__(self):
         return f"{self.action} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
+
+
+# ===== FEEDBACK =====
+class Feedback(models.Model):
+    FEEDBACK_TYPE_CHOICES = [
+        ('general', 'General Feedback'),
+        ('bug_report', 'Bug Report'),
+        ('feature_request', 'Feature Request'),
+        ('improvement', 'Improvement Suggestion'),
+        ('compliment', 'Compliment'),
+    ]
+    
+    RATING_CHOICES = [
+        (1, '1 - Poor'),
+        (2, '2 - Fair'),
+        (3, '3 - Good'),
+        (4, '4 - Very Good'),
+        (5, '5 - Excellent'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='feedbacks')
+    feedback_type = models.CharField(max_length=20, choices=FEEDBACK_TYPE_CHOICES, default='general')
+    rating = models.IntegerField(choices=RATING_CHOICES, null=True, blank=True, help_text='Overall system rating (1-5)')
+    subject = models.CharField(max_length=200, blank=True, help_text='Brief subject/title of feedback')
+    message = models.TextField(help_text='Detailed feedback message')
+    is_anonymous = models.BooleanField(default=False, help_text='Submit feedback anonymously')
+    is_read = models.BooleanField(default=False)
+    is_archived = models.BooleanField(default=False)
+    admin_response = models.TextField(blank=True, help_text='Admin response to feedback')
+    responded_at = models.DateTimeField(null=True, blank=True)
+    responded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='feedback_responses')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Feedback'
+        verbose_name_plural = 'Feedbacks'
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['feedback_type', 'created_at']),
+            models.Index(fields=['is_read', 'created_at']),
+            models.Index(fields=['rating', 'created_at']),
+        ]
+    
+    def __str__(self):
+        user_display = 'Anonymous' if self.is_anonymous else (self.user.get_full_name() if self.user else 'Unknown')
+        return f"Feedback from {user_display} - {self.get_feedback_type_display()} ({self.created_at.strftime('%Y-%m-%d')})"

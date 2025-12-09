@@ -3,8 +3,11 @@ from django.http import HttpResponse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db import transaction
+from django.db.models import Avg
 from datetime import datetime
-from .models import TeacherProfile, StudentProfile, ParentProfile, User, Subject, Attendance, Grade, Notification, ClassSection
+from .models import TeacherProfile, StudentProfile, ParentProfile, User, Subject, Attendance, Grade, Notification, ClassSection, Feedback
+from .permissions import validate_input, role_required
 
 def check_password_with_plaintext(user, password):
     """
@@ -38,6 +41,8 @@ def index(request):
             return redirect('students:dashboard')
         elif user.role == 'parent':
             return redirect('parents:dashboard')
+        elif user.role == 'admin':
+            return redirect('admin_dashboard')
         else:
             return redirect('dashboard')  # fallback to general dashboard
     
@@ -59,8 +64,53 @@ def dashboard(request):
         return redirect('students:dashboard')
     elif user.role == 'parent':
         return redirect('parents:dashboard')
+    elif user.role == 'admin':
+        return redirect('admin_dashboard')
     else:
         return redirect('login')  # fallback
+
+
+@login_required
+@role_required('admin')
+def admin_dashboard(request):
+    """Admin dashboard with feedback management and system overview"""
+    from django.db.models import Count, Q
+    
+    # Feedback statistics
+    total_feedbacks = Feedback.objects.count()
+    unread_feedbacks = Feedback.objects.filter(is_read=False, is_archived=False).count()
+    avg_rating = Feedback.objects.exclude(rating__isnull=True).aggregate(
+        avg_rating=Avg('rating')
+    )['avg_rating'] or 0
+    
+    # User statistics
+    total_users = User.objects.count()
+    teachers_count = User.objects.filter(role='teacher').count()
+    students_count = User.objects.filter(role='student').count()
+    parents_count = User.objects.filter(role='parent').count()
+    admins_count = User.objects.filter(role='admin').count()
+    
+    # Recent feedback
+    recent_feedbacks = Feedback.objects.select_related('user').order_by('-created_at')[:5]
+    
+    # Feedback by type
+    feedback_by_type = Feedback.objects.values('feedback_type').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    context = {
+        'total_feedbacks': total_feedbacks,
+        'unread_feedbacks': unread_feedbacks,
+        'avg_rating': round(avg_rating, 2),
+        'total_users': total_users,
+        'teachers_count': teachers_count,
+        'students_count': students_count,
+        'parents_count': parents_count,
+        'admins_count': admins_count,
+        'recent_feedbacks': recent_feedbacks,
+        'feedback_by_type': feedback_by_type,
+    }
+    return render(request, 'admin_dashboard.html', context)
 
 def logout_view(request):
     logout(request)
@@ -169,6 +219,25 @@ def login_view(request):
             except Exception as e:
                 user = None
         
+        elif role == 'admin':
+            # Admin login with username or email
+            try:
+                user = User.objects.get(username=identifier, role='admin')
+                if not check_password_with_plaintext(user, password):
+                    user = None
+            except User.DoesNotExist:
+                user = None
+                # Try email if username didn't work
+                if user is None:
+                    try:
+                        user = User.objects.get(email=identifier, role='admin')
+                        if not check_password_with_plaintext(user, password):
+                            user = None
+                    except User.DoesNotExist:
+                        user = None
+                    except Exception as e:
+                        user = None
+        
         if user is not None and user.is_active:
             if user.role == role:
                 # Set backend attribute for login() when multiple backends are configured
@@ -180,6 +249,8 @@ def login_view(request):
         else:
             if role == 'parent':
                 messages.error(request, 'Invalid email or password.')
+            elif role == 'admin':
+                messages.error(request, 'Invalid username, email or password.')
             else:
                 messages.error(request, 'Invalid username, ID, email or password.')
     
@@ -297,4 +368,158 @@ def forgot_password_view(request):
         'email': email,
     }
     return render(request, 'forgot_password.html', context)
-   
+
+
+@login_required
+def feedback_submit(request):
+    """View for users to submit feedback"""
+    if request.method == 'POST':
+        feedback_type = request.POST.get('feedback_type', 'general')
+        rating = request.POST.get('rating')
+        subject = request.POST.get('subject', '').strip()
+        message = request.POST.get('message', '').strip()
+        is_anonymous = request.POST.get('is_anonymous') == 'on'
+        
+        # Validate input
+        if not message:
+            messages.error(request, 'Please provide a feedback message.')
+            return render(request, 'feedback_submit.html')
+        
+        # Validate feedback type
+        valid_types = [choice[0] for choice in Feedback.FEEDBACK_TYPE_CHOICES]
+        if feedback_type not in valid_types:
+            feedback_type = 'general'
+        
+        # Validate rating if provided
+        rating_value = None
+        if rating:
+            try:
+                rating_value = int(rating)
+                if rating_value not in [1, 2, 3, 4, 5]:
+                    rating_value = None
+            except ValueError:
+                rating_value = None
+        
+        # Validate and sanitize subject
+        subject = validate_input(subject, 'string', max_length=200) or ''
+        message = validate_input(message, 'string') or ''
+        
+        if not message:
+            messages.error(request, 'Invalid feedback message.')
+            return render(request, 'feedback_submit.html')
+        
+        # Create feedback
+        try:
+            feedback = Feedback.objects.create(
+                user=request.user if not is_anonymous else None,
+                feedback_type=feedback_type,
+                rating=rating_value,
+                subject=subject,
+                message=message,
+                is_anonymous=is_anonymous
+            )
+            messages.success(request, 'Thank you for your feedback! Your input helps us improve EduLog.')
+            return redirect('feedback_submit')
+        except Exception as e:
+            messages.error(request, f'An error occurred while submitting feedback: {str(e)}')
+    
+    # GET request - show form
+    return render(request, 'feedback_submit.html')
+
+
+@login_required
+@role_required('admin')
+def feedback_list(request):
+    """View for admins to view and manage feedback"""
+    feedbacks = Feedback.objects.all().select_related('user', 'responded_by').order_by('-created_at')
+    
+    # Filtering
+    filter_type = request.GET.get('type', '')
+    filter_read = request.GET.get('read', '')
+    filter_archived = request.GET.get('archived', 'false')
+    
+    if filter_type:
+        feedbacks = feedbacks.filter(feedback_type=filter_type)
+    
+    if filter_read == 'read':
+        feedbacks = feedbacks.filter(is_read=True)
+    elif filter_read == 'unread':
+        feedbacks = feedbacks.filter(is_read=False)
+    
+    if filter_archived == 'false':
+        feedbacks = feedbacks.filter(is_archived=False)
+    elif filter_archived == 'true':
+        feedbacks = feedbacks.filter(is_archived=True)
+    
+    # Statistics
+    total_feedbacks = Feedback.objects.count()
+    unread_count = Feedback.objects.filter(is_read=False, is_archived=False).count()
+    avg_rating = Feedback.objects.exclude(rating__isnull=True).aggregate(
+        avg_rating=Avg('rating')
+    )['avg_rating'] or 0
+    
+    context = {
+        'feedbacks': feedbacks,
+        'total_feedbacks': total_feedbacks,
+        'unread_count': unread_count,
+        'avg_rating': round(avg_rating, 2),
+        'filter_type': filter_type,
+        'filter_read': filter_read,
+        'filter_archived': filter_archived,
+    }
+    return render(request, 'feedback_list.html', context)
+
+
+@login_required
+@role_required('admin')
+def feedback_detail(request, feedback_id):
+    """View for admins to view and respond to specific feedback"""
+    try:
+        feedback = Feedback.objects.select_related('user', 'responded_by').get(id=feedback_id)
+    except Feedback.DoesNotExist:
+        messages.error(request, 'Feedback not found.')
+        return redirect('feedback_list')
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'mark_read':
+            feedback.is_read = True
+            feedback.save()
+            messages.success(request, 'Feedback marked as read.')
+        
+        elif action == 'mark_unread':
+            feedback.is_read = False
+            feedback.save()
+            messages.success(request, 'Feedback marked as unread.')
+        
+        elif action == 'archive':
+            feedback.is_archived = True
+            feedback.save()
+            messages.success(request, 'Feedback archived.')
+        
+        elif action == 'unarchive':
+            feedback.is_archived = False
+            feedback.save()
+            messages.success(request, 'Feedback unarchived.')
+        
+        elif action == 'respond':
+            admin_response = request.POST.get('admin_response', '').strip()
+            admin_response = validate_input(admin_response, 'string') or ''
+            
+            if admin_response:
+                feedback.admin_response = admin_response
+                feedback.responded_by = request.user
+                feedback.responded_at = datetime.now()
+                feedback.is_read = True
+                feedback.save()
+                messages.success(request, 'Response saved successfully.')
+            else:
+                messages.error(request, 'Please provide a response message.')
+        
+        return redirect('feedback_detail', feedback_id=feedback_id)
+    
+    context = {
+        'feedback': feedback,
+    }
+    return render(request, 'feedback_detail.html', context)

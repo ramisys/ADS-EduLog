@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+
+{% block title %}Submit Feedback - EduLog{% endblock %}
+
+{% block extra_css %}
+<style>
+    .feedback-form-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 2rem;
+    }
+    .feedback-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .feedback-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 2rem;
+    }
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    .form-label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    .required-field::after {
+        content: " *";
+        color: red;
+    }
+    .star-rating {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    .star-rating input[type="radio"] {
+        display: none;
+    }
+    .star-rating label {
+        font-size: 2rem;
+        color: #ddd;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+    .star-rating label:hover,
+    .star-rating input[type="radio"]:checked ~ label,
+    .star-rating label:hover ~ label {
+        color: #ffc107;
+    }
+    .help-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container feedback-form-container">
+    <div class="feedback-header">
+        <h1><i class="bi bi-chat-left-text"></i> Submit Feedback</h1>
+        <p class="text-muted">Your feedback helps us improve EduLog. We value your input!</p>
+    </div>
+
+    <div class="feedback-card">
+        <form method="POST" action="{% url 'feedback_submit' %}">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label class="form-label required-field">Feedback Type</label>
+                <select name="feedback_type" class="form-select" required>
+                    <option value="general">General Feedback</option>
+                    <option value="bug_report">Bug Report</option>
+                    <option value="feature_request">Feature Request</option>
+                    <option value="improvement">Improvement Suggestion</option>
+                    <option value="compliment">Compliment</option>
+                </select>
+                <small class="help-text">Select the category that best describes your feedback</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Rating (Optional)</label>
+                <div class="star-rating">
+                    <input type="radio" name="rating" id="rating5" value="5">
+                    <label for="rating5">★</label>
+                    <input type="radio" name="rating" id="rating4" value="4">
+                    <label for="rating4">★</label>
+                    <input type="radio" name="rating" id="rating3" value="3">
+                    <label for="rating3">★</label>
+                    <input type="radio" name="rating" id="rating2" value="2">
+                    <label for="rating2">★</label>
+                    <input type="radio" name="rating" id="rating1" value="1">
+                    <label for="rating1">★</label>
+                </div>
+                <small class="help-text">Rate your overall experience with EduLog (1 = Poor, 5 = Excellent)</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Subject (Optional)</label>
+                <input type="text" name="subject" class="form-control" maxlength="200" placeholder="Brief summary of your feedback">
+                <small class="help-text">A short title or subject for your feedback</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label required-field">Message</label>
+                <textarea name="message" class="form-control" rows="6" required placeholder="Please share your thoughts, suggestions, or report any issues..."></textarea>
+                <small class="help-text">Please provide detailed feedback. The more specific, the better we can help!</small>
+            </div>
+
+            <div class="form-group">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="is_anonymous" id="is_anonymous">
+                    <label class="form-check-label" for="is_anonymous">
+                        Submit anonymously
+                    </label>
+                </div>
+                <small class="help-text">Check this if you prefer not to reveal your identity</small>
+            </div>
+
+            <div class="d-flex gap-2 justify-content-end">
+                <a href="javascript:history.back()" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-send"></i> Submit Feedback
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="mt-4 text-center">
+        <p class="text-muted small">
+            <i class="bi bi-info-circle"></i> 
+            Your feedback will be reviewed by our team. If you provided contact information and requested a response, we'll get back to you as soon as possible.
+        </p>
+    </div>
+</div>
+{% endblock %}
+

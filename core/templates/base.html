@@ -237,7 +237,33 @@
         <div class="sidebar-content">
             <ul class="list-unstyled">
                 {% block sidebar_links %}
-                {% if user.role == 'teacher' %}
+                {% if user.role == 'admin' %}
+                <!-- Admin Sidebar Links -->
+                <li>
+                    <a href="{% url 'admin_dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+                        <i data-lucide="layout-dashboard"></i>
+                        Admin Dashboard
+                    </a>
+                </li>
+                <li>
+                    <a href="/admin/" class="sidebar-link" target="_blank">
+                        <i data-lucide="settings"></i>
+                        Django Admin
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'feedback_list' %}" class="sidebar-link {% if request.resolver_match.url_name == 'feedback_list' or request.resolver_match.url_name == 'feedback_detail' %}active{% endif %}">
+                        <i data-lucide="inbox"></i>
+                        View Feedback
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'feedback_submit' %}" class="sidebar-link {% if request.resolver_match.url_name == 'feedback_submit' %}active{% endif %}">
+                        <i data-lucide="message-square"></i>
+                        Send Feedback
+                    </a>
+                </li>
+                {% elif user.role == 'teacher' %}
                 <!-- Teacher Sidebar Links -->
                 <li>
                     <a href="{% url 'teachers:dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
@@ -287,6 +313,12 @@
                         Notifications
                     </a>
                 </li>
+                <li>
+                    <a href="{% url 'feedback_submit' %}" class="sidebar-link {% if request.resolver_match.url_name == 'feedback_submit' %}active{% endif %}">
+                        <i data-lucide="message-square"></i>
+                        Send Feedback
+                    </a>
+                </li>
                 {% elif user.role == 'student' %}
                 <!-- Student Sidebar Links -->
                 <li>
@@ -317,6 +349,12 @@
                     <a href="{% url 'students:notifications' %}" class="sidebar-link {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                         <i data-lucide="bell"></i>
                         Notifications
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'feedback_submit' %}" class="sidebar-link {% if request.resolver_match.url_name == 'feedback_submit' %}active{% endif %}">
+                        <i data-lucide="message-square"></i>
+                        Send Feedback
                     </a>
                 </li>
                 {% elif user.role == 'parent' %}
@@ -355,6 +393,12 @@
                     <a href="{% url 'parents:notifications' %}" class="sidebar-link {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                         <i data-lucide="bell"></i>
                         Notifications
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'feedback_submit' %}" class="sidebar-link {% if request.resolver_match.url_name == 'feedback_submit' %}active{% endif %}">
+                        <i data-lucide="message-square"></i>
+                        Send Feedback
                     </a>
                 </li>
                 {% endif %}

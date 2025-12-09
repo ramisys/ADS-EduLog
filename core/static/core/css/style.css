@@ -10,6 +10,10 @@
     --border-radius: 20px;
     --border-radius-sm: 8px;
     --border-radius-pill: 9999px;
+    --scrollbar-width: 10px;
+    --scrollbar-track-color: #f1f1f1;
+    --scrollbar-thumb-color: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --scrollbar-thumb-hover: #5a67d8;
 }
 
 /* ========================================
@@ -1903,4 +1907,111 @@ button.avatar.dropdown-toggle,
 
 .toast.show {
     opacity: 1;
+}
+
+/* ========================================
+   Custom Scrollbar Styles
+   ======================================== */
+
+/* WebKit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+    width: var(--scrollbar-width);
+    height: var(--scrollbar-width);
+}
+
+::-webkit-scrollbar-track {
+    background: var(--scrollbar-track-color);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+    border: 2px solid var(--scrollbar-track-color);
+    transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+}
+
+::-webkit-scrollbar-corner {
+    background: var(--scrollbar-track-color);
+}
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #667eea var(--scrollbar-track-color);
+}
+
+/* Specific scrollbar styles for sidebar */
+#sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+#sidebar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+#sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* Scrollbar for feedback list and detail pages */
+.feedback-container::-webkit-scrollbar,
+.feedback-item::-webkit-scrollbar {
+    width: 8px;
+}
+
+.feedback-container::-webkit-scrollbar-track,
+.feedback-item::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+.feedback-container::-webkit-scrollbar-thumb,
+.feedback-item::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+}
+
+.feedback-container::-webkit-scrollbar-thumb:hover,
+.feedback-item::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+}
+
+/* Scrollbar for modal and dropdown content */
+.modal-body::-webkit-scrollbar,
+.dropdown-menu::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-body::-webkit-scrollbar-track,
+.dropdown-menu::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb,
+.dropdown-menu::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover,
+.dropdown-menu::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
 }

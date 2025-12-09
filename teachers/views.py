@@ -1,7 +1,8 @@
 from django.shortcuts import render, redirect
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Q
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.utils import timezone
 from django.urls import reverse
 from datetime import timedelta
@@ -97,12 +98,12 @@ def dashboard(request):
             'grades_count': subject_grades.count()
         })
     
-    # Calculate weekly attendance data (last 5 days)
+    # Calculate weekly attendance data (last 7 days)
     today = timezone.now().date()
     weekly_attendance_data = []
     weekly_attendance_labels = []
     
-    for i in range(4, -1, -1):  # Last 5 days (4 days ago to today)
+    for i in range(6, -1, -1):  # Last 7 days (6 days ago to today)
         date = today - timedelta(days=i)
         date_attendance = Attendance.objects.filter(
             subject__teacher=teacher_profile,
@@ -121,6 +122,8 @@ def dashboard(request):
         # Format date as "Mon DD" or "Today"
         if i == 0:
             weekly_attendance_labels.append('Today')
+        elif i == 1:
+            weekly_attendance_labels.append('Yesterday')
         else:
             weekly_attendance_labels.append(date.strftime('%a %d'))
     
@@ -433,6 +436,8 @@ def attendance(request):
         
         selected_subject = subject_or_error
         today = timezone.now().date()
+        updated_count = 0
+        created_count = 0
         
         # Process each student's attendance within a transaction
         with transaction.atomic():
@@ -449,38 +454,75 @@ def attendance(request):
                         continue
                     
                     try:
-                        student = StudentProfile.objects.select_for_update().get(
+                        student = StudentProfile.objects.get(
                             id=student_id, 
                             section=selected_subject.section
                         )
                         
-                        # Check if attendance already exists for today
-                        attendance_record, created = Attendance.objects.get_or_create(
+                        # Check if attendance record exists for today
+                        attendance_record = Attendance.objects.filter(
                             student=student,
                             subject=selected_subject,
-                            date=today,
-                            defaults={'status': status}
-                        )
+                            date=today
+                        ).first()
                         
-                        # Update if already exists
-                        old_status = attendance_record.status if not created else None
-                        if not created:
+                        old_status = None
+                        created = False
+                        
+                        if attendance_record:
+                            # Update existing record - always save to ensure persistence
+                            old_status = attendance_record.status
                             attendance_record.status = status
-                            attendance_record.save()
+                            attendance_record.save(update_fields=['status'])
+                            if old_status != status:
+                                updated_count += 1
+                        else:
+                            # Create new record - date will be auto-set to today
+                            try:
+                                attendance_record = Attendance.objects.create(
+                                    student=student,
+                                    subject=selected_subject,
+                                    status=status
+                                )
+                                created = True
+                                created_count += 1
+                            except IntegrityError:
+                                # Race condition: another request created it
+                                # Fetch and update the existing record
+                                attendance_record = Attendance.objects.filter(
+                                    student=student,
+                                    subject=selected_subject,
+                                    date=today
+                                ).first()
+                                if attendance_record:
+                                    old_status = attendance_record.status
+                                    if old_status != status:
+                                        attendance_record.status = status
+                                        attendance_record.save(update_fields=['status'])
+                                        updated_count += 1
+                                else:
+                                    # If we can't find it, skip
+                                    continue
                         
                         # Send notification for absent/late (only if status changed or newly created)
                         if status in ['absent', 'late']:
-                            if created or old_status != status:
+                            if created or (old_status and old_status != status):
                                 send_attendance_notification(student, selected_subject, status, today)
                                 # Check for consecutive absences
                                 if status == 'absent':
                                     check_consecutive_absences(student, selected_subject)
                                 # Check performance after attendance update
                                 check_and_send_performance_notifications(student, selected_subject)
-                    except (StudentProfile.DoesNotExist, ValueError):
+                    except (StudentProfile.DoesNotExist, ValueError) as e:
+                        logger.error(f"Error processing attendance for student {student_id}: {str(e)}")
                         continue
-            
-            return redirect(reverse('teachers:attendance') + '?subject=' + str(selected_subject_id) + '&saved=true')
+        
+        if updated_count > 0 or created_count > 0:
+            messages.success(request, f'Attendance updated: {created_count} new, {updated_count} updated.')
+        else:
+            messages.info(request, 'No attendance changes were made.')
+        
+        return redirect(reverse('teachers:attendance') + '?subject=' + str(selected_subject_id) + '&saved=true')
     
     # Get teacher's subjects
     subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code')

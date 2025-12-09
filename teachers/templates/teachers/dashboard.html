@@ -86,7 +86,7 @@
         <div class="d-flex justify-content-between mb-2">
           <div>
             <h5 class="text-primary mb-0" style="font-size: 1rem;">Weekly Attendance</h5>
-            <p class="text-muted small mb-0">Last 5 days overview</p>
+            <p class="text-muted small mb-0">Last 7 days overview</p>
           </div>
           <i class="bi bi-calendar text-secondary"></i>
         </div>
@@ -183,60 +183,73 @@
   // Weekly Attendance Chart (Bar Chart)
   const weeklyAttendanceCtx = document.getElementById('weeklyAttendanceChart');
   if (weeklyAttendanceCtx) {
-    const weeklyAttendanceData = JSON.parse(document.getElementById('weekly-attendance-data').textContent);
-    const weeklyAttendanceLabels = JSON.parse(document.getElementById('weekly-attendance-labels').textContent);
-    
-    new Chart(weeklyAttendanceCtx, {
-      type: 'bar',
-      data: {
-        labels: weeklyAttendanceLabels,
-        datasets: [
-          {
-            label: 'Present',
-            data: weeklyAttendanceData.map(d => d.present),
-            backgroundColor: 'rgba(34, 197, 94, 0.8)',
-            borderColor: 'rgba(34, 197, 94, 1)',
-            borderWidth: 1
+    try {
+      const weeklyAttendanceData = JSON.parse(document.getElementById('weekly-attendance-data').textContent);
+      const weeklyAttendanceLabels = JSON.parse(document.getElementById('weekly-attendance-labels').textContent);
+      
+      // Ensure we have data and labels
+      if (weeklyAttendanceData && weeklyAttendanceLabels && weeklyAttendanceData.length > 0) {
+        new Chart(weeklyAttendanceCtx, {
+          type: 'bar',
+          data: {
+            labels: weeklyAttendanceLabels,
+            datasets: [
+              {
+                label: 'Present',
+                data: weeklyAttendanceData.map(d => d.present || 0),
+                backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                borderColor: 'rgba(34, 197, 94, 1)',
+                borderWidth: 1
+              },
+              {
+                label: 'Absent',
+                data: weeklyAttendanceData.map(d => d.absent || 0),
+                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                borderColor: 'rgba(239, 68, 68, 1)',
+                borderWidth: 1
+              },
+              {
+                label: 'Late',
+                data: weeklyAttendanceData.map(d => d.late || 0),
+                backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                borderColor: 'rgba(245, 158, 11, 1)',
+                borderWidth: 1
+              }
+            ]
           },
-          {
-            label: 'Absent',
-            data: weeklyAttendanceData.map(d => d.absent),
-            backgroundColor: 'rgba(239, 68, 68, 0.8)',
-            borderColor: 'rgba(239, 68, 68, 1)',
-            borderWidth: 1
-          },
-          {
-            label: 'Late',
-            data: weeklyAttendanceData.map(d => d.late),
-            backgroundColor: 'rgba(245, 158, 11, 0.8)',
-            borderColor: 'rgba(245, 158, 11, 1)',
-            borderWidth: 1
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: true,
-            position: 'top',
-          },
-          tooltip: {
-            mode: 'index',
-            intersect: false,
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              stepSize: 1
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top',
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  stepSize: 1,
+                  precision: 0
+                }
+              },
+              x: {
+                stacked: false
+              }
             }
           }
-        }
+        });
+      } else {
+        console.warn('Weekly attendance data is empty or invalid');
       }
-    });
+    } catch (error) {
+      console.error('Error rendering weekly attendance chart:', error);
+    }
   }
 
   // Subject Performance Chart (Line Chart)

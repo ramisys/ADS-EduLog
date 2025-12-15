@@ -29,13 +29,11 @@
         position: relative;
     }
 
-    .manual-wrapper.nav-hidden .manual-container {
-        margin-left: 0;
-    }
 
     .manual-container {
         flex: 1;
         min-width: 0; /* Prevents flex item from overflowing */
+        padding-top: 4rem;
     }
 
     .manual-header {
@@ -83,33 +81,6 @@
         font-weight: 300;
     }
 
-    .nav-toggle-btn {
-        position: fixed;
-        top: 84px; /* 64px navbar height + 20px margin */
-        left: 20px;
-        z-index: 1001;
-        background: var(--primary-gradient);
-        color: white;
-        border: none;
-        width: 50px;
-        height: 50px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        box-shadow: var(--card-shadow);
-        transition: var(--transition);
-    }
-
-    .nav-toggle-btn:hover {
-        transform: scale(1.1);
-        box-shadow: var(--card-shadow-hover);
-    }
-
-    .nav-toggle-btn i {
-        font-size: 1.5rem;
-    }
 
     .manual-nav {
         background: white;
@@ -127,20 +98,6 @@
         transition: var(--transition);
     }
 
-    .manual-nav.hidden {
-        transform: translateX(-100%);
-        opacity: 0;
-        pointer-events: none;
-    }
-
-    @media (min-width: 1025px) {
-        .manual-nav.hidden {
-            width: 0;
-            padding: 0;
-            margin: 0;
-            overflow: hidden;
-        }
-    }
 
     .manual-nav::-webkit-scrollbar {
         width: 6px;
@@ -432,71 +389,12 @@
         font-size: 1.5rem;
     }
 
-    /* Overlay for mobile */
-    .nav-overlay {
-        display: none;
-        position: fixed;
-        top: 64px; /* Start below navbar */
-        left: 0;
-        width: 100%;
-        height: calc(100% - 64px); /* Full height minus navbar */
-        background: rgba(0, 0, 0, 0.5);
-        z-index: 99;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-
-    .nav-overlay.active {
-        display: block;
-        opacity: 1;
-    }
 
     /* Responsive Design */
     @media (max-width: 1024px) {
-        .nav-toggle-btn {
-            top: 84px; /* Keep below navbar on mobile too */
-        }
-
         .manual-nav {
-            position: fixed;
-            top: 64px; /* Start below navbar */
-            left: 0;
-            height: calc(100vh - 64px); /* Full height minus navbar */
-            width: 280px;
-            max-height: calc(100vh - 64px);
-            border-radius: 0;
-            z-index: 1000;
-            transform: translateX(-100%);
-            transition: transform 0.3s ease;
-        }
-
-        .manual-nav:not(.hidden) {
-            transform: translateX(0);
-        }
-
-        .manual-nav.hidden {
-            transform: translateX(-100%);
-        }
-
-        .manual-wrapper {
-            flex-direction: row;
-        }
-    }
-
-    @media (min-width: 1025px) {
-        .nav-toggle-btn {
-            display: flex;
-        }
-
-        .nav-overlay {
-            display: none !important;
-        }
-
-        .manual-nav.hidden {
-            width: 0;
-            padding: 0;
-            margin: 0;
-            overflow: hidden;
+            position: sticky;
+            top: 84px;
         }
     }
 
@@ -559,14 +457,6 @@
 {% endblock %}
 
 {% block content %}
-<!-- Hamburger Toggle Button -->
-<button class="nav-toggle-btn" id="navToggleBtn" aria-label="Toggle navigation">
-    <i class="bi bi-list" id="navToggleIcon"></i>
-</button>
-
-<!-- Overlay for mobile -->
-<div class="nav-overlay" id="navOverlay"></div>
-
 <div class="manual-wrapper" id="manualWrapper">
     <!-- Side Navigation -->
     <nav class="manual-nav" id="manualNav">
@@ -956,40 +846,7 @@
 
 {% block extra_js %}
 <script>
-    // Toggle sidebar navigation
-    const navToggleBtn = document.getElementById('navToggleBtn');
-    const navToggleIcon = document.getElementById('navToggleIcon');
     const manualNav = document.getElementById('manualNav');
-    const navOverlay = document.getElementById('navOverlay');
-    const manualWrapper = document.getElementById('manualWrapper');
-
-    function toggleNav() {
-        manualNav.classList.toggle('hidden');
-        navOverlay.classList.toggle('active');
-        
-        // Change icon
-        if (manualNav.classList.contains('hidden')) {
-            navToggleIcon.className = 'bi bi-list';
-        } else {
-            navToggleIcon.className = 'bi bi-x-lg';
-        }
-    }
-
-    navToggleBtn.addEventListener('click', toggleNav);
-    
-    // Close nav when clicking overlay
-    navOverlay.addEventListener('click', toggleNav);
-    
-    // Close nav when clicking a nav link (mobile only)
-    if (window.innerWidth <= 1024) {
-        document.querySelectorAll('.manual-nav a').forEach(link => {
-            link.addEventListener('click', function() {
-                if (!manualNav.classList.contains('hidden')) {
-                    toggleNav();
-                }
-            });
-        });
-    }
 
     // Smooth scrolling for navigation links with offset
     document.querySelectorAll('.manual-nav a').forEach(anchor => {
@@ -1066,14 +923,5 @@
     `;
     document.head.appendChild(style);
 
-    // Handle window resize
-    window.addEventListener('resize', function() {
-        if (window.innerWidth > 1024) {
-            // Desktop: always show nav, remove overlay
-            manualNav.classList.remove('hidden');
-            navOverlay.classList.remove('active');
-            navToggleIcon.className = 'bi bi-list';
-        }
-    });
 </script>
 {% endblock %}

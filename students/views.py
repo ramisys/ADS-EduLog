@@ -7,6 +7,7 @@ from django.utils.safestring import mark_safe
 from datetime import timedelta
 import json
 from core.models import StudentProfile, Grade, Attendance, Subject, Notification, Assessment, AssessmentScore
+from core.db_functions import calculate_student_gpa, calculate_attendance_rate
 
 def percentage_to_gwa(percentage):
     """
@@ -65,21 +66,38 @@ def dashboard(request):
     # Get recent grades
     recent_grades = Grade.objects.filter(student=student_profile).select_related('subject').order_by('-id')[:10]
     
-    # Get grade statistics
-    all_grades = Grade.objects.filter(student=student_profile)
-    average_grade = all_grades.aggregate(Avg('grade'))['grade__avg'] or 0
-    total_subjects_with_grades = all_grades.values('subject').distinct().count()
+    # Get grade statistics using database function
+    gpa_result = calculate_student_gpa(student_id=student_profile.id)
+    if 'error' not in gpa_result:
+        average_grade = gpa_result.get('average_grade', 0)
+        total_subjects_with_grades = gpa_result.get('grade_count', 0)
+    else:
+        # Fallback to manual calculation if function fails
+        all_grades = Grade.objects.filter(student=student_profile)
+        average_grade = all_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+        total_subjects_with_grades = all_grades.values('subject').distinct().count()
     
     # Get recent attendance
     recent_attendance = Attendance.objects.filter(student=student_profile).select_related('subject').order_by('-date')[:10]
     
-    # Calculate attendance statistics
+    # Get total attendance queryset (needed for monthly data later)
     total_attendance = Attendance.objects.filter(student=student_profile)
-    present_count = total_attendance.filter(status='present').count()
-    absent_count = total_attendance.filter(status='absent').count()
-    late_count = total_attendance.filter(status='late').count()
-    total_count = total_attendance.count()
-    attendance_percentage = (present_count / total_count * 100) if total_count > 0 else 0
+    
+    # Calculate attendance statistics using database function
+    attendance_result = calculate_attendance_rate(student_id=student_profile.id)
+    if 'error' not in attendance_result:
+        present_count = attendance_result.get('present_count', 0)
+        absent_count = attendance_result.get('absent_count', 0)
+        late_count = attendance_result.get('late_count', 0)
+        total_count = attendance_result.get('total_count', 0)
+        attendance_percentage = attendance_result.get('attendance_rate', 0)
+    else:
+        # Fallback to manual calculation if function fails
+        present_count = total_attendance.filter(status='present').count()
+        absent_count = total_attendance.filter(status='absent').count()
+        late_count = total_attendance.filter(status='late').count()
+        total_count = total_attendance.count()
+        attendance_percentage = (present_count / total_count * 100) if total_count > 0 else 0
     
     # Get unread notifications
     notifications = Notification.objects.filter(recipient=request.user, is_read=False).order_by('-created_at')[:5]

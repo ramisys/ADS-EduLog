@@ -154,7 +154,7 @@
                     </h5>
                     <p class="text-muted small mb-2">
                         <strong>From:</strong> 
-                        {% if feedback.is_anonymous %}Anonymous{% else %}{{ feedback.user.get_full_name|default:feedback.user.username }} ({{ feedback.user.get_role_display }}){% endif %}
+                        {% if feedback.is_anonymous or not feedback.user %}Anonymous{% else %}{{ feedback.user.get_full_name|default:feedback.user.username }} ({{ feedback.user.get_role_display }}){% endif %}
                         |
                         <strong>Type:</strong> <span class="badge bg-info badge-custom">{{ feedback.get_feedback_type_display }}</span>
                         |

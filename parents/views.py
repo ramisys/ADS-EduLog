@@ -17,6 +17,7 @@ from core.models import (
     Assessment,
     AssessmentScore,
 )
+from core.db_functions import calculate_student_gpa, calculate_attendance_rate, get_student_performance_summary
 
 @login_required
 def dashboard(request):
@@ -58,26 +59,44 @@ def dashboard(request):
     ).order_by('-created_at')[:5]
     alerts_count = notifications.count()
     
-    # Statistics for each child
+    # Statistics for each child using database functions
     children_stats = []
     for child in children:
-        child_grades = Grade.objects.filter(student=child)
-        child_avg = child_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+        # Use database functions for calculations
+        gpa_result = calculate_student_gpa(student_id=child.id)
+        attendance_result = calculate_attendance_rate(student_id=child.id)
         
-        child_attendance = Attendance.objects.filter(student=child)
-        present_count = child_attendance.filter(status='present').count()
-        absent_count = child_attendance.filter(status='absent').count()
-        late_count = child_attendance.filter(status='late').count()
-        total_attendance = child_attendance.count()
-        attendance_percentage = (
-            (present_count / total_attendance) * 100
-            if total_attendance > 0 else 0
-        )
+        if 'error' not in gpa_result:
+            child_avg = gpa_result.get('average_grade', 0)
+            grades_count = gpa_result.get('grade_count', 0)
+        else:
+            # Fallback to manual calculation
+            child_grades = Grade.objects.filter(student=child)
+            child_avg = child_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+            grades_count = child_grades.count()
+        
+        if 'error' not in attendance_result:
+            present_count = attendance_result.get('present_count', 0)
+            absent_count = attendance_result.get('absent_count', 0)
+            late_count = attendance_result.get('late_count', 0)
+            total_attendance = attendance_result.get('total_count', 0)
+            attendance_percentage = attendance_result.get('attendance_rate', 0)
+        else:
+            # Fallback to manual calculation
+            child_attendance = Attendance.objects.filter(student=child)
+            present_count = child_attendance.filter(status='present').count()
+            absent_count = child_attendance.filter(status='absent').count()
+            late_count = child_attendance.filter(status='late').count()
+            total_attendance = child_attendance.count()
+            attendance_percentage = (
+                (present_count / total_attendance) * 100
+                if total_attendance > 0 else 0
+            )
         
         children_stats.append({
             'child': child,
             'average_grade': round(child_avg, 2),
-            'grades_count': child_grades.count(),
+            'grades_count': grades_count,
             'present_count': present_count,
             'absent_count': absent_count,
             'late_count': late_count,
@@ -658,72 +677,127 @@ def reports(request):
     concern_subjects = []
     
     if child:
-        # Calculate overall GPA (average of all grades)
-        all_grades = Grade.objects.filter(student=child)
-        if all_grades.exists():
-            avg_grade_value = all_grades.aggregate(avg_value=Avg('grade'))['avg_value']
-            if avg_grade_value:
-                avg_grade = round(float(avg_grade_value), 2)
-                # Convert to GPA scale (assuming 100-point scale, convert to 4.0 scale)
-                overall_gpa = round((avg_grade / 100) * 4.0, 2)
+        # Use database function for comprehensive performance summary
+        performance_summary = get_student_performance_summary(student_id=child.id)
         
-        # Calculate overall attendance
-        all_attendance = Attendance.objects.filter(student=child)
-        total_attendance = all_attendance.count()
-        present_count = all_attendance.filter(status='present').count()
-        if total_attendance > 0:
-            overall_attendance = round((present_count / total_attendance) * 100, 1)
-        
-        # Get subject-wise performance
-        subjects_qs = Subject.objects.filter(section=child.section).select_related('teacher__user')
-        subjects_count = subjects_qs.count()
-        
-        for subject in subjects_qs:
-            # Get grade for this subject
-            subject_grades = Grade.objects.filter(student=child, subject=subject)
-            subject_avg_grade = None
-            if subject_grades.exists():
-                avg = subject_grades.aggregate(avg_value=Avg('grade'))['avg_value']
-                if avg:
-                    subject_avg_grade = round(float(avg), 2)
+        if 'error' not in performance_summary:
+            # Use function results
+            overall_gpa = performance_summary.get('overall_gpa', 0)
+            avg_grade = performance_summary.get('overall_average_grade', 0)
+            overall_attendance = performance_summary.get('overall_attendance_rate', 0)
+            subjects_count = performance_summary.get('total_subjects', 0)
             
-            # Get attendance for this subject
-            subject_attendance_qs = Attendance.objects.filter(student=child, subject=subject)
-            subject_total = subject_attendance_qs.count()
-            subject_present = subject_attendance_qs.filter(status='present').count()
-            subject_attendance_rate = None
-            if subject_total > 0:
-                subject_attendance_rate = round((subject_present / subject_total) * 100, 1)
+            # Build subject performance from function results
+            subject_performance = []
+            concern_subjects = []
+            subjects_qs = Subject.objects.filter(section=child.section).select_related('teacher__user')
             
-            teacher_name = subject.teacher.user.get_full_name() if subject.teacher and subject.teacher.user else "N/A"
-            teacher_email = subject.teacher.user.email if subject.teacher and subject.teacher.user else ""
+            for perf_data in performance_summary.get('subject_performance', []):
+                try:
+                    subject = Subject.objects.get(id=perf_data['subject_id'])
+                    teacher_name = subject.teacher.user.get_full_name() if subject.teacher and subject.teacher.user else "N/A"
+                    teacher_email = subject.teacher.user.email if subject.teacher and subject.teacher.user else ""
+                    
+                    subject_avg_grade = perf_data.get('average_grade')
+                    subject_attendance_rate = perf_data.get('attendance_rate')
+                    
+                    # Calculate improvement (compare latest term with previous term if available)
+                    improvement = None
+                    subject_grades = Grade.objects.filter(student=child, subject=subject)
+                    if subject_grades.count() >= 2:
+                        latest_grade = subject_grades.order_by('-term').first()
+                        previous_grade = subject_grades.order_by('-term')[1] if subject_grades.count() > 1 else None
+                        if latest_grade and previous_grade:
+                            improvement = round(float(latest_grade.grade) - float(previous_grade.grade), 2)
+                    
+                    subject_performance.append({
+                        'subject': subject,
+                        'grade': subject_avg_grade,
+                        'attendance': subject_attendance_rate,
+                        'teacher_name': teacher_name,
+                        'teacher_email': teacher_email,
+                        'improvement': improvement,
+                    })
+                    
+                    # Check if this subject needs attention
+                    if (subject_avg_grade and subject_avg_grade < 80) or (subject_attendance_rate and subject_attendance_rate < 75):
+                        concern_subjects.append({
+                            'subject': subject,
+                            'grade': subject_avg_grade,
+                            'attendance': subject_attendance_rate,
+                            'teacher_name': teacher_name,
+                            'teacher_email': teacher_email,
+                        })
+                except Subject.DoesNotExist:
+                    continue
+        else:
+            # Fallback to manual calculation if function fails
+            # Calculate overall GPA (average of all grades)
+            all_grades = Grade.objects.filter(student=child)
+            if all_grades.exists():
+                avg_grade_value = all_grades.aggregate(avg_value=Avg('grade'))['avg_value']
+                if avg_grade_value:
+                    avg_grade = round(float(avg_grade_value), 2)
+                    # Convert to GPA scale (assuming 100-point scale, convert to 4.0 scale)
+                    overall_gpa = round((avg_grade / 100) * 4.0, 2)
             
-            # Calculate improvement (compare latest term with previous term if available)
-            improvement = None
-            if subject_grades.count() >= 2:
-                latest_grade = subject_grades.order_by('-term').first()
-                previous_grade = subject_grades.order_by('-term')[1] if subject_grades.count() > 1 else None
-                if latest_grade and previous_grade:
-                    improvement = round(float(latest_grade.grade) - float(previous_grade.grade), 2)
+            # Calculate overall attendance
+            all_attendance = Attendance.objects.filter(student=child)
+            total_attendance = all_attendance.count()
+            present_count = all_attendance.filter(status='present').count()
+            if total_attendance > 0:
+                overall_attendance = round((present_count / total_attendance) * 100, 1)
             
-            subject_performance.append({
-                'subject': subject,
-                'grade': subject_avg_grade,
-                'attendance': subject_attendance_rate,
-                'teacher_name': teacher_name,
-                'teacher_email': teacher_email,
-                'improvement': improvement,
-            })
+            # Get subject-wise performance
+            subjects_qs = Subject.objects.filter(section=child.section).select_related('teacher__user')
+            subjects_count = subjects_qs.count()
             
-            # Check if this subject needs attention
-            if (subject_avg_grade and subject_avg_grade < 80) or (subject_attendance_rate and subject_attendance_rate < 75):
-                concern_subjects.append({
+            for subject in subjects_qs:
+                # Get grade for this subject
+                subject_grades = Grade.objects.filter(student=child, subject=subject)
+                subject_avg_grade = None
+                if subject_grades.exists():
+                    avg = subject_grades.aggregate(avg_value=Avg('grade'))['avg_value']
+                    if avg:
+                        subject_avg_grade = round(float(avg), 2)
+                
+                # Get attendance for this subject
+                subject_attendance_qs = Attendance.objects.filter(student=child, subject=subject)
+                subject_total = subject_attendance_qs.count()
+                subject_present = subject_attendance_qs.filter(status='present').count()
+                subject_attendance_rate = None
+                if subject_total > 0:
+                    subject_attendance_rate = round((subject_present / subject_total) * 100, 1)
+                
+                teacher_name = subject.teacher.user.get_full_name() if subject.teacher and subject.teacher.user else "N/A"
+                teacher_email = subject.teacher.user.email if subject.teacher and subject.teacher.user else ""
+                
+                # Calculate improvement (compare latest term with previous term if available)
+                improvement = None
+                if subject_grades.count() >= 2:
+                    latest_grade = subject_grades.order_by('-term').first()
+                    previous_grade = subject_grades.order_by('-term')[1] if subject_grades.count() > 1 else None
+                    if latest_grade and previous_grade:
+                        improvement = round(float(latest_grade.grade) - float(previous_grade.grade), 2)
+                
+                subject_performance.append({
                     'subject': subject,
                     'grade': subject_avg_grade,
                     'attendance': subject_attendance_rate,
                     'teacher_name': teacher_name,
                     'teacher_email': teacher_email,
+                    'improvement': improvement,
                 })
+                
+                # Check if this subject needs attention
+                if (subject_avg_grade and subject_avg_grade < 80) or (subject_attendance_rate and subject_attendance_rate < 75):
+                    concern_subjects.append({
+                        'subject': subject,
+                        'grade': subject_avg_grade,
+                        'attendance': subject_attendance_rate,
+                        'teacher_name': teacher_name,
+                        'teacher_email': teacher_email,
+                    })
         
         # Generate historical performance reports (by term)
         historical_reports = []

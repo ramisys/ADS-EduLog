@@ -23,10 +23,10 @@ User = get_user_model()
 # ==========================
 # CONFIGURATION
 # ==========================
-NUM_TEACHERS = 10
-NUM_PARENTS = 5
-NUM_STUDENTS = 120
-SECTIONS = ["BSIT 1A", "BSIT 1B", "BSIT 2A", "BSIT 2B", "BSIT 3A", "BSIT 3B"]
+NUM_TEACHERS = 4
+SECTIONS_PER_TEACHER = 4
+MIN_SUBJECTS_PER_TEACHER = 2
+STUDENTS_PER_SECTION = 10
 SUBJECT_POOL = [
     ("IT101", "Intro to IT"),
     ("IT102", "Programming 1"),
@@ -104,7 +104,9 @@ def create_teachers():
 
 def create_parents():
     parents = []
-    for i in range(NUM_PARENTS):
+    # Calculate total parents needed: NUM_TEACHERS * SECTIONS_PER_TEACHER * STUDENTS_PER_SECTION
+    total_parents_needed = NUM_TEACHERS * SECTIONS_PER_TEACHER * STUDENTS_PER_SECTION
+    for i in range(total_parents_needed):
         username = f"parent{i+1}"
         first, last = rand_name()
         user = User.objects.create_user(
@@ -119,94 +121,116 @@ def create_parents():
             user=user, contact_number=f"09{random.randint(100000000, 999999999)}"
         )
         parents.append(parent)
-    print(f"   Created {len(parents)} parents")
+    print(f"   Created {len(parents)} parents (1 per student)")
     return parents
 
 
 def create_sections(teachers):
     sections = []
-    for sec_name in SECTIONS:
-        section = ClassSection.objects.create(name=sec_name, adviser=random.choice(teachers))
-        sections.append(section)
-    print(f"   Created {len(sections)} sections")
+    section_counter = 1
+    # Each teacher gets SECTIONS_PER_TEACHER sections
+    for teacher in teachers:
+        for i in range(SECTIONS_PER_TEACHER):
+            sec_name = f"BSIT {section_counter}{chr(65 + i)}"  # 1A, 1B, 1C, 1D, then 2A, 2B, etc.
+            section = ClassSection.objects.create(name=sec_name, adviser=teacher)
+            sections.append(section)
+        section_counter += 1
+    print(f"   Created {len(sections)} sections ({SECTIONS_PER_TEACHER} per teacher)")
     return sections
 
 
 def create_students(parents, sections):
     students = []
-    # Ensure each parent has at least one student
+    student_counter = 1
     parent_index = 0
-    for i in range(NUM_STUDENTS):
-        username = f"student{i+1}"
-        first, last = rand_name()
-        user = User.objects.create_user(
-            username=username,
-            email=f"{username}@example.com",
-            password="StudentPass123",
-            role="student",
-            first_name=first,
-            last_name=last,
-        )
-        # Assign parent: first NUM_PARENTS students get unique parents, then random
-        if i < NUM_PARENTS:
+    
+    # Each section needs STUDENTS_PER_SECTION students
+    for section in sections:
+        for i in range(STUDENTS_PER_SECTION):
+            username = f"student{student_counter}"
+            first, last = rand_name()
+            user = User.objects.create_user(
+                username=username,
+                email=f"{username}@example.com",
+                password="StudentPass123",
+                role="student",
+                first_name=first,
+                last_name=last,
+            )
+            # Assign parent: each student gets a unique parent
             parent = parents[parent_index]
             parent_index += 1
-        else:
-            parent = random.choice(parents)
-        
-        student = StudentProfile.objects.create(
-            user=user,
-            parent=parent,
-            course="BSIT",
-            year_level=random.choice(["1st Year", "2nd Year", "3rd Year"]),
-            section=random.choice(sections),
-        )
-        students.append(student)
-    print(f"   Created {len(students)} students")
+            
+            # Determine year level based on section name (extract number from section name)
+            section_num = ''.join(filter(str.isdigit, section.name))
+            if section_num:
+                year_num = int(section_num)
+                if year_num == 1:
+                    year_level = "1st Year"
+                elif year_num == 2:
+                    year_level = "2nd Year"
+                elif year_num == 3:
+                    year_level = "3rd Year"
+                else:
+                    year_level = f"{year_num}th Year"
+            else:
+                year_level = "1st Year"
+            
+            student = StudentProfile.objects.create(
+                user=user,
+                parent=parent,
+                course="BSIT",
+                year_level=year_level,
+                section=section,
+            )
+            students.append(student)
+            student_counter += 1
+    
+    print(f"   Created {len(students)} students ({STUDENTS_PER_SECTION} per section)")
     return students
 
 
 def create_subjects(sections, teachers):
     subjects = []
-    # Create multiple subjects per section and ensure teachers teach multiple subjects across sections
-    subjects_per_section = 3  # 3 subjects per section
+    # Track teacher assignments to ensure each teacher teaches at least MIN_SUBJECTS_PER_TEACHER subjects
+    teacher_assignments = {teacher.id: {'sections': set(), 'subjects': set()} for teacher in teachers}
     
-    # Track teacher assignments to ensure each teacher teaches multiple subjects and sections
-    teacher_assignments = {teacher.id: {'sections': set(), 'subjects': 0} for teacher in teachers}
-    
-    # First pass: assign at least 2 subjects per teacher across different sections
-    teacher_list = list(teachers)
-    teacher_idx = 0
+    # Group sections by teacher (adviser)
+    sections_by_teacher = {teacher: [] for teacher in teachers}
     for section in sections:
-        for _ in range(subjects_per_section):
-            code, name = random.choice(SUBJECT_POOL)
-            
-            # For first few assignments, ensure each teacher gets at least 2 subjects
-            # After that, use random assignment
-            if teacher_idx < len(teachers) * 2:
-                teacher = teacher_list[teacher_idx % len(teachers)]
-                teacher_idx += 1
-            else:
-                # Random assignment but prefer teachers with fewer assignments
-                teacher = min(teachers, key=lambda t: teacher_assignments[t.id]['subjects'])
-            
-            subject = Subject.objects.create(
-                code=f"{code}-{section.name.replace(' ', '')}",
-                name=name,
-                teacher=teacher,
-                section=section,
-            )
-            subjects.append(subject)
-            teacher_assignments[teacher.id]['sections'].add(section.id)
-            teacher_assignments[teacher.id]['subjects'] += 1
+        sections_by_teacher[section.adviser].append(section)
+    
+    # Assign subjects to each teacher
+    # Each teacher teaches at least MIN_SUBJECTS_PER_TEACHER subjects
+    # Each subject is taught in all sections that the teacher advises
+    for teacher in teachers:
+        teacher_sections = sections_by_teacher[teacher]
+        # Select at least MIN_SUBJECTS_PER_TEACHER subjects for this teacher
+        num_subjects = max(MIN_SUBJECTS_PER_TEACHER, random.randint(MIN_SUBJECTS_PER_TEACHER, len(SUBJECT_POOL)))
+        selected_subjects = random.sample(SUBJECT_POOL, num_subjects)
+        
+        # For each selected subject, create it in each section the teacher advises
+        for code, name in selected_subjects:
+            for section in teacher_sections:
+                subject = Subject.objects.create(
+                    code=f"{code}-{section.name.replace(' ', '')}",
+                    name=name,
+                    teacher=teacher,
+                    section=section,
+                )
+                subjects.append(subject)
+                teacher_assignments[teacher.id]['sections'].add(section.id)
+                teacher_assignments[teacher.id]['subjects'].add((code, name))
     
     # Verify assignments
-    teachers_with_multiple_sections = sum(1 for t in teacher_assignments.values() if len(t['sections']) > 1)
-    teachers_with_multiple_subjects = sum(1 for t in teacher_assignments.values() if t['subjects'] > 1)
+    teachers_with_enough_subjects = sum(1 for t in teacher_assignments.values() if len(t['subjects']) >= MIN_SUBJECTS_PER_TEACHER)
     
     print(f"   Created {len(subjects)} subjects")
-    print(f"   Teachers teaching multiple sections: {teachers_with_multiple_sections}/{len(teachers)}")
-    print(f"   Teachers teaching multiple subjects: {teachers_with_multiple_subjects}/{len(teachers)}")
+    print(f"   Teachers with at least {MIN_SUBJECTS_PER_TEACHER} subjects: {teachers_with_enough_subjects}/{len(teachers)}")
+    for teacher in teachers:
+        num_subjects = len(teacher_assignments[teacher.id]['subjects'])
+        num_sections = len(teacher_assignments[teacher.id]['sections'])
+        print(f"      {teacher.user.get_full_name()}: {num_subjects} subjects across {num_sections} sections")
     return subjects
 
 
@@ -216,11 +240,11 @@ def main():
     with atomic_section("Generating teachers"):
         teachers = create_teachers()
 
-    with atomic_section("Generating parents"):
-        parents = create_parents()
-
     with atomic_section("Generating sections"):
         sections = create_sections(teachers)
+
+    with atomic_section("Generating parents"):
+        parents = create_parents()
 
     with atomic_section("Generating students"):
         students = create_students(parents, sections)
@@ -229,6 +253,12 @@ def main():
         subjects = create_subjects(sections, teachers)
 
     print("\n=== DATASET GENERATION COMPLETE ===")
+    print(f"\nSummary:")
+    print(f"  - Teachers: {len(teachers)}")
+    print(f"  - Sections: {len(sections)} ({SECTIONS_PER_TEACHER} per teacher)")
+    print(f"  - Subjects: {len(subjects)}")
+    print(f"  - Students: {len(students)} ({STUDENTS_PER_SECTION} per section)")
+    print(f"  - Parents: {len(parents)} (1 per student)")
 
 
 if __name__ == "__main__":

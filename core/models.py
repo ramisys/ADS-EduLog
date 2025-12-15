@@ -187,7 +187,7 @@ class Attendance(models.Model):
     ]
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
-    date = models.DateField(auto_now_add=True)
+    date = models.DateField()
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
     
     class Meta:

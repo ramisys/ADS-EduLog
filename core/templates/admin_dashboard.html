@@ -267,7 +267,7 @@
                                     </h6>
                                     <p class="text-muted small mb-1">
                                         <strong>From:</strong> 
-                                        {% if feedback.is_anonymous %}Anonymous{% else %}{{ feedback.user.get_full_name|default:feedback.user.username }}{% endif %}
+                                        {% if feedback.is_anonymous or not feedback.user %}Anonymous{% else %}{{ feedback.user.get_full_name|default:feedback.user.username }}{% endif %}
                                         | 
                                         <strong>Type:</strong> {{ feedback.get_feedback_type_display }}
                                         | 

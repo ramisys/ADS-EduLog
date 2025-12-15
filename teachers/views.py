@@ -12,8 +12,10 @@ from core.models import (
     TeacherProfile, Subject, ClassSection, StudentProfile, Attendance, Grade, Notification,
     Assessment, AssessmentScore, CategoryWeights, AuditLog
 )
+from django.db.models import Avg
 from core.notifications import send_attendance_notification, check_and_send_performance_notifications, check_consecutive_absences
 from core.permissions import role_required, validate_input, validate_teacher_access
+from core.db_functions import get_teacher_class_statistics
 from django.http import JsonResponse
 import json
 from django.views.decorators.http import require_http_methods
@@ -31,14 +33,16 @@ def dashboard(request):
     except TeacherProfile.DoesNotExist:
         return redirect('dashboard')
     
-    # Get teacher's subjects
-    subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section')
+    # Get teacher's subjects - order by code and section to ensure all are included
+    # Convert to list to ensure all subjects are evaluated
+    subjects = list(Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code', 'section__name'))
     
     # Get classes/sections the teacher is advising
     advised_sections = ClassSection.objects.filter(adviser=teacher_profile)
     
     # Get all students in teacher's sections
-    student_count = StudentProfile.objects.filter(section__in=subjects.values_list('section', flat=True).distinct()).count()
+    section_ids = list(set([s.section.id for s in subjects if s.section]))
+    student_count = StudentProfile.objects.filter(section__id__in=section_ids).count() if section_ids else 0
     
     # Get recent attendance records for teacher's subjects
     recent_attendance = Attendance.objects.filter(
@@ -55,10 +59,115 @@ def dashboard(request):
     # Calculate average attendance percentage
     avg_attendance_percentage = (present_count / total_attendance_count * 100) if total_attendance_count > 0 else 0
     
-    # Get grades statistics
-    total_grades = Grade.objects.filter(subject__teacher=teacher_profile)
-    average_grade = total_grades.aggregate(Avg('grade'))['grade__avg'] or 0
-    grades_count = total_grades.count()
+    # Calculate subject performance data (average grades per subject-section)
+    # This will be used for both the chart and the overall class average
+    subject_performance_data = []
+    subject_performance_labels = []
+    subject_section_averages = []  # Store averages for calculating overall class average
+    
+    # Debug: Log total subjects found
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Total subjects found for teacher {teacher_profile.id}: {len(subjects)}")
+    
+    # Process ALL subjects (each Subject record is unique per section)
+    # Calculate average for each subject-section combination
+    for subject in subjects:
+        # Debug: Log subject being processed
+        logger.debug(f"Processing subject ID {subject.id}: code='{subject.code}', section='{subject.section.name if subject.section else None}'")
+        
+        # Always create the label first (we'll add it regardless of data)
+        section_name = subject.section.name if subject.section else None
+        if section_name:
+            # Check if section name is already part of the code (e.g., "IT101-BSIT1A")
+            section_abbrev = section_name.replace(' ', '')
+            if section_abbrev in subject.code:
+                # Section info already in code, just use code
+                label = subject.code
+            else:
+                # Add section name to distinguish between sections
+                label = f"{subject.code} ({section_name})"
+        else:
+            label = subject.code
+        
+        # Calculate average for this subject-section
+        subject_grades = Grade.objects.filter(subject=subject)
+        has_data = False
+        subject_avg = None
+        assessment_scores_count = 0
+        
+        if subject_grades.exists():
+            # Calculate from Grade records
+            subject_avg_result = subject_grades.aggregate(Avg('grade'))['grade__avg']
+            if subject_avg_result is not None:
+                subject_avg = float(subject_avg_result)
+                has_data = True
+                logger.debug(f"Subject {subject.code} ({subject.section.name if subject.section else 'No section'}): Found {subject_grades.count()} Grade records, Average = {subject_avg:.2f}%")
+        else:
+            # Fallback: Calculate from assessment scores if Grade records don't exist
+            assessment_scores = AssessmentScore.objects.filter(
+                assessment__subject=subject
+            ).select_related('assessment')
+            assessment_scores_count = assessment_scores.count()
+            
+            if assessment_scores.exists():
+                # Calculate average from assessment scores
+                total_score = sum(float(score.score) for score in assessment_scores)
+                total_max = sum(float(score.assessment.max_score) for score in assessment_scores)
+                if total_max > 0:
+                    subject_avg = (total_score / total_max) * 100
+                    has_data = True
+                    logger.debug(f"Subject {subject.code} ({subject.section.name if subject.section else 'No section'}): No Grade records, but found {assessment_scores_count} AssessmentScore records, Average = {subject_avg:.2f}%")
+        
+        # Always add both data and label together to ensure they match
+        if has_data and subject_avg is not None:
+            rounded_avg = round(subject_avg, 2)
+            subject_performance_data.append(rounded_avg)
+            subject_section_averages.append(subject_avg)  # Store for class average calculation
+        else:
+            # Show 0 for subjects without data
+            subject_performance_data.append(0)
+            logger.debug(f"Subject {subject.code} ({subject.section.name if subject.section else 'No section'}): No data found (Grade count: {subject_grades.count()}, Assessment scores: {assessment_scores_count})")
+        
+        # Always add the label (ensures data and labels arrays have same length)
+        subject_performance_labels.append(label)
+    
+    # Debug: Log final arrays
+    logger.debug(f"Subject performance data array length: {len(subject_performance_data)}, Labels array length: {len(subject_performance_labels)}")
+    logger.debug(f"Subject performance data: {subject_performance_data}")
+    logger.debug(f"Subject performance labels: {subject_performance_labels}")
+    
+    # Calculate class average as the average of all subject-section averages
+    # This gives the overall average across all subject-sections
+    if subject_section_averages:
+        average_grade = sum(subject_section_averages) / len(subject_section_averages)
+        # Count total number of Grade records for this teacher
+        grades_count = Grade.objects.filter(subject__teacher=teacher_profile).count()
+    else:
+        # Fallback: If no subject-section averages, try to calculate from all grades
+        total_grades = Grade.objects.filter(subject__teacher=teacher_profile)
+        grades_count = total_grades.count()
+        
+        if grades_count > 0:
+            average_grade_result = total_grades.aggregate(Avg('grade'))['grade__avg']
+            if average_grade_result is not None:
+                average_grade = float(average_grade_result)
+            else:
+                average_grade = 0
+        else:
+            # Final fallback: Calculate from assessment scores
+            assessment_scores = AssessmentScore.objects.filter(
+                assessment__subject__teacher=teacher_profile
+            ).select_related('assessment')
+            
+            if assessment_scores.exists():
+                total_score = sum(float(score.score) for score in assessment_scores)
+                total_max = sum(float(score.assessment.max_score) for score in assessment_scores)
+                if total_max > 0:
+                    average_grade = (total_score / total_max) * 100
+                else:
+                    average_grade = 0
+            else:
+                average_grade = 0
     
     # Get unread notifications
     notifications = Notification.objects.filter(recipient=request.user, is_read=False).order_by('-created_at')[:5]
@@ -66,16 +175,58 @@ def dashboard(request):
     
     # Calculate grade distribution
     # Get all students in teacher's sections and their average grades
-    students_in_sections = StudentProfile.objects.filter(section__in=subjects.values_list('section', flat=True).distinct())
+    # Include ALL sections where the teacher teaches subjects
+    section_ids = list(set([s.section.id for s in subjects if s.section]))
+    logger.debug(f"Grade distribution: Found {len(section_ids)} unique sections: {section_ids}")
+    
+    students_in_sections = StudentProfile.objects.filter(section__id__in=section_ids).select_related('section', 'user') if section_ids else StudentProfile.objects.none()
+    logger.debug(f"Grade distribution: Found {students_in_sections.count()} students across all sections")
+    
     excellent_count = 0
     good_count = 0
     average_count = 0
     poor_count = 0
     
+    students_by_section = {}
     for student in students_in_sections:
+        section_name = student.section.name if student.section else "No Section"
+        if section_name not in students_by_section:
+            students_by_section[section_name] = 0
+        students_by_section[section_name] += 1
+        
+        student_avg = None
+        
+        # Try to get average from Grade records first
+        # Calculate average across ALL subjects the teacher teaches for this student
         student_grades = Grade.objects.filter(student=student, subject__teacher=teacher_profile)
         if student_grades.exists():
-            student_avg = student_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+            # Get the subjects these grades are for
+            grade_subjects = student_grades.values_list('subject__code', 'subject__section__name').distinct()
+            student_avg_result = student_grades.aggregate(Avg('grade'))['grade__avg']
+            if student_avg_result is not None:
+                student_avg = float(student_avg_result)
+                logger.debug(f"Student {student.user.get_full_name()} ({section_name}): Found {student_grades.count()} Grade records across {len(grade_subjects)} subjects {list(grade_subjects)}, Average = {student_avg:.2f}%")
+        
+        # Fallback: Calculate from assessment scores if Grade records don't exist
+        if student_avg is None:
+            assessment_scores = AssessmentScore.objects.filter(
+                student=student,
+                assessment__subject__teacher=teacher_profile
+            ).select_related('assessment', 'assessment__subject')
+            
+            if assessment_scores.exists():
+                # Calculate average from assessment scores
+                total_score = sum(float(score.score) for score in assessment_scores)
+                total_max = sum(float(score.assessment.max_score) for score in assessment_scores)
+                if total_max > 0:
+                    student_avg = (total_score / total_max) * 100
+                    # Get subjects these scores are for
+                    score_subjects = assessment_scores.values_list('assessment__subject__code', 'assessment__subject__section__name').distinct()
+                    logger.debug(f"Student {student.user.get_full_name()} ({section_name}): No Grade records, but found {assessment_scores.count()} AssessmentScore records across {len(score_subjects)} subjects {list(score_subjects)}, Average = {student_avg:.2f}%")
+        
+        # Categorize student based on average
+        # Only count students who have grades (students without any grades are not included in distribution)
+        if student_avg is not None:
             if student_avg >= 90:
                 excellent_count += 1
             elif student_avg >= 80:
@@ -84,19 +235,52 @@ def dashboard(request):
                 average_count += 1
             else:
                 poor_count += 1
+        else:
+            logger.debug(f"Student {student.user.get_full_name()} ({section_name}): No grades or assessment scores found")
     
-    # Get subject statistics
-    subject_stats = []
-    for subject in subjects:
-        subject_students = StudentProfile.objects.filter(section=subject.section).count()
-        subject_grades = Grade.objects.filter(subject=subject)
-        subject_avg = subject_grades.aggregate(Avg('grade'))['grade__avg'] or 0
-        subject_stats.append({
-            'subject': subject,
-            'student_count': subject_students,
-            'average_grade': round(subject_avg, 2),
-            'grades_count': subject_grades.count()
-        })
+    # Debug: Log grade distribution summary
+    logger.debug(f"Grade distribution summary: Excellent={excellent_count}, Good={good_count}, Average={average_count}, Poor={poor_count}")
+    logger.debug(f"Students by section: {students_by_section}")
+    
+    # Also print to console for immediate visibility (remove in production)
+    print(f"\n=== GRADE DISTRIBUTION DEBUG ===")
+    print(f"Total students checked: {students_in_sections.count()}")
+    print(f"Students by section: {students_by_section}")
+    print(f"Excellent: {excellent_count}, Good: {good_count}, Average: {average_count}, Poor: {poor_count}")
+    print(f"Total with grades: {excellent_count + good_count + average_count + poor_count}")
+    print(f"===================================\n")
+    
+    # Get subject statistics using database function
+    teacher_stats = get_teacher_class_statistics(teacher_id=teacher_profile.id)
+    if 'error' not in teacher_stats and 'statistics' in teacher_stats:
+        # Use function results
+        subject_stats = []
+        for stat in teacher_stats['statistics']:
+            # Find the subject object
+            try:
+                subject = Subject.objects.get(id=stat['subject_id'])
+                subject_stats.append({
+                    'subject': subject,
+                    'student_count': stat.get('student_count', 0),
+                    'average_grade': stat.get('average_grade', 0),
+                    'grades_count': 0,  # Not provided by function, will calculate if needed
+                    'at_risk_students': stat.get('at_risk_students', 0)
+                })
+            except Subject.DoesNotExist:
+                continue
+    else:
+        # Fallback to manual calculation if function fails
+        subject_stats = []
+        for subject in subjects:
+            subject_students = StudentProfile.objects.filter(section=subject.section).count()
+            subject_grades = Grade.objects.filter(subject=subject)
+            subject_avg = subject_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+            subject_stats.append({
+                'subject': subject,
+                'student_count': subject_students,
+                'average_grade': round(subject_avg, 2),
+                'grades_count': subject_grades.count()
+            })
     
     # Calculate weekly attendance data (last 7 days)
     today = timezone.now().date()
@@ -126,17 +310,6 @@ def dashboard(request):
             weekly_attendance_labels.append('Yesterday')
         else:
             weekly_attendance_labels.append(date.strftime('%a %d'))
-    
-    # Calculate subject performance data (average grades per subject)
-    subject_performance_data = []
-    subject_performance_labels = []
-    
-    for subject in subjects:
-        subject_grades = Grade.objects.filter(subject=subject)
-        if subject_grades.exists():
-            subject_avg = subject_grades.aggregate(Avg('grade'))['grade__avg'] or 0
-            subject_performance_data.append(round(subject_avg, 2))
-            subject_performance_labels.append(subject.code)
     
     context = {
         'teacher_profile': teacher_profile,
@@ -477,11 +650,12 @@ def attendance(request):
                             if old_status != status:
                                 updated_count += 1
                         else:
-                            # Create new record - date will be auto-set to today
+                            # Create new record - explicitly set date to today
                             try:
                                 attendance_record = Attendance.objects.create(
                                     student=student,
                                     subject=selected_subject,
+                                    date=today,
                                     status=status
                                 )
                                 created = True
@@ -626,8 +800,9 @@ def grades(request):
         user=request.user
     ).select_related('student', 'assessment').order_by('-timestamp')[:50]
     
-    # Get unique subject names (only teacher's subjects)
-    all_subjects = list(subjects.values_list('name', flat=True).distinct())
+    # Get unique subject codes (only teacher's subjects)
+    # Use codes instead of names since codes are unique per section
+    all_subjects = list(subjects.values_list('code', flat=True).distinct())
     
     # Get unique section names (only sections where teacher teaches)
     sections_array = list(sections.values_list('name', flat=True))
@@ -643,26 +818,37 @@ def grades(request):
         })
     
     # Create mapping of section to subjects for that section
+    # Use subject code (unique per section) instead of name to avoid conflicts
     section_to_subjects = {}
     for subject in subjects:
         section_name = subject.section.name
         if section_name not in section_to_subjects:
             section_to_subjects[section_name] = []
-        if subject.name not in section_to_subjects[section_name]:
-            section_to_subjects[section_name].append(subject.name)
+        # Use subject code which is unique per section (e.g., "IT102-BSIT1A")
+        if subject.code not in section_to_subjects[section_name]:
+            section_to_subjects[section_name].append(subject.code)
     
     assessments_data = []
     # Map subject names to IDs for category weights lookup - populate from all subjects
+    # Use subject code (which is unique per section) instead of name to avoid conflicts
     subject_name_to_id = {}
     for subject in subjects:
-        subject_name_to_id[subject.name] = subject.id
+        # Use subject code as key since it's unique per section (e.g., "IT102-BSIT1A")
+        # Also map by name for backward compatibility, but code takes precedence
+        subject_name_to_id[subject.code] = subject.id
+        # If name is different from code, also add name mapping (but code is preferred)
+        if subject.name != subject.code:
+            # For subjects with same name in different sections, use code instead
+            # Only add name mapping if code doesn't already exist
+            if subject.name not in subject_name_to_id:
+                subject_name_to_id[subject.name] = subject.id
     
     for assessment in assessments:
         assessments_data.append({
             'id': assessment.id,
             'name': assessment.name,
             'category': assessment.category,
-            'subject': assessment.subject.name,
+            'subject': assessment.subject.code,  # Use code instead of name for consistency
             'subjectId': assessment.subject.id,
             'maxScore': float(assessment.max_score),
             'date': assessment.date.strftime('%Y-%m-%d'),

@@ -1101,6 +1101,7 @@
             renderGradebookTable();
             renderSubjectPerformance();
             renderGradeDistribution();
+            updateSummaryStatistics(); // Update class average automatically
             
             // Show success message
             showToast('Category weights updated successfully!', 'success');
@@ -1349,6 +1350,7 @@
                     renderGradebookTable();
                     renderSubjectPerformance();
                     renderGradeDistribution();
+                    updateSummaryStatistics(); // Update class average automatically
                     renderAuditLog();
                 } else {
                     showToast('Error: ' + (data.error || 'Failed to delete score'), 'error');
@@ -1421,6 +1423,7 @@
                 renderGradebookTable();
                 renderSubjectPerformance();
                 renderGradeDistribution();
+                updateSummaryStatistics(); // Update class average automatically
                 renderAuditLog();
                 showToast('Score saved successfully!', 'success');
             } else {

@@ -258,16 +258,34 @@
     const subjectPerformanceData = JSON.parse(document.getElementById('subject-performance-data').textContent);
     const subjectPerformanceLabels = JSON.parse(document.getElementById('subject-performance-labels').textContent);
     
-    if (subjectPerformanceData.length === 0) {
+    // Debug: Log the data to console
+    console.log('Subject Performance Data:', subjectPerformanceData);
+    console.log('Subject Performance Labels:', subjectPerformanceLabels);
+    console.log('Data length:', subjectPerformanceData.length, 'Labels length:', subjectPerformanceLabels.length);
+    
+    // Ensure data and labels arrays have the same length
+    if (subjectPerformanceData.length !== subjectPerformanceLabels.length) {
+      console.warn('Subject performance data and labels length mismatch:', 
+        subjectPerformanceData.length, 'vs', subjectPerformanceLabels.length);
+    }
+    
+    if (subjectPerformanceData.length === 0 || subjectPerformanceLabels.length === 0) {
       subjectPerformanceCtx.parentElement.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100"><span class="text-muted">No grade data available</span></div>';
     } else {
+      // Ensure arrays are the same length (take the minimum to avoid errors)
+      const minLength = Math.min(subjectPerformanceData.length, subjectPerformanceLabels.length);
+      const data = subjectPerformanceData.slice(0, minLength);
+      const labels = subjectPerformanceLabels.slice(0, minLength);
+      
+      console.log('Using data length:', minLength, 'Data:', data, 'Labels:', labels);
+      
       new Chart(subjectPerformanceCtx, {
       type: 'line',
       data: {
-        labels: subjectPerformanceLabels,
+        labels: labels,
         datasets: [{
           label: 'Average Grade',
-          data: subjectPerformanceData,
+          data: data,
           borderColor: 'rgba(59, 130, 246, 1)',
           backgroundColor: 'rgba(59, 130, 246, 0.1)',
           borderWidth: 2,
@@ -277,7 +295,8 @@
           pointBorderColor: '#fff',
           pointBorderWidth: 2,
           pointRadius: 5,
-          pointHoverRadius: 7
+          pointHoverRadius: 7,
+          spanGaps: false // Show all points even if some are 0
         }]
       },
       options: {
@@ -293,19 +312,28 @@
             intersect: false,
             callbacks: {
               label: function(context) {
-                return 'Average: ' + context.parsed.y.toFixed(2);
+                return 'Average: ' + context.parsed.y.toFixed(2) + '%';
               }
             }
           }
         },
         scales: {
+          x: {
+            display: true,
+            ticks: {
+              maxRotation: 45,
+              minRotation: 45,
+              autoSkip: false // Show all labels
+            }
+          },
           y: {
-            beginAtZero: false,
+            beginAtZero: true, // Changed to true to show all data points
             min: 0,
             max: 100,
             ticks: {
+              stepSize: 10,
               callback: function(value) {
-                return value;
+                return value + '%';
               }
             }
           }
@@ -323,7 +351,16 @@
     const averageCount = parseInt(JSON.parse(document.getElementById('average-count').textContent));
     const poorCount = parseInt(JSON.parse(document.getElementById('poor-count').textContent));
     
+    // Debug: Log the counts
+    console.log('Grade Distribution Counts:', {
+      excellent: excellentCount,
+      good: goodCount,
+      average: averageCount,
+      poor: poorCount
+    });
+    
     const total = excellentCount + goodCount + averageCount + poorCount;
+    console.log('Total students with grades:', total);
     
     if (total > 0) {
       new Chart(gradeDistributionCtx, {

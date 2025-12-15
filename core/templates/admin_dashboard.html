@@ -31,6 +31,39 @@
         font-size: 1.5rem;
         margin-bottom: 1rem;
     }
+    .stat-icon i.bi {
+        display: inline-block !important;
+        font-family: "bootstrap-icons" !important;
+        font-style: normal !important;
+        font-weight: normal !important;
+        font-variant: normal !important;
+        text-transform: none !important;
+        line-height: 1 !important;
+        vertical-align: -.125em !important;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        speak: none;
+        text-rendering: auto;
+    }
+    /* Ensure all Bootstrap Icons are visible */
+    .stats-card .bi,
+    .quick-action-card .bi,
+    .action-btn .bi {
+        display: inline-block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    /* Fix icon visibility for primary colored backgrounds (Total Feedbacks & Teachers) */
+    .stat-icon.bg-primary {
+        background-color: rgba(37, 99, 235, 0.1) !important;
+    }
+    .stat-icon.bg-primary i.bi,
+    .stat-icon.bg-primary.text-primary i {
+        color: #2563eb !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: inline-block !important;
+    }
     .stat-value {
         font-size: 2rem;
         font-weight: bold;

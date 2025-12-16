@@ -274,6 +274,11 @@ def signup_view(request):
             messages.error(request, 'Please fill in all required fields.')
             return render(request, 'signup.html')
         
+        # Check password length
+        if len(password) < 8:
+            messages.error(request, 'Password must be at least 8 characters long.')
+            return render(request, 'signup.html')
+        
         # Check if passwords match
         if password != password_confirm:
             messages.error(request, 'Passwords do not match.')

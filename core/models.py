@@ -178,6 +178,33 @@ class Subject(models.Model):
         return f"{self.code} - {self.name}"
 
 
+# ===== TEACHER SUBJECT ASSIGNMENT =====
+class TeacherSubjectAssignment(models.Model):
+    """
+    Links teachers to subjects and sections, allowing teachers to assign themselves
+    to teach specific subjects in specific class sections.
+    """
+    teacher = models.ForeignKey(TeacherProfile, on_delete=models.CASCADE, related_name='subject_assignments')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='teacher_assignments')
+    section = models.ForeignKey(ClassSection, on_delete=models.CASCADE, related_name='teacher_subject_assignments')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Teacher Subject Assignment'
+        verbose_name_plural = 'Teacher Subject Assignments'
+        unique_together = [['teacher', 'subject', 'section']]
+        indexes = [
+            models.Index(fields=['teacher', 'section']),
+            models.Index(fields=['subject', 'section']),
+            models.Index(fields=['teacher', 'subject']),
+        ]
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.teacher.user.get_full_name()} - {self.subject.code} ({self.section.name})"
+
+
 # ===== ATTENDANCE =====
 class Attendance(models.Model):
     STATUS_CHOICES = [

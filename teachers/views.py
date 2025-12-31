@@ -10,8 +10,9 @@ from decimal import Decimal
 import logging
 from core.models import (
     TeacherProfile, Subject, ClassSection, StudentProfile, Attendance, Grade, Notification,
-    Assessment, AssessmentScore, CategoryWeights, AuditLog
+    Assessment, AssessmentScore, CategoryWeights, AuditLog, TeacherSubjectAssignment
 )
+from teachers.forms import TeacherSubjectAssignmentForm
 from django.db.models import Avg
 from core.notifications import send_attendance_notification, check_and_send_performance_notifications, check_consecutive_absences
 from core.permissions import role_required, validate_input, validate_teacher_access
@@ -339,37 +340,67 @@ def dashboard(request):
     return render(request, 'teachers/dashboard.html', context)
 
 @login_required
+@role_required('teacher')
 def subjects(request):
-    if request.user.role != 'teacher':
-        return redirect('dashboard')
-    
+    """
+    View to list teacher's subject assignments and manage them.
+    Shows both legacy Subject assignments and new TeacherSubjectAssignment records.
+    """
     try:
         teacher_profile = TeacherProfile.objects.get(user=request.user)
     except TeacherProfile.DoesNotExist:
+        messages.error(request, 'Teacher profile not found.')
         return redirect('dashboard')
     
-    # Get teacher's subjects with related data
-    subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code')
+    # Get teacher's subject assignments (new model)
+    assignments = TeacherSubjectAssignment.objects.filter(
+        teacher=teacher_profile
+    ).select_related('subject', 'section').order_by('subject__code', 'section__name')
     
-    # Get student count for each subject (students in that section)
+    # Also get legacy subjects (for backward compatibility)
+    legacy_subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code')
+    
+    # Combine both sources for display
     subjects_with_counts = []
     total_students = 0
     unique_sections = set()
     unique_student_ids = set()
     
-    for subject in subjects:
-        student_count = StudentProfile.objects.filter(section=subject.section).count()
+    # Process new assignments
+    for assignment in assignments:
+        student_count = StudentProfile.objects.filter(section=assignment.section).count()
         subjects_with_counts.append({
-            'subject': subject,
+            'subject': assignment.subject,
+            'section': assignment.section,
             'student_count': student_count,
+            'assignment_id': assignment.id,
+            'is_assignment': True,
         })
         total_students += student_count
-        unique_sections.add(subject.section.id)
+        unique_sections.add(assignment.section.id)
         
-        # Get unique students across all subjects
-        section_students = StudentProfile.objects.filter(section=subject.section)
+        section_students = StudentProfile.objects.filter(section=assignment.section)
         for student in section_students:
             unique_student_ids.add(student.id)
+    
+    # Process legacy subjects (only if not already in assignments)
+    assignment_subject_ids = {a.subject.id for a in assignments}
+    for subject in legacy_subjects:
+        if subject.id not in assignment_subject_ids:
+            student_count = StudentProfile.objects.filter(section=subject.section).count()
+            subjects_with_counts.append({
+                'subject': subject,
+                'section': subject.section,
+                'student_count': student_count,
+                'assignment_id': None,
+                'is_assignment': False,
+            })
+            total_students += student_count
+            unique_sections.add(subject.section.id)
+            
+            section_students = StudentProfile.objects.filter(section=subject.section)
+            for student in section_students:
+                unique_student_ids.add(student.id)
     
     # Calculate statistics
     total_subjects = len(subjects_with_counts)
@@ -386,6 +417,87 @@ def subjects(request):
         'avg_students_per_subject': round(avg_students_per_subject, 1),
     }
     return render(request, 'teachers/subjects.html', context)
+
+
+@login_required
+@role_required('teacher')
+def assign_subject(request):
+    """
+    View to create a new subject assignment.
+    Handles both GET (show form) and POST (create assignment).
+    """
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        messages.error(request, 'Teacher profile not found.')
+        return redirect('teachers:subjects')
+    
+    if request.method == 'POST':
+        form = TeacherSubjectAssignmentForm(request.POST, teacher=teacher_profile)
+        if form.is_valid():
+            try:
+                assignment = form.save()
+                messages.success(
+                    request,
+                    f'Successfully assigned {assignment.subject.code} ({assignment.subject.name}) to section {assignment.section.name}.'
+                )
+                return redirect('teachers:subjects')
+            except Exception as e:
+                logger.error(f"Error creating subject assignment: {str(e)}", exc_info=True)
+                messages.error(request, f'An error occurred while creating the assignment: {str(e)}')
+        else:
+            # Form has errors, they will be displayed in template
+            pass
+    else:
+        form = TeacherSubjectAssignmentForm(teacher=teacher_profile)
+    
+    context = {
+        'form': form,
+        'teacher_profile': teacher_profile,
+    }
+    return render(request, 'teachers/assign_subject.html', context)
+
+
+@login_required
+@role_required('teacher')
+@require_http_methods(["POST"])
+def remove_assignment(request, assignment_id):
+    """
+    View to remove a subject assignment.
+    Only allows teachers to remove their own assignments.
+    Requires POST method for security.
+    """
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        messages.error(request, 'Teacher profile not found.')
+        return redirect('teachers:subjects')
+    
+    # Validate assignment_id
+    assignment_id = validate_input(assignment_id, 'integer')
+    if not assignment_id:
+        messages.error(request, 'Invalid assignment ID.')
+        return redirect('teachers:subjects')
+    
+    try:
+        assignment = TeacherSubjectAssignment.objects.get(
+            id=assignment_id,
+            teacher=teacher_profile
+        )
+        subject_code = assignment.subject.code
+        section_name = assignment.section.name
+        assignment.delete()
+        messages.success(
+            request,
+            f'Successfully removed assignment: {subject_code} in section {section_name}.'
+        )
+    except TeacherSubjectAssignment.DoesNotExist:
+        messages.error(request, 'Assignment not found or you do not have permission to remove it.')
+    except Exception as e:
+        logger.error(f"Error removing assignment: {str(e)}", exc_info=True)
+        messages.error(request, 'An error occurred while removing the assignment.')
+    
+    return redirect('teachers:subjects')
 
 @login_required
 def sections(request):

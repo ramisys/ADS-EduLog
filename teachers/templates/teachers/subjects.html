@@ -4,9 +4,16 @@
 <div class="dashboard-container container py-4">
 
     <!-- Header -->
-    <div class="mb-4">
-      <h2 class="text-primary">My Subjects</h2>
-      <p class="text-muted small">View your teaching subjects</p>
+    <div class="mb-4 d-flex justify-content-between align-items-center">
+      <div>
+        <h2 class="text-primary">My Subjects</h2>
+        <p class="text-muted small">View and manage your teaching subjects</p>
+      </div>
+      <div>
+        <a href="{% url 'teachers:assign_subject' %}" class="btn btn-primary">
+          <i class="bi bi-plus-circle me-2"></i>Add Subject
+        </a>
+      </div>
     </div>
 
     <!-- Quick Stats Summary -->
@@ -96,7 +103,7 @@
           <div class="small mt-3 pt-3 border-top">
             <div class="d-flex justify-content-between mb-2">
               <span class="text-muted">Section</span>
-              <span class="text-primary fw-semibold">{{ item.subject.section.name }}</span>
+              <span class="text-primary fw-semibold">{{ item.section.name }}</span>
             </div>
             
             <div class="d-flex justify-content-between mb-3">
@@ -119,6 +126,14 @@
                   <i class="bi bi-clipboard-data me-1"></i>Grades
                 </a>
               </div>
+              {% if item.assignment_id %}
+              <form method="post" action="{% url 'teachers:remove_assignment' item.assignment_id %}" class="mt-2" onsubmit="return confirm('Are you sure you want to remove this subject assignment?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                  <i class="bi bi-trash me-1"></i>Remove Assignment
+                </button>
+              </form>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -131,7 +146,10 @@
         <i class="bi bi-book text-muted" style="font-size: 3rem;"></i>
       </div>
       <h5 class="text-muted">No subjects assigned</h5>
-      <p class="text-muted small">You don't have any subjects assigned yet. Contact the administrator to get subjects assigned.</p>
+      <p class="text-muted small mb-4">You don't have any subjects assigned yet. Click the "Add Subject" button above to assign a subject to a section.</p>
+      <a href="{% url 'teachers:assign_subject' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>Add Your First Subject
+      </a>
     </div>
     {% endif %}
   </div>

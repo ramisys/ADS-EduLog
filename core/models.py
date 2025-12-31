@@ -119,40 +119,135 @@ class TeacherProfile(models.Model):
 
 
 
-# ===== CLASS SECTION =====
-class ClassSection(models.Model):
-    name = models.CharField(max_length=50)
-    adviser = models.ForeignKey(TeacherProfile, on_delete=models.SET_NULL, null=True)
+# ===== YEAR LEVEL =====
+class YearLevel(models.Model):
+    """
+    Represents academic year levels (1st Year, 2nd Year, 3rd Year, 4th Year).
+    Normalized model to ensure consistency across sections, students, and subjects.
+    """
+    LEVEL_CHOICES = [
+        (1, '1st Year'),
+        (2, '2nd Year'),
+        (3, '3rd Year'),
+        (4, '4th Year'),
+    ]
+    
+    level = models.IntegerField(unique=True, choices=LEVEL_CHOICES, help_text="Academic year level (1-4)")
+    name = models.CharField(max_length=20, unique=True, help_text="Display name (e.g., '1st Year')")
+    order = models.IntegerField(unique=True, help_text="Ordering for display purposes")
+    is_active = models.BooleanField(default=True, help_text="Whether this year level is currently active")
     
     class Meta:
+        verbose_name = 'Year Level'
+        verbose_name_plural = 'Year Levels'
+        ordering = ['order']
         indexes = [
-            models.Index(fields=['name']),
-            models.Index(fields=['adviser']),
+            models.Index(fields=['level']),
+            models.Index(fields=['is_active', 'order']),
         ]
-
+    
     def __str__(self):
         return self.name
+    
+    def clean(self):
+        """Validate that level and order are consistent"""
+        from django.core.exceptions import ValidationError
+        if self.level and self.order:
+            if self.level != self.order:
+                raise ValidationError('Level and order must match.')
+    
+    def save(self, *args, **kwargs):
+        """Auto-set order based on level if not provided"""
+        if not self.order and self.level:
+            self.order = self.level
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+# ===== CLASS SECTION =====
+class ClassSection(models.Model):
+    """
+    Represents a class section (e.g., BSIT1A, BSIT2B).
+    Each section is associated with exactly one year level.
+    """
+    name = models.CharField(max_length=50)
+    year_level = models.ForeignKey('YearLevel', on_delete=models.PROTECT, related_name='sections', 
+                                    help_text="Academic year level for this section")
+    adviser = models.ForeignKey(TeacherProfile, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='advised_sections')
+    
+    class Meta:
+        verbose_name = 'Class Section'
+        verbose_name_plural = 'Class Sections'
+        indexes = [
+            models.Index(fields=['name']),
+            models.Index(fields=['year_level']),
+            models.Index(fields=['adviser']),
+            models.Index(fields=['year_level', 'name']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} ({self.year_level.name if self.year_level else 'No Year Level'})"
+    
+    def clean(self):
+        """Validate section data"""
+        from django.core.exceptions import ValidationError
+        if not self.year_level:
+            raise ValidationError('Year level is required for class sections.')
 
 
 # ===== STUDENT PROFILE =====
 class StudentProfile(models.Model):
+    """
+    Student profile with normalized year level relationship.
+    Enforces that student's year level matches their section's year level.
+    """
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     student_id = models.CharField(max_length=20, unique=True, editable=False)
     parent = models.ForeignKey(ParentProfile, on_delete=models.SET_NULL, null=True, blank=True)
     course = models.CharField(max_length=100)
-    year_level = models.CharField(max_length=20)
-    section = models.ForeignKey('ClassSection', on_delete=models.SET_NULL, null=True, blank=True)
+    year_level = models.ForeignKey('YearLevel', on_delete=models.PROTECT, related_name='students',
+                                    help_text="Academic year level of the student")
+    section = models.ForeignKey('ClassSection', on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name='students')
     
     class Meta:
+        verbose_name = 'Student Profile'
+        verbose_name_plural = 'Student Profiles'
         indexes = [
             models.Index(fields=['student_id']),
             models.Index(fields=['section', 'course']),
-            models.Index(fields=['section', 'year_level']),
+            models.Index(fields=['year_level']),
+            models.Index(fields=['year_level', 'section']),
         ]
 
+    def clean(self):
+        """Validate that student's year level matches section's year level"""
+        from django.core.exceptions import ValidationError
+        
+        if self.section and self.year_level:
+            if self.section.year_level != self.year_level:
+                raise ValidationError(
+                    f"Student's year level ({self.year_level.name}) must match "
+                    f"section's year level ({self.section.year_level.name})."
+                )
+        
+        if not self.year_level:
+            raise ValidationError('Year level is required for students.')
+
     def save(self, *args, **kwargs):
-        if not self.student_id:  # ✅ Fixed reference
+        """Auto-set year level from section if not provided, then validate"""
+        # Auto-set year level from section if section is provided and year_level is not
+        if self.section and not self.year_level:
+            self.year_level = self.section.year_level
+        
+        # Validate before saving
+        self.full_clean()
+        
+        # Generate student_id if not present
+        if not self.student_id:
             self.student_id = generate_custom_id('STD')
+        
         super().save(*args, **kwargs)
 
     def __str__(self):

@@ -148,10 +148,15 @@
                         </div>
                         
                         <div class="mb-3 role-specific-fields student-specific-field">
-                            <label for="student-year-level" class="form-label">Year Level</label>
+                            <label for="student-year-level" class="form-label">Year Level <span class="text-danger">*</span></label>
                             <div class="input-group-icon">
                                 <i class="bi bi-123"></i>
-                                <input type="text" class="form-control" id="student-year-level" name="year_level" placeholder="1st Year">
+                                <select class="form-control" id="student-year-level" name="year_level" required>
+                                    <option value="">Select Year Level</option>
+                                    {% for year_level in year_levels %}
+                                    <option value="{{ year_level.id }}">{{ year_level.name }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                         </div>
                         

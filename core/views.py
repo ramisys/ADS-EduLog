@@ -315,13 +315,42 @@ def signup_view(request):
                 TeacherProfile.objects.create(user=user, department=department)
                 
             elif role == 'student':
+                from core.models import YearLevel
                 course = request.POST.get('course', '').strip()
-                year_level = request.POST.get('year_level', '').strip()
-                if not course or not year_level:
+                year_level_id = request.POST.get('year_level', '').strip()
+                section_id = request.POST.get('section', '').strip()
+                
+                if not course or not year_level_id:
                     user.delete()
                     messages.error(request, 'Course and year level are required for students.')
                     return render(request, 'signup.html')
-                StudentProfile.objects.create(user=user, course=course, year_level=year_level)
+                
+                try:
+                    year_level = YearLevel.objects.get(id=year_level_id)
+                    section = None
+                    if section_id:
+                        from core.models import ClassSection
+                        section = ClassSection.objects.get(id=section_id)
+                        # Validate that section's year level matches selected year level
+                        if section.year_level != year_level:
+                            user.delete()
+                            messages.error(request, 'Selected section does not match the selected year level.')
+                            return render(request, 'signup.html')
+                    
+                    StudentProfile.objects.create(
+                        user=user, 
+                        course=course, 
+                        year_level=year_level,
+                        section=section
+                    )
+                except YearLevel.DoesNotExist:
+                    user.delete()
+                    messages.error(request, 'Invalid year level selected.')
+                    return render(request, 'signup.html')
+                except ClassSection.DoesNotExist:
+                    user.delete()
+                    messages.error(request, 'Invalid section selected.')
+                    return render(request, 'signup.html')
                 
             elif role == 'parent':
                 contact_number = request.POST.get('contact_number', '').strip()
@@ -334,9 +363,14 @@ def signup_view(request):
             messages.error(request, f'An error occurred: {str(e)}')
             return render(request, 'signup.html')
     
-    # Get sections for student signup (optional)
-    sections = ClassSection.objects.all()
-    return render(request, 'signup.html', {'sections': sections})
+    # Get sections and year levels for student signup
+    from core.models import YearLevel, ClassSection
+    sections = ClassSection.objects.select_related('year_level').all()
+    year_levels = YearLevel.objects.filter(is_active=True).order_by('order')
+    return render(request, 'signup.html', {
+        'sections': sections,
+        'year_levels': year_levels
+    })
 
 def forgot_password_view(request):
     if request.user.is_authenticated:

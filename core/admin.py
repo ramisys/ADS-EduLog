@@ -11,6 +11,7 @@ admin.site.register(Attendance)
 admin.site.register(Grade)
 admin.site.register(Notification)
 admin.site.register(TeacherSubjectAssignment)
+admin.site.register(StudentEnrollment)
 
 
 @admin.register(Feedback)

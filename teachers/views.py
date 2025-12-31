@@ -10,7 +10,7 @@ from decimal import Decimal
 import logging
 from core.models import (
     TeacherProfile, Subject, ClassSection, StudentProfile, Attendance, Grade, Notification,
-    Assessment, AssessmentScore, CategoryWeights, AuditLog, TeacherSubjectAssignment
+    Assessment, AssessmentScore, CategoryWeights, AuditLog, TeacherSubjectAssignment, StudentEnrollment
 )
 from teachers.forms import TeacherSubjectAssignmentForm
 from django.db.models import Avg
@@ -368,7 +368,11 @@ def subjects(request):
     
     # Process new assignments
     for assignment in assignments:
-        student_count = StudentProfile.objects.filter(section=assignment.section).count()
+        # Count only enrolled students, not all students in section
+        student_count = StudentEnrollment.objects.filter(
+            subject=assignment.subject,
+            is_active=True
+        ).count()
         subjects_with_counts.append({
             'subject': assignment.subject,
             'section': assignment.section,
@@ -379,15 +383,22 @@ def subjects(request):
         total_students += student_count
         unique_sections.add(assignment.section.id)
         
-        section_students = StudentProfile.objects.filter(section=assignment.section)
-        for student in section_students:
-            unique_student_ids.add(student.id)
+        # Get unique enrolled students
+        enrolled_students = StudentEnrollment.objects.filter(
+            subject=assignment.subject,
+            is_active=True
+        ).values_list('student_id', flat=True)
+        unique_student_ids.update(enrolled_students)
     
     # Process legacy subjects (only if not already in assignments)
     assignment_subject_ids = {a.subject.id for a in assignments}
     for subject in legacy_subjects:
         if subject.id not in assignment_subject_ids:
-            student_count = StudentProfile.objects.filter(section=subject.section).count()
+            # Count only enrolled students, not all students in section
+            student_count = StudentEnrollment.objects.filter(
+                subject=subject,
+                is_active=True
+            ).count()
             subjects_with_counts.append({
                 'subject': subject,
                 'section': subject.section,
@@ -398,9 +409,12 @@ def subjects(request):
             total_students += student_count
             unique_sections.add(subject.section.id)
             
-            section_students = StudentProfile.objects.filter(section=subject.section)
-            for student in section_students:
-                unique_student_ids.add(student.id)
+            # Get unique enrolled students
+            enrolled_students = StudentEnrollment.objects.filter(
+                subject=subject,
+                is_active=True
+            ).values_list('student_id', flat=True)
+            unique_student_ids.update(enrolled_students)
     
     # Calculate statistics
     total_subjects = len(subjects_with_counts)

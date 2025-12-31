@@ -183,6 +183,7 @@ class TeacherSubjectAssignment(models.Model):
     """
     Links teachers to subjects and sections, allowing teachers to assign themselves
     to teach specific subjects in specific class sections.
+    Note: This does NOT automatically enroll students. Students must be enrolled separately.
     """
     teacher = models.ForeignKey(TeacherProfile, on_delete=models.CASCADE, related_name='subject_assignments')
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='teacher_assignments')
@@ -203,6 +204,60 @@ class TeacherSubjectAssignment(models.Model):
     
     def __str__(self):
         return f"{self.teacher.user.get_full_name()} - {self.subject.code} ({self.section.name})"
+
+
+# ===== STUDENT ENROLLMENT =====
+class StudentEnrollment(models.Model):
+    """
+    Tracks which students are enrolled in which subjects.
+    Students are NOT automatically enrolled when a teacher assigns a subject to a section.
+    Enrollment must be done explicitly (by admin or through enrollment process).
+    """
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='enrollments')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='enrollments')
+    enrolled_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        verbose_name = 'Student Enrollment'
+        verbose_name_plural = 'Student Enrollments'
+        unique_together = [['student', 'subject']]
+        indexes = [
+            models.Index(fields=['student', 'is_active']),
+            models.Index(fields=['subject', 'is_active']),
+            models.Index(fields=['student', 'subject']),
+        ]
+        ordering = ['-enrolled_at']
+    
+    def __str__(self):
+        return f"{self.student.student_id} - {self.subject.code}"
+
+
+# ===== STUDENT ENROLLMENT =====
+class StudentEnrollment(models.Model):
+    """
+    Tracks which students are enrolled in which subjects.
+    Students are NOT automatically enrolled when a teacher assigns a subject to a section.
+    Enrollment must be done explicitly (by admin or through enrollment process).
+    """
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='enrollments')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='enrollments')
+    enrolled_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        verbose_name = 'Student Enrollment'
+        verbose_name_plural = 'Student Enrollments'
+        unique_together = [['student', 'subject']]
+        indexes = [
+            models.Index(fields=['student', 'is_active']),
+            models.Index(fields=['subject', 'is_active']),
+            models.Index(fields=['student', 'subject']),
+        ]
+        ordering = ['-enrolled_at']
+    
+    def __str__(self):
+        return f"{self.student.student_id} - {self.subject.code}"
 
 
 # ===== ATTENDANCE =====

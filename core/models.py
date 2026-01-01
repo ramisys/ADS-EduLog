@@ -328,33 +328,6 @@ class StudentEnrollment(models.Model):
         return f"{self.student.student_id} - {self.subject.code}"
 
 
-# ===== STUDENT ENROLLMENT =====
-class StudentEnrollment(models.Model):
-    """
-    Tracks which students are enrolled in which subjects.
-    Students are NOT automatically enrolled when a teacher assigns a subject to a section.
-    Enrollment must be done explicitly (by admin or through enrollment process).
-    """
-    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='enrollments')
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='enrollments')
-    enrolled_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
-    
-    class Meta:
-        verbose_name = 'Student Enrollment'
-        verbose_name_plural = 'Student Enrollments'
-        unique_together = [['student', 'subject']]
-        indexes = [
-            models.Index(fields=['student', 'is_active']),
-            models.Index(fields=['subject', 'is_active']),
-            models.Index(fields=['student', 'subject']),
-        ]
-        ordering = ['-enrolled_at']
-    
-    def __str__(self):
-        return f"{self.student.student_id} - {self.subject.code}"
-
-
 # ===== ATTENDANCE =====
 class Attendance(models.Model):
     STATUS_CHOICES = [

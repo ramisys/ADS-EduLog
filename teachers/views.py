@@ -34,24 +34,28 @@ def dashboard(request):
     except TeacherProfile.DoesNotExist:
         return redirect('dashboard')
     
-    # Get teacher's subjects - order by code and section to ensure all are included
-    # Convert to list to ensure all subjects are evaluated
-    subjects = list(Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code', 'section__name'))
+    # Get teacher's subject assignments (new architecture)
+    assignments = TeacherSubjectAssignment.objects.filter(
+        teacher=teacher_profile
+    ).select_related('subject', 'section').order_by('subject__code', 'section__name')
+    
+    # Get unique subjects from assignments
+    subjects = [assignment.subject for assignment in assignments]
     
     # Get classes/sections the teacher is advising
     advised_sections = ClassSection.objects.filter(adviser=teacher_profile)
     
     # Get all students in teacher's sections
-    section_ids = list(set([s.section.id for s in subjects if s.section]))
+    section_ids = list(set([assignment.section.id for assignment in assignments if assignment.section]))
     student_count = StudentProfile.objects.filter(section__id__in=section_ids).count() if section_ids else 0
     
-    # Get recent attendance records for teacher's subjects
+    # Get recent attendance records for teacher's assignments
     recent_attendance = Attendance.objects.filter(
-        subject__teacher=teacher_profile
-    ).select_related('student', 'subject').order_by('-date')[:10]
+        enrollment__assignment__teacher=teacher_profile
+    ).select_related('enrollment', 'enrollment__student', 'enrollment__assignment__subject').order_by('-date')[:10]
     
     # Get attendance statistics
-    total_attendance = Attendance.objects.filter(subject__teacher=teacher_profile)
+    total_attendance = Attendance.objects.filter(enrollment__assignment__teacher=teacher_profile)
     present_count = total_attendance.filter(status='present').count()
     absent_count = total_attendance.filter(status='absent').count()
     late_count = total_attendance.filter(status='late').count()
@@ -70,14 +74,17 @@ def dashboard(request):
     logger = logging.getLogger(__name__)
     logger.debug(f"Total subjects found for teacher {teacher_profile.id}: {len(subjects)}")
     
-    # Process ALL subjects (each Subject record is unique per section)
+    # Process ALL assignments (each assignment is unique per subject-section combination)
     # Calculate average for each subject-section combination
-    for subject in subjects:
-        # Debug: Log subject being processed
-        logger.debug(f"Processing subject ID {subject.id}: code='{subject.code}', section='{subject.section.name if subject.section else None}'")
+    for assignment in assignments:
+        subject = assignment.subject
+        section = assignment.section
+        
+        # Debug: Log assignment being processed
+        logger.debug(f"Processing assignment ID {assignment.id}: subject='{subject.code}', section='{section.name if section else None}'")
         
         # Always create the label first (we'll add it regardless of data)
-        section_name = subject.section.name if subject.section else None
+        section_name = section.name if section else None
         if section_name:
             # Check if section name is already part of the code (e.g., "IT101-BSIT1A")
             section_abbrev = section_name.replace(' ', '')
@@ -90,8 +97,10 @@ def dashboard(request):
         else:
             label = subject.code
         
-        # Calculate average for this subject-section
-        subject_grades = Grade.objects.filter(subject=subject)
+        # Calculate average for this assignment (subject-section combination)
+        # Get enrollments for this assignment, then get grades
+        enrollments = StudentEnrollment.objects.filter(assignment=assignment, is_active=True)
+        subject_grades = Grade.objects.filter(enrollment__in=enrollments)
         has_data = False
         subject_avg = None
         assessment_scores_count = 0
@@ -102,11 +111,13 @@ def dashboard(request):
             if subject_avg_result is not None:
                 subject_avg = float(subject_avg_result)
                 has_data = True
-                logger.debug(f"Subject {subject.code} ({subject.section.name if subject.section else 'No section'}): Found {subject_grades.count()} Grade records, Average = {subject_avg:.2f}%")
+                logger.debug(f"Subject {subject.code} ({section.name if section else 'No section'}): Found {subject_grades.count()} Grade records, Average = {subject_avg:.2f}%")
         else:
             # Fallback: Calculate from assessment scores if Grade records don't exist
+            # Get assessments for this assignment
+            assessments = Assessment.objects.filter(assignment=assignment)
             assessment_scores = AssessmentScore.objects.filter(
-                assessment__subject=subject
+                assessment__in=assessments
             ).select_related('assessment')
             assessment_scores_count = assessment_scores.count()
             
@@ -117,7 +128,7 @@ def dashboard(request):
                 if total_max > 0:
                     subject_avg = (total_score / total_max) * 100
                     has_data = True
-                    logger.debug(f"Subject {subject.code} ({subject.section.name if subject.section else 'No section'}): No Grade records, but found {assessment_scores_count} AssessmentScore records, Average = {subject_avg:.2f}%")
+                    logger.debug(f"Subject {subject.code} ({section.name if section else 'No section'}): No Grade records, but found {assessment_scores_count} AssessmentScore records, Average = {subject_avg:.2f}%")
         
         # Always add both data and label together to ensure they match
         if has_data and subject_avg is not None:
@@ -127,7 +138,7 @@ def dashboard(request):
         else:
             # Show 0 for subjects without data
             subject_performance_data.append(0)
-            logger.debug(f"Subject {subject.code} ({subject.section.name if subject.section else 'No section'}): No data found (Grade count: {subject_grades.count()}, Assessment scores: {assessment_scores_count})")
+            logger.debug(f"Subject {subject.code} ({section.name if section else 'No section'}): No data found (Grade count: {subject_grades.count()}, Assessment scores: {assessment_scores_count})")
         
         # Always add the label (ensures data and labels arrays have same length)
         subject_performance_labels.append(label)
@@ -142,10 +153,19 @@ def dashboard(request):
     if subject_section_averages:
         average_grade = sum(subject_section_averages) / len(subject_section_averages)
         # Count total number of Grade records for this teacher
-        grades_count = Grade.objects.filter(subject__teacher=teacher_profile).count()
+        # Get all enrollments for teacher's assignments
+        teacher_enrollments = StudentEnrollment.objects.filter(
+            assignment__teacher=teacher_profile,
+            is_active=True
+        )
+        grades_count = Grade.objects.filter(enrollment__in=teacher_enrollments).count()
     else:
         # Fallback: If no subject-section averages, try to calculate from all grades
-        total_grades = Grade.objects.filter(subject__teacher=teacher_profile)
+        teacher_enrollments = StudentEnrollment.objects.filter(
+            assignment__teacher=teacher_profile,
+            is_active=True
+        )
+        total_grades = Grade.objects.filter(enrollment__in=teacher_enrollments)
         grades_count = total_grades.count()
         
         if grades_count > 0:
@@ -156,8 +176,10 @@ def dashboard(request):
                 average_grade = 0
         else:
             # Final fallback: Calculate from assessment scores
+            # Get assessments for teacher's assignments
+            teacher_assessments = Assessment.objects.filter(assignment__teacher=teacher_profile)
             assessment_scores = AssessmentScore.objects.filter(
-                assessment__subject__teacher=teacher_profile
+                assessment__in=teacher_assessments
             ).select_related('assessment')
             
             if assessment_scores.exists():
@@ -177,17 +199,17 @@ def dashboard(request):
     # Calculate grade distribution
     # Get all students in teacher's sections and their average grades
     # Include ALL sections where the teacher teaches subjects
-    section_ids = list(set([s.section.id for s in subjects if s.section]))
+    section_ids = list(set([assignment.section.id for assignment in assignments if assignment.section]))
     logger.debug(f"Grade distribution: Found {len(section_ids)} unique sections: {section_ids}")
-    
+
     students_in_sections = StudentProfile.objects.filter(section__id__in=section_ids).select_related('section', 'user') if section_ids else StudentProfile.objects.none()
     logger.debug(f"Grade distribution: Found {students_in_sections.count()} students across all sections")
-    
+
     excellent_count = 0
     good_count = 0
     average_count = 0
     poor_count = 0
-    
+
     students_by_section = {}
     for student in students_in_sections:
         section_name = student.section.name if student.section else "No Section"
@@ -198,11 +220,17 @@ def dashboard(request):
         student_avg = None
         
         # Try to get average from Grade records first
-        # Calculate average across ALL subjects the teacher teaches for this student
-        student_grades = Grade.objects.filter(student=student, subject__teacher=teacher_profile)
+        # Calculate average across ALL assignments the teacher teaches for this student
+        # Get enrollments for this student in teacher's assignments
+        student_enrollments = StudentEnrollment.objects.filter(
+            student=student,
+            assignment__teacher=teacher_profile,
+            is_active=True
+        )
+        student_grades = Grade.objects.filter(enrollment__in=student_enrollments)
         if student_grades.exists():
             # Get the subjects these grades are for
-            grade_subjects = student_grades.values_list('subject__code', 'subject__section__name').distinct()
+            grade_subjects = student_grades.values_list('enrollment__assignment__subject__code', 'enrollment__assignment__section__name').distinct()
             student_avg_result = student_grades.aggregate(Avg('grade'))['grade__avg']
             if student_avg_result is not None:
                 student_avg = float(student_avg_result)
@@ -210,10 +238,18 @@ def dashboard(request):
         
         # Fallback: Calculate from assessment scores if Grade records don't exist
         if student_avg is None:
-            assessment_scores = AssessmentScore.objects.filter(
+            # Get assessments for teacher's assignments
+            teacher_assessments = Assessment.objects.filter(assignment__teacher=teacher_profile)
+            # Get scores for this student
+            student_enrollments = StudentEnrollment.objects.filter(
                 student=student,
-                assessment__subject__teacher=teacher_profile
-            ).select_related('assessment', 'assessment__subject')
+                assignment__teacher=teacher_profile,
+                is_active=True
+            )
+            assessment_scores = AssessmentScore.objects.filter(
+                enrollment__in=student_enrollments,
+                assessment__in=teacher_assessments
+            ).select_related('assessment', 'assessment__assignment__subject')
             
             if assessment_scores.exists():
                 # Calculate average from assessment scores
@@ -222,7 +258,7 @@ def dashboard(request):
                 if total_max > 0:
                     student_avg = (total_score / total_max) * 100
                     # Get subjects these scores are for
-                    score_subjects = assessment_scores.values_list('assessment__subject__code', 'assessment__subject__section__name').distinct()
+                    score_subjects = assessment_scores.values_list('assessment__assignment__subject__code', 'assessment__assignment__section__name').distinct()
                     logger.debug(f"Student {student.user.get_full_name()} ({section_name}): No Grade records, but found {assessment_scores.count()} AssessmentScore records across {len(score_subjects)} subjects {list(score_subjects)}, Average = {student_avg:.2f}%")
         
         # Categorize student based on average
@@ -272,9 +308,13 @@ def dashboard(request):
     else:
         # Fallback to manual calculation if function fails
         subject_stats = []
-        for subject in subjects:
-            subject_students = StudentProfile.objects.filter(section=subject.section).count()
-            subject_grades = Grade.objects.filter(subject=subject)
+        for assignment in assignments:
+            subject = assignment.subject
+            section = assignment.section
+            # Get enrolled students for this assignment
+            enrollments = StudentEnrollment.objects.filter(assignment=assignment, is_active=True)
+            subject_students = enrollments.count()
+            subject_grades = Grade.objects.filter(enrollment__in=enrollments)
             subject_avg = subject_grades.aggregate(Avg('grade'))['grade__avg'] or 0
             subject_stats.append({
                 'subject': subject,
@@ -291,7 +331,7 @@ def dashboard(request):
     for i in range(6, -1, -1):  # Last 7 days (6 days ago to today)
         date = today - timedelta(days=i)
         date_attendance = Attendance.objects.filter(
-            subject__teacher=teacher_profile,
+            enrollment__assignment__teacher=teacher_profile,
             date=date
         )
         present = date_attendance.filter(status='present').count()
@@ -352,25 +392,22 @@ def subjects(request):
         messages.error(request, 'Teacher profile not found.')
         return redirect('dashboard')
     
-    # Get teacher's subject assignments (new model)
+    # Get teacher's subject assignments (new architecture)
     assignments = TeacherSubjectAssignment.objects.filter(
         teacher=teacher_profile
     ).select_related('subject', 'section').order_by('subject__code', 'section__name')
     
-    # Also get legacy subjects (for backward compatibility)
-    legacy_subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code')
-    
-    # Combine both sources for display
+    # Process assignments
     subjects_with_counts = []
     total_students = 0
     unique_sections = set()
     unique_student_ids = set()
     
-    # Process new assignments
+    # Process assignments
     for assignment in assignments:
-        # Count only enrolled students, not all students in section
+        # Count only enrolled students for this assignment
         student_count = StudentEnrollment.objects.filter(
-            subject=assignment.subject,
+            assignment=assignment,
             is_active=True
         ).count()
         subjects_with_counts.append({
@@ -385,36 +422,10 @@ def subjects(request):
         
         # Get unique enrolled students
         enrolled_students = StudentEnrollment.objects.filter(
-            subject=assignment.subject,
+            assignment=assignment,
             is_active=True
         ).values_list('student_id', flat=True)
         unique_student_ids.update(enrolled_students)
-    
-    # Process legacy subjects (only if not already in assignments)
-    assignment_subject_ids = {a.subject.id for a in assignments}
-    for subject in legacy_subjects:
-        if subject.id not in assignment_subject_ids:
-            # Count only enrolled students, not all students in section
-            student_count = StudentEnrollment.objects.filter(
-                subject=subject,
-                is_active=True
-            ).count()
-            subjects_with_counts.append({
-                'subject': subject,
-                'section': subject.section,
-                'student_count': student_count,
-                'assignment_id': None,
-                'is_assignment': False,
-            })
-            total_students += student_count
-            unique_sections.add(subject.section.id)
-            
-            # Get unique enrolled students
-            enrolled_students = StudentEnrollment.objects.filter(
-                subject=subject,
-                is_active=True
-            ).values_list('student_id', flat=True)
-            unique_student_ids.update(enrolled_students)
     
     # Calculate statistics
     total_subjects = len(subjects_with_counts)
@@ -526,9 +537,9 @@ def sections(request):
     # Get sections where teacher is adviser
     advised_section_ids = ClassSection.objects.filter(adviser=teacher_profile).values_list('id', flat=True)
     
-    # Get sections where teacher teaches subjects
+    # Get sections where teacher teaches subjects (through assignments)
     sections_with_subjects_ids = ClassSection.objects.filter(
-        subject__teacher=teacher_profile
+        teacher_subject_assignments__teacher=teacher_profile
     ).values_list('id', flat=True).distinct()
     
     # Combine both sets of IDs
@@ -551,14 +562,22 @@ def sections(request):
         student_count = students.count()
         total_students_all += student_count
         
-        # Get subjects teacher teaches in this section
-        subjects = Subject.objects.filter(teacher=teacher_profile, section=section)
-        subject_names = [s.name for s in subjects]
+        # Get assignments teacher has in this section
+        section_assignments = TeacherSubjectAssignment.objects.filter(
+            teacher=teacher_profile,
+            section=section
+        )
+        subject_names = [a.subject.name for a in section_assignments]
         
         # Calculate attendance for this section
+        # Get enrollments for this section's assignments
+        section_enrollments = StudentEnrollment.objects.filter(
+            assignment__teacher=teacher_profile,
+            assignment__section=section,
+            is_active=True
+        )
         section_attendance = Attendance.objects.filter(
-            subject__teacher=teacher_profile,
-            subject__section=section
+            enrollment__in=section_enrollments
         )
         present_count = section_attendance.filter(status='present').count()
         total_attendance = section_attendance.count()
@@ -569,8 +588,7 @@ def sections(request):
         
         # Calculate average grade for this section
         section_grades = Grade.objects.filter(
-            subject__teacher=teacher_profile,
-            subject__section=section
+            enrollment__in=section_enrollments
         )
         if section_grades.exists():
             avg_grade = section_grades.aggregate(Avg('grade'))['grade__avg'] or 0
@@ -611,48 +629,63 @@ def students(request):
     except TeacherProfile.DoesNotExist:
         return redirect('dashboard')
     
-    # Get all subjects taught by this teacher
-    subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code', 'name')
+    # Get all assignments for this teacher
+    assignments = TeacherSubjectAssignment.objects.filter(
+        teacher=teacher_profile
+    ).select_related('subject', 'section').order_by('subject__code', 'subject__name')
     
     # Get subjects with their students
     subjects_data = []
     unique_student_ids = set()
     student_status_map = {}  # Track overall status per student
     
-    for subject in subjects:
-        # Get all students in this subject's section
-        section_students = StudentProfile.objects.filter(
-            section=subject.section
-        ).select_related('user', 'section').order_by('user__last_name', 'user__first_name')
+    for assignment in assignments:
+        subject = assignment.subject
+        section = assignment.section
         
-        student_count = section_students.count()
+        # Get enrolled students for this assignment
+        enrollments = StudentEnrollment.objects.filter(
+            assignment=assignment,
+            is_active=True
+        ).select_related('student', 'student__user', 'student__section')
+        
+        enrolled_students = [e.student for e in enrollments]
+        student_count = len(enrolled_students)
         if student_count == 0:
             continue
         
-        # Calculate statistics for each student in this subject
+        # Sort students by name
+        enrolled_students.sort(key=lambda s: (s.user.last_name, s.user.first_name))
+        
+        # Calculate statistics for each student in this assignment
         students_data = []
         subject_attendance_sum = 0
         subject_grades_sum = 0
         subject_grades_count = 0
         
-        for student in section_students:
+        for student in enrolled_students:
             # Track unique students across all subjects
             unique_student_ids.add(student.id)
             
-            # Calculate attendance percentage for this specific subject
-            student_attendance = Attendance.objects.filter(
+            # Get enrollment for this student-assignment combination
+            enrollment = StudentEnrollment.objects.get(
                 student=student,
-                subject=subject
+                assignment=assignment,
+                is_active=True
+            )
+            
+            # Calculate attendance percentage for this specific enrollment
+            student_attendance = Attendance.objects.filter(
+                enrollment=enrollment
             )
             total_attendance = student_attendance.count()
             present_count = student_attendance.filter(status='present').count()
             attendance_percentage = (present_count / total_attendance * 100) if total_attendance > 0 else 0
             subject_attendance_sum += attendance_percentage
             
-            # Calculate grade for this specific subject
+            # Calculate grade for this specific enrollment
             student_grades = Grade.objects.filter(
-                student=student,
-                subject=subject
+                enrollment=enrollment
             )
             if student_grades.exists():
                 gpa = student_grades.aggregate(Avg('grade'))['grade__avg'] or 0
@@ -727,13 +760,23 @@ def attendance(request):
             messages.error(request, 'Invalid subject selected.')
             return redirect('teachers:attendance')
         
-        # Validate teacher has access to this subject
+        # Validate teacher has access to this subject and get the assignment
         has_access, subject_or_error = validate_teacher_access(request, subject_id=selected_subject_id)
         if not has_access:
             messages.error(request, subject_or_error)
             return redirect('teachers:attendance')
         
         selected_subject = subject_or_error
+        # Get the assignment for this subject
+        assignment = TeacherSubjectAssignment.objects.filter(
+            teacher=teacher_profile,
+            subject=selected_subject
+        ).first()
+        
+        if not assignment:
+            messages.error(request, 'Assignment not found.')
+            return redirect('teachers:attendance')
+        
         today = timezone.now().date()
         updated_count = 0
         created_count = 0
@@ -755,13 +798,19 @@ def attendance(request):
                     try:
                         student = StudentProfile.objects.get(
                             id=student_id, 
-                            section=selected_subject.section
+                            section=assignment.section
+                        )
+                        
+                        # Get or create enrollment for this student-assignment combination
+                        enrollment, _ = StudentEnrollment.objects.get_or_create(
+                            student=student,
+                            assignment=assignment,
+                            defaults={'is_active': True}
                         )
                         
                         # Check if attendance record exists for today
                         attendance_record = Attendance.objects.filter(
-                            student=student,
-                            subject=selected_subject,
+                            enrollment=enrollment,
                             date=today
                         ).first()
                         
@@ -779,8 +828,7 @@ def attendance(request):
                             # Create new record - explicitly set date to today
                             try:
                                 attendance_record = Attendance.objects.create(
-                                    student=student,
-                                    subject=selected_subject,
+                                    enrollment=enrollment,
                                     date=today,
                                     status=status
                                 )
@@ -790,8 +838,7 @@ def attendance(request):
                                 # Race condition: another request created it
                                 # Fetch and update the existing record
                                 attendance_record = Attendance.objects.filter(
-                                    student=student,
-                                    subject=selected_subject,
+                                    enrollment=enrollment,
                                     date=today
                                 ).first()
                                 if attendance_record:
@@ -824,8 +871,13 @@ def attendance(request):
         
         return redirect(reverse('teachers:attendance') + '?subject=' + str(selected_subject_id) + '&saved=true')
     
-    # Get teacher's subjects
-    subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code')
+    # Get teacher's assignments
+    assignments = TeacherSubjectAssignment.objects.filter(
+        teacher=teacher_profile
+    ).select_related('subject', 'section').order_by('subject__code')
+    
+    # Get unique subjects from assignments
+    subjects = [assignment.subject for assignment in assignments]
     
     # Get today's date
     today = timezone.now().date()
@@ -833,23 +885,36 @@ def attendance(request):
     # Get selected subject from query parameter
     selected_subject_id = request.GET.get('subject')
     selected_subject = None
+    selected_assignment = None
     students_data = []
     
     if selected_subject_id:
         try:
-            selected_subject = Subject.objects.get(id=selected_subject_id, teacher=teacher_profile)
-            # Get students in this subject's section
-            if selected_subject.section:
-                students = StudentProfile.objects.filter(section=selected_subject.section).select_related('user').order_by('user__last_name', 'user__first_name')
+            # Get the assignment for this subject
+            selected_assignment = TeacherSubjectAssignment.objects.filter(
+                teacher=teacher_profile,
+                subject_id=selected_subject_id
+            ).first()
+            
+            if selected_assignment:
+                selected_subject = selected_assignment.subject
+                # Get enrolled students for this assignment
+                enrollments = StudentEnrollment.objects.filter(
+                    assignment=selected_assignment,
+                    is_active=True
+                ).select_related('student', 'student__user')
+                
+                students = [e.student for e in enrollments]
+                students.sort(key=lambda s: (s.user.last_name, s.user.first_name))
                 
                 # Get existing attendance records for today
                 attendance_records = Attendance.objects.filter(
-                    subject=selected_subject,
+                    enrollment__assignment=selected_assignment,
                     date=today
-                ).select_related('student')
+                ).select_related('enrollment', 'enrollment__student')
                 
                 # Create a dictionary mapping student_id to attendance status
-                attendance_dict = {record.student.id: record.status for record in attendance_records}
+                attendance_dict = {record.enrollment.student.id: record.status for record in attendance_records}
                 
                 # Prepare students data with attendance status
                 for student in students:
@@ -857,12 +922,14 @@ def attendance(request):
                         'student': student,
                         'attendance_status': attendance_dict.get(student.id, '')
                     })
-        except Subject.DoesNotExist:
+        except Exception as e:
+            logger.error(f"Error loading attendance data: {str(e)}")
             pass
     
     context = {
         'subjects': subjects,
         'selected_subject': selected_subject,
+        'selected_assignment': selected_assignment,
         'students_data': students_data,
         'today': today,
         'teacher_profile': teacher_profile,

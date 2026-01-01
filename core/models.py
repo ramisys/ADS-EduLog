@@ -257,17 +257,24 @@ class StudentProfile(models.Model):
 
 # ===== SUBJECT =====
 class Subject(models.Model):
-    code = models.CharField(max_length=20)
-    name = models.CharField(max_length=100)
-    teacher = models.ForeignKey(TeacherProfile, on_delete=models.SET_NULL, null=True)
-    section = models.ForeignKey(ClassSection, on_delete=models.CASCADE)
+    """
+    Master catalog of subjects.
+    Acts as a reference only - does NOT contain teacher or section information.
+    Actual subject offerings are represented by TeacherSubjectAssignment.
+    """
+    code = models.CharField(max_length=20, unique=True, help_text="Unique subject code (e.g., CS101)")
+    name = models.CharField(max_length=100, help_text="Subject name (e.g., Introduction to Programming)")
+    description = models.TextField(blank=True, help_text="Optional subject description")
+    is_active = models.BooleanField(default=True, help_text="Whether this subject is currently active")
     
     class Meta:
+        verbose_name = 'Subject'
+        verbose_name_plural = 'Subjects'
         indexes = [
             models.Index(fields=['code']),
-            models.Index(fields=['teacher', 'section']),
-            models.Index(fields=['section', 'code']),
+            models.Index(fields=['is_active']),
         ]
+        ordering = ['code']
 
     def __str__(self):
         return f"{self.code} - {self.name}"
@@ -276,9 +283,10 @@ class Subject(models.Model):
 # ===== TEACHER SUBJECT ASSIGNMENT =====
 class TeacherSubjectAssignment(models.Model):
     """
-    Links teachers to subjects and sections, allowing teachers to assign themselves
-    to teach specific subjects in specific class sections.
-    Note: This does NOT automatically enroll students. Students must be enrolled separately.
+    Represents a subject offering: Subject + Teacher + Section.
+    This is what teachers "own" and manage.
+    Each assignment represents a teacher teaching a specific subject to a specific section.
+    Students are enrolled into this assignment, not directly into Subject.
     """
     teacher = models.ForeignKey(TeacherProfile, on_delete=models.CASCADE, related_name='subject_assignments')
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='teacher_assignments')
@@ -294,88 +302,209 @@ class TeacherSubjectAssignment(models.Model):
             models.Index(fields=['teacher', 'section']),
             models.Index(fields=['subject', 'section']),
             models.Index(fields=['teacher', 'subject']),
+            models.Index(fields=['teacher', 'section', 'subject']),
         ]
         ordering = ['-created_at']
     
     def __str__(self):
         return f"{self.teacher.user.get_full_name()} - {self.subject.code} ({self.section.name})"
+    
+    def clean(self):
+        """Validate assignment data"""
+        from django.core.exceptions import ValidationError
+        if not self.subject or not self.section:
+            raise ValidationError('Both subject and section are required.')
+    
+    def save(self, *args, **kwargs):
+        """Validate before saving"""
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
+    def get_enrolled_students(self):
+        """Get all enrolled students for this assignment"""
+        return StudentEnrollment.objects.filter(
+            assignment=self,
+            is_active=True
+        ).select_related('student', 'student__user')
+    
+    def can_teacher_manage(self, teacher_profile):
+        """Check if a teacher can manage this assignment"""
+        return self.teacher == teacher_profile
 
 
 # ===== STUDENT ENROLLMENT =====
 class StudentEnrollment(models.Model):
     """
-    Tracks which students are enrolled in which subjects.
-    Students are NOT automatically enrolled when a teacher assigns a subject to a section.
-    Enrollment must be done explicitly (by admin or through enrollment process).
+    Tracks which students are enrolled in which subject offerings (TeacherSubjectAssignment).
+    Students must be enrolled into a TeacherSubjectAssignment, NOT directly into Subject.
+    
+    Enforces:
+    - Students can only be enrolled in assignments from their section
+    - Students' year level must match the section's year level
+    - No duplicate enrollments per assignment
     """
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='enrollments')
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='enrollments')
+    assignment = models.ForeignKey('TeacherSubjectAssignment', on_delete=models.CASCADE, related_name='enrollments', null=True, blank=True)
     enrolled_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     
     class Meta:
         verbose_name = 'Student Enrollment'
         verbose_name_plural = 'Student Enrollments'
-        unique_together = [['student', 'subject']]
+        unique_together = [['student', 'assignment']]
         indexes = [
             models.Index(fields=['student', 'is_active']),
-            models.Index(fields=['subject', 'is_active']),
-            models.Index(fields=['student', 'subject']),
+            models.Index(fields=['assignment', 'is_active']),
+            models.Index(fields=['student', 'assignment']),
+            models.Index(fields=['assignment', 'is_active', 'student']),
         ]
         ordering = ['-enrolled_at']
     
     def __str__(self):
-        return f"{self.student.student_id} - {self.subject.code}"
+        return f"{self.student.student_id} - {self.assignment.subject.code} ({self.assignment.section.name})"
+    
+    def clean(self):
+        """Validate enrollment constraints"""
+        from django.core.exceptions import ValidationError
+        
+        if not self.student or not self.assignment:
+            return  # Skip validation if objects aren't set yet
+        
+        # Ensure student's section matches assignment's section
+        if self.student.section != self.assignment.section:
+            raise ValidationError(
+                f"Student's section ({self.student.section.name if self.student.section else 'None'}) "
+                f"must match assignment's section ({self.assignment.section.name})."
+            )
+        
+        # Ensure student's year level matches section's year level
+        if self.student.year_level != self.assignment.section.year_level:
+            raise ValidationError(
+                f"Student's year level ({self.student.year_level.name}) must match "
+                f"section's year level ({self.assignment.section.year_level.name})."
+            )
+        
+        # Check for duplicate enrollment (excluding current instance if updating)
+        existing = StudentEnrollment.objects.filter(
+            student=self.student,
+            assignment=self.assignment,
+            is_active=True
+        )
+        if self.pk:
+            existing = existing.exclude(pk=self.pk)
+        if existing.exists():
+            raise ValidationError(
+                f"Student {self.student.student_id} is already enrolled in "
+                f"{self.assignment.subject.code} ({self.assignment.section.name})."
+            )
+    
+    def save(self, *args, **kwargs):
+        """Validate before saving"""
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
+    @property
+    def subject(self):
+        """Convenience property to access subject through assignment"""
+        return self.assignment.subject
+    
+    @property
+    def section(self):
+        """Convenience property to access section through assignment"""
+        return self.assignment.section
+    
+    @property
+    def teacher(self):
+        """Convenience property to access teacher through assignment"""
+        return self.assignment.teacher
 
 
 # ===== ATTENDANCE =====
 class Attendance(models.Model):
+    """
+    Tracks student attendance for enrolled subjects.
+    References StudentEnrollment to ensure attendance is only recorded for enrolled students.
+    """
     STATUS_CHOICES = [
         ('present', 'Present'),
         ('absent', 'Absent'),
         ('late', 'Late'),
     ]
-    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    enrollment = models.ForeignKey('StudentEnrollment', on_delete=models.CASCADE, related_name='attendances', null=True, blank=True)
     date = models.DateField()
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
     
     class Meta:
+        verbose_name = 'Attendance'
+        verbose_name_plural = 'Attendances'
         indexes = [
-            models.Index(fields=['student', 'date']),
-            models.Index(fields=['subject', 'date']),
-            models.Index(fields=['student', 'subject', 'date']),
+            models.Index(fields=['enrollment', 'date']),
             models.Index(fields=['date', 'status']),
+            models.Index(fields=['enrollment', 'date', 'status']),
         ]
         constraints = [
-            models.UniqueConstraint(fields=['student', 'subject', 'date'], name='unique_attendance_per_day'),
+            models.UniqueConstraint(fields=['enrollment', 'date'], name='unique_attendance_per_day'),
         ]
-        ordering = ['-date', 'student']
-
+        ordering = ['-date', 'enrollment']
+    
     def __str__(self):
-        return f"{self.student.student_id} - {self.subject.code} ({self.status})"
+        return f"{self.enrollment.student.student_id} - {self.enrollment.assignment.subject.code} ({self.status})"
+    
+    @property
+    def student(self):
+        """Convenience property to access student through enrollment"""
+        return self.enrollment.student
+    
+    @property
+    def subject(self):
+        """Convenience property to access subject through enrollment"""
+        return self.enrollment.assignment.subject
+    
+    @property
+    def assignment(self):
+        """Convenience property to access assignment through enrollment"""
+        return self.enrollment.assignment
 
 
 # ===== GRADE =====
 class Grade(models.Model):
-    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    """
+    Tracks student grades per term for enrolled subjects.
+    References StudentEnrollment to ensure grades are only recorded for enrolled students.
+    """
+    enrollment = models.ForeignKey('StudentEnrollment', on_delete=models.CASCADE, related_name='grades', null=True, blank=True)
     term = models.CharField(max_length=20, default="Midterm")
     grade = models.DecimalField(max_digits=5, decimal_places=2)
     
     class Meta:
+        verbose_name = 'Grade'
+        verbose_name_plural = 'Grades'
         indexes = [
-            models.Index(fields=['student', 'subject']),
-            models.Index(fields=['student', 'term']),
-            models.Index(fields=['subject', 'term']),
+            models.Index(fields=['enrollment', 'term']),
+            models.Index(fields=['term', 'grade']),
         ]
         constraints = [
-            models.UniqueConstraint(fields=['student', 'subject', 'term'], name='unique_grade_per_term'),
+            models.UniqueConstraint(fields=['enrollment', 'term'], name='unique_grade_per_term'),
         ]
-        ordering = ['-term', 'subject']
-
+        ordering = ['-term', 'enrollment']
+    
     def __str__(self):
-        return f"{self.student.student_id} - {self.subject.code}: {self.grade}"
+        return f"{self.enrollment.student.student_id} - {self.enrollment.assignment.subject.code} ({self.term}): {self.grade}"
+    
+    @property
+    def student(self):
+        """Convenience property to access student through enrollment"""
+        return self.enrollment.student
+    
+    @property
+    def subject(self):
+        """Convenience property to access subject through enrollment"""
+        return self.enrollment.assignment.subject
+    
+    @property
+    def assignment(self):
+        """Convenience property to access assignment through enrollment"""
+        return self.enrollment.assignment
 
 
 # ===== NOTIFICATION =====
@@ -417,6 +546,10 @@ class Notification(models.Model):
 
 # ===== ASSESSMENT =====
 class Assessment(models.Model):
+    """
+    Represents an assessment (quiz, exam, project, etc.) for a specific subject offering.
+    References TeacherSubjectAssignment to ensure assessments are tied to specific teacher-section combinations.
+    """
     CATEGORY_CHOICES = [
         ('Activities', 'Activities'),
         ('Quizzes', 'Quizzes'),
@@ -431,7 +564,7 @@ class Assessment(models.Model):
     
     name = models.CharField(max_length=200)
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='assessments')
+    assignment = models.ForeignKey('TeacherSubjectAssignment', on_delete=models.CASCADE, related_name='assessments', null=True, blank=True)
     max_score = models.DecimalField(max_digits=5, decimal_places=2)
     date = models.DateField()
     term = models.CharField(max_length=20, choices=TERM_CHOICES, default='Midterm')
@@ -440,21 +573,41 @@ class Assessment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
+        verbose_name = 'Assessment'
+        verbose_name_plural = 'Assessments'
         ordering = ['-date', 'name']
         indexes = [
-            models.Index(fields=['subject', 'date']),
-            models.Index(fields=['subject', 'term']),
+            models.Index(fields=['assignment', 'date']),
+            models.Index(fields=['assignment', 'term']),
             models.Index(fields=['category', 'date']),
             models.Index(fields=['created_by', 'date']),
         ]
     
     def __str__(self):
-        return f"{self.name} ({self.category}) - {self.subject.code}"
+        return f"{self.name} ({self.category}) - {self.assignment.subject.code} ({self.assignment.section.name})"
+    
+    @property
+    def subject(self):
+        """Convenience property to access subject through assignment"""
+        return self.assignment.subject
+    
+    @property
+    def section(self):
+        """Convenience property to access section through assignment"""
+        return self.assignment.section
+    
+    def can_teacher_manage(self, teacher_profile):
+        """Check if a teacher can manage this assessment"""
+        return self.assignment.teacher == teacher_profile
 
 
 # ===== ASSESSMENT SCORE =====
 class AssessmentScore(models.Model):
-    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='assessment_scores')
+    """
+    Records student scores for assessments.
+    References StudentEnrollment to ensure scores are only recorded for enrolled students.
+    """
+    enrollment = models.ForeignKey('StudentEnrollment', on_delete=models.CASCADE, related_name='assessment_scores', null=True, blank=True)
     assessment = models.ForeignKey(Assessment, on_delete=models.CASCADE, related_name='scores')
     score = models.DecimalField(max_digits=5, decimal_places=2)
     recorded_by = models.ForeignKey(TeacherProfile, on_delete=models.SET_NULL, null=True)
@@ -462,16 +615,38 @@ class AssessmentScore(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = ['student', 'assessment']
+        verbose_name = 'Assessment Score'
+        verbose_name_plural = 'Assessment Scores'
+        unique_together = ['enrollment', 'assessment']
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['student', 'assessment']),
+            models.Index(fields=['enrollment', 'assessment']),
             models.Index(fields=['assessment', 'score']),
             models.Index(fields=['recorded_by', 'created_at']),
         ]
     
     def __str__(self):
-        return f"{self.student.student_id} - {self.assessment.name}: {self.score}/{self.assessment.max_score}"
+        return f"{self.enrollment.student.student_id} - {self.assessment.name}: {self.score}/{self.assessment.max_score}"
+    
+    def clean(self):
+        """Validate that enrollment matches assessment's assignment"""
+        from django.core.exceptions import ValidationError
+        if self.enrollment and self.assessment:
+            if self.enrollment.assignment != self.assessment.assignment:
+                raise ValidationError(
+                    f"Enrollment assignment ({self.enrollment.assignment}) must match "
+                    f"assessment assignment ({self.assessment.assignment})."
+                )
+    
+    def save(self, *args, **kwargs):
+        """Validate before saving"""
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
+    @property
+    def student(self):
+        """Convenience property to access student through enrollment"""
+        return self.enrollment.student
     
     @property
     def percentage(self):
@@ -483,7 +658,11 @@ class AssessmentScore(models.Model):
 
 # ===== CATEGORY WEIGHTS =====
 class CategoryWeights(models.Model):
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='category_weights')
+    """
+    Defines weight percentages for assessment categories per subject offering.
+    Each TeacherSubjectAssignment can have its own category weights.
+    """
+    assignment = models.ForeignKey('TeacherSubjectAssignment', on_delete=models.CASCADE, related_name='category_weights', null=True, blank=True)
     activities_weight = models.IntegerField(default=20, help_text="Weight percentage for Activities")
     quizzes_weight = models.IntegerField(default=20, help_text="Weight percentage for Quizzes")
     projects_weight = models.IntegerField(default=30, help_text="Weight percentage for Projects")
@@ -492,12 +671,12 @@ class CategoryWeights(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = ['subject']
+        unique_together = ['assignment']
         verbose_name = 'Category Weight'
         verbose_name_plural = 'Category Weights'
     
     def __str__(self):
-        return f"{self.subject.code} - Weights"
+        return f"{self.assignment.subject.code} ({self.assignment.section.name}) - Weights"
     
     def clean(self):
         """Validate that weights sum to 100"""
@@ -520,6 +699,15 @@ class CategoryWeights(models.Model):
             'Exams': self.exams_weight,
         }
         return weight_map.get(category, 0)
+    
+    @property
+    def subject(self):
+        """Convenience property to access subject through assignment"""
+        return self.assignment.subject
+    
+    def can_teacher_manage(self, teacher_profile):
+        """Check if a teacher can manage these weights"""
+        return self.assignment.teacher == teacher_profile
 
 
 # ===== AUDIT LOG =====

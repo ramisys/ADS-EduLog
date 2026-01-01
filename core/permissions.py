@@ -116,7 +116,7 @@ def validate_teacher_access(request, subject_id=None, assessment_id=None):
     Validate that a teacher has access to a specific subject or assessment.
     Prevents teachers from accessing other teachers' data.
     """
-    from core.models import TeacherProfile, Subject, Assessment
+    from core.models import TeacherProfile, Subject, Assessment, TeacherSubjectAssignment
     
     if not request.user.is_authenticated or request.user.role != 'teacher':
         return False, 'Unauthorized access'
@@ -128,15 +128,27 @@ def validate_teacher_access(request, subject_id=None, assessment_id=None):
     
     if subject_id:
         try:
-            subject = Subject.objects.get(id=subject_id, teacher=teacher_profile)
-            return True, subject
-        except Subject.DoesNotExist:
+            # Check if teacher has an assignment for this subject
+            assignment = TeacherSubjectAssignment.objects.filter(
+                teacher=teacher_profile,
+                subject_id=subject_id
+            ).first()
+            if assignment:
+                # Return the subject from the assignment
+                return True, assignment.subject
+            else:
+                return False, 'Subject not found or access denied'
+        except Exception:
             return False, 'Subject not found or access denied'
     
     if assessment_id:
         try:
-            assessment = Assessment.objects.get(id=assessment_id, subject__teacher=teacher_profile)
-            return True, assessment
+            # Check if teacher owns the assignment for this assessment
+            assessment = Assessment.objects.get(id=assessment_id)
+            if assessment.assignment and assessment.assignment.teacher == teacher_profile:
+                return True, assessment
+            else:
+                return False, 'Assessment not found or access denied'
         except Assessment.DoesNotExist:
             return False, 'Assessment not found or access denied'
     

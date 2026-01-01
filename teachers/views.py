@@ -395,30 +395,23 @@ def subjects(request):
     # Get teacher's subject assignments (new architecture)
     assignments = TeacherSubjectAssignment.objects.filter(
         teacher=teacher_profile
-    ).select_related('subject', 'section').order_by('subject__code', 'section__name')
+    ).select_related('subject', 'section').order_by('section__name', 'subject__code')
     
-    # Process assignments
-    subjects_with_counts = []
+    # Group assignments by section
+    sections_dict = {}
     total_students = 0
-    unique_sections = set()
     unique_student_ids = set()
     
-    # Process assignments
     for assignment in assignments:
+        section = assignment.section
+        section_id = section.id if section else None
+        
         # Count only enrolled students for this assignment
         student_count = StudentEnrollment.objects.filter(
             assignment=assignment,
             is_active=True
         ).count()
-        subjects_with_counts.append({
-            'subject': assignment.subject,
-            'section': assignment.section,
-            'student_count': student_count,
-            'assignment_id': assignment.id,
-            'is_assignment': True,
-        })
         total_students += student_count
-        unique_sections.add(assignment.section.id)
         
         # Get unique enrolled students
         enrolled_students = StudentEnrollment.objects.filter(
@@ -426,15 +419,32 @@ def subjects(request):
             is_active=True
         ).values_list('student_id', flat=True)
         unique_student_ids.update(enrolled_students)
+        
+        # Group by section
+        if section_id not in sections_dict:
+            sections_dict[section_id] = {
+                'section': section,
+                'assignments': []
+            }
+        
+        sections_dict[section_id]['assignments'].append({
+            'id': assignment.id,
+            'subject_code': assignment.subject.code,
+            'subject_name': assignment.subject.name,
+            'student_count': student_count,
+        })
+    
+    # Convert to list format for template
+    sections_data = list(sections_dict.values())
     
     # Calculate statistics
-    total_subjects = len(subjects_with_counts)
+    total_subjects = len(assignments)
     total_unique_students = len(unique_student_ids)
-    total_sections = len(unique_sections)
+    total_sections = len(sections_data)
     avg_students_per_subject = (total_students / total_subjects) if total_subjects > 0 else 0
     
     context = {
-        'subjects': subjects_with_counts,
+        'sections': sections_data,
         'teacher_profile': teacher_profile,
         'total_subjects': total_subjects,
         'total_students': total_unique_students,
@@ -557,17 +567,20 @@ def sections(request):
     total_grades_count = 0
     
     for section in all_sections:
-        # Get students in this section
-        students = StudentProfile.objects.filter(section=section)
-        student_count = students.count()
-        total_students_all += student_count
-        
         # Get assignments teacher has in this section
         section_assignments = TeacherSubjectAssignment.objects.filter(
             teacher=teacher_profile,
             section=section
-        )
-        subject_names = [a.subject.name for a in section_assignments]
+        ).select_related('subject').order_by('subject__code')
+        
+        # Build assignments list with subject details
+        assignments_list = []
+        for assignment in section_assignments:
+            assignments_list.append({
+                'id': assignment.id,
+                'subject_code': assignment.subject.code,
+                'subject_name': assignment.subject.name,
+            })
         
         # Calculate attendance for this section
         # Get enrollments for this section's assignments
@@ -576,6 +589,11 @@ def sections(request):
             assignment__section=section,
             is_active=True
         )
+        
+        # Count unique enrolled students in this section (across all assignments)
+        enrolled_student_ids = section_enrollments.values_list('student_id', flat=True).distinct()
+        student_count = len(enrolled_student_ids)
+        total_students_all += student_count
         section_attendance = Attendance.objects.filter(
             enrollment__in=section_enrollments
         )
@@ -600,7 +618,7 @@ def sections(request):
         sections_data.append({
             'section': section,
             'student_count': student_count,
-            'subjects': subject_names,
+            'assignments': assignments_list,  # Changed from 'subjects' to 'assignments'
             'attendance_percentage': round(attendance_percentage, 1) if attendance_percentage else 0,
             'avg_grade': round(avg_grade, 2) if avg_grade else 0,
         })
@@ -754,27 +772,37 @@ def attendance(request):
     
     # Handle POST request to save attendance
     if request.method == 'POST':
-        # Validate and sanitize input
+        # Validate and sanitize input - accept assignment_id (new) or subject_id (backward compatibility)
+        assignment_id = validate_input(request.POST.get('assignment'), 'integer')
         selected_subject_id = validate_input(request.POST.get('subject'), 'integer')
-        if not selected_subject_id:
-            messages.error(request, 'Invalid subject selected.')
-            return redirect('teachers:attendance')
         
-        # Validate teacher has access to this subject and get the assignment
-        has_access, subject_or_error = validate_teacher_access(request, subject_id=selected_subject_id)
-        if not has_access:
-            messages.error(request, subject_or_error)
-            return redirect('teachers:attendance')
-        
-        selected_subject = subject_or_error
-        # Get the assignment for this subject
-        assignment = TeacherSubjectAssignment.objects.filter(
-            teacher=teacher_profile,
-            subject=selected_subject
-        ).first()
-        
-        if not assignment:
-            messages.error(request, 'Assignment not found.')
+        # Get assignment - prefer assignment_id, fallback to subject_id
+        if assignment_id:
+            try:
+                assignment = TeacherSubjectAssignment.objects.get(
+                    id=assignment_id,
+                    teacher=teacher_profile
+                )
+                selected_subject = assignment.subject
+            except TeacherSubjectAssignment.DoesNotExist:
+                messages.error(request, 'Assignment not found or access denied.')
+                return redirect('teachers:attendance')
+        elif selected_subject_id:
+            # Backward compatibility: get assignment from subject_id
+            has_access, subject_or_error = validate_teacher_access(request, subject_id=selected_subject_id)
+            if not has_access:
+                messages.error(request, subject_or_error)
+                return redirect('teachers:attendance')
+            selected_subject = subject_or_error
+            assignment = TeacherSubjectAssignment.objects.filter(
+                teacher=teacher_profile,
+                subject=selected_subject
+            ).first()
+            if not assignment:
+                messages.error(request, 'Assignment not found.')
+                return redirect('teachers:attendance')
+        else:
+            messages.error(request, 'Invalid assignment or subject selected.')
             return redirect('teachers:attendance')
         
         today = timezone.now().date()
@@ -869,7 +897,8 @@ def attendance(request):
         else:
             messages.info(request, 'No attendance changes were made.')
         
-        return redirect(reverse('teachers:attendance') + '?subject=' + str(selected_subject_id) + '&saved=true')
+        # Redirect with assignment_id
+        return redirect(reverse('teachers:attendance') + '?assignment=' + str(assignment.id) + '&saved=true')
     
     # Get teacher's assignments
     assignments = TeacherSubjectAssignment.objects.filter(
@@ -882,15 +911,51 @@ def attendance(request):
     # Get today's date
     today = timezone.now().date()
     
-    # Get selected subject from query parameter
+    # Get selected assignment from query parameter (prefer assignment_id, fallback to subject_id for backward compatibility)
+    assignment_id = request.GET.get('assignment')
     selected_subject_id = request.GET.get('subject')
     selected_subject = None
     selected_assignment = None
     students_data = []
     
-    if selected_subject_id:
+    if assignment_id:
+        # New way: use assignment_id directly
         try:
-            # Get the assignment for this subject
+            selected_assignment = TeacherSubjectAssignment.objects.get(
+                id=assignment_id,
+                teacher=teacher_profile
+            )
+            selected_subject = selected_assignment.subject
+            # Get enrolled students for this assignment
+            enrollments = StudentEnrollment.objects.filter(
+                assignment=selected_assignment,
+                is_active=True
+            ).select_related('student', 'student__user')
+            
+            students = [e.student for e in enrollments]
+            students.sort(key=lambda s: (s.user.last_name, s.user.first_name))
+            
+            # Get existing attendance records for today
+            attendance_records = Attendance.objects.filter(
+                enrollment__assignment=selected_assignment,
+                date=today
+            ).select_related('enrollment', 'enrollment__student')
+            
+            # Create a dictionary mapping student_id to attendance status
+            attendance_dict = {record.enrollment.student.id: record.status for record in attendance_records}
+            
+            # Prepare students data with attendance status
+            for student in students:
+                students_data.append({
+                    'student': student,
+                    'attendance_status': attendance_dict.get(student.id, '')
+                })
+        except TeacherSubjectAssignment.DoesNotExist:
+            messages.error(request, 'Assignment not found or access denied.')
+            selected_assignment = None
+    elif selected_subject_id:
+        # Backward compatibility: get assignment from subject_id
+        try:
             selected_assignment = TeacherSubjectAssignment.objects.filter(
                 teacher=teacher_profile,
                 subject_id=selected_subject_id
@@ -927,7 +992,8 @@ def attendance(request):
             pass
     
     context = {
-        'subjects': subjects,
+        'assignments': assignments,  # Pass assignments for dropdown
+        'subjects': subjects,  # Keep for backward compatibility
         'selected_subject': selected_subject,
         'selected_assignment': selected_assignment,
         'students_data': students_data,
@@ -1539,27 +1605,38 @@ def reports(request):
     except TeacherProfile.DoesNotExist:
         return redirect('dashboard')
     
-    # Get teacher's subjects
-    subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code')
+    # Get teacher's assignments
+    assignments = TeacherSubjectAssignment.objects.filter(
+        teacher=teacher_profile
+    ).select_related('subject', 'section').order_by('subject__code')
+    
+    # Get unique subjects from assignments
+    subjects = [assignment.subject for assignment in assignments]
     
     # Get all sections where teacher teaches
-    section_ids = subjects.values_list('section', flat=True).distinct()
-    sections = ClassSection.objects.filter(id__in=section_ids).order_by('name')
+    section_ids = list(set([assignment.section.id for assignment in assignments if assignment.section]))
+    sections = ClassSection.objects.filter(id__in=section_ids).order_by('name') if section_ids else ClassSection.objects.none()
     
     # Get all students in teacher's sections
-    students = StudentProfile.objects.filter(section__in=section_ids).select_related(
+    students = StudentProfile.objects.filter(section__id__in=section_ids).select_related(
         'user', 'section'
-    ).order_by('section__name', 'user__last_name', 'user__first_name')
+    ).order_by('section__name', 'user__last_name', 'user__first_name') if section_ids else StudentProfile.objects.none()
     
     # Calculate low performance students
     # Criteria: GPA < 75 OR Attendance < 70%
     low_performance_students = []
     
     for student in students:
+        # Get enrollments for this student in teacher's assignments
+        student_enrollments = StudentEnrollment.objects.filter(
+            student=student,
+            assignment__teacher=teacher_profile,
+            is_active=True
+        )
+        
         # Calculate GPA (average grade) for this student
         student_grades = Grade.objects.filter(
-            student=student,
-            subject__teacher=teacher_profile
+            enrollment__in=student_enrollments
         )
         
         gpa = 0
@@ -1568,8 +1645,7 @@ def reports(request):
         
         # Calculate attendance percentage
         student_attendance = Attendance.objects.filter(
-            student=student,
-            subject__teacher=teacher_profile
+            enrollment__in=student_enrollments
         )
         
         total_attendance = student_attendance.count()

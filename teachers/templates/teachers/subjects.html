@@ -83,63 +83,76 @@
       </div>
     </div>
   
-    <!-- SUBJECT LIST -->
-    {% if subjects %}
+    <!-- SUBJECT LIST GROUPED BY SECTION -->
+    {% if sections %}
     <div class="row g-4">
-      {% for item in subjects %}
-      <div class="col-12 col-md-6 col-lg-4">
-        <div class="card border rounded-3 p-3 h-100">
-          
-          <div class="d-flex align-items-center gap-3 mb-3">
+      {% for section_item in sections %}
+      <div class="col-12">
+        <div class="card border rounded-3 p-4">
+          <!-- Section Header -->
+          <div class="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
             <div class="bg-primary p-3 rounded" style="min-width: 60px; height: 60px; display: flex; align-items: center; justify-content: center;">
-              <i class="bi bi-book text-white fs-5"></i>
+              <i class="bi bi-people text-white fs-5"></i>
             </div>
             <div class="flex-grow-1">
-              <h5 class="text-primary mb-1">{{ item.subject.name }}</h5>
-              <small class="text-muted">{{ item.subject.code }}</small>
+              <h4 class="text-primary mb-1">{{ section_item.section.name }}</h4>
+              <small class="text-muted">{{ section_item.assignments|length }} subject{{ section_item.assignments|length|pluralize }} assigned</small>
             </div>
           </div>
-  
-          <div class="small mt-3 pt-3 border-top">
-            <div class="d-flex justify-content-between mb-2">
-              <span class="text-muted">Section</span>
-              <span class="text-primary fw-semibold">{{ item.section.name }}</span>
-            </div>
-            
-            <div class="d-flex justify-content-between mb-3">
-              <span class="text-muted">Students Enrolled</span>
-              <span class="text-primary fw-semibold">{{ item.student_count }}</span>
-            </div>
-            {% if item.student_count == 0 %}
-            <div class="alert alert-info small mb-0 mt-2">
-              <i class="bi bi-info-circle me-1"></i>No students enrolled yet. Students must be enrolled separately.
-            </div>
-            {% endif %}
-          </div>
+          
+          <!-- Assignments Grid -->
+          <div class="row g-3">
+            {% for assignment in section_item.assignments %}
+            <div class="col-12 col-md-6 col-lg-4">
+              <div class="card border rounded-3 p-3 h-100">
+                
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <div class="bg-primary-subtle p-3 rounded" style="min-width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                    <i class="bi bi-book text-primary fs-6"></i>
+                  </div>
+                  <div class="flex-grow-1">
+                    <h6 class="text-primary mb-1">{{ assignment.subject_name }}</h6>
+                    <small class="text-muted">{{ assignment.subject_code }}</small>
+                  </div>
+                </div>
+    
+                <div class="small mt-3 pt-3 border-top">
+                  <div class="d-flex justify-content-between mb-3">
+                    <span class="text-muted">Students Enrolled</span>
+                    <span class="text-primary fw-semibold">{{ assignment.student_count }}</span>
+                  </div>
+                  {% if assignment.student_count == 0 %}
+                  <div class="alert alert-info small mb-0 mt-2">
+                    <i class="bi bi-info-circle me-1"></i>No students enrolled yet. Students must be enrolled separately.
+                  </div>
+                  {% endif %}
+                </div>
 
-          <!-- Action Buttons -->
-          <div class="mt-3 pt-3 border-top">
-            <div class="d-grid gap-2">
-              <a href="{% url 'teachers:attendance' %}?subject={{ item.subject.id }}" class="btn btn-primary btn-sm">
-                <i class="bi bi-calendar-check me-2"></i>Take Attendance
-              </a>
-              <div class="btn-group" role="group">
-                <a href="{% url 'teachers:students' %}" class="btn btn-outline-primary btn-sm">
-                  <i class="bi bi-people me-1"></i>Students
-                </a>
-                <a href="{% url 'teachers:grades' %}" class="btn btn-outline-primary btn-sm">
-                  <i class="bi bi-clipboard-data me-1"></i>Grades
-                </a>
+                <!-- Action Buttons -->
+                <div class="mt-3 pt-3 border-top">
+                  <div class="d-grid gap-2">
+                    <a href="{% url 'teachers:attendance' %}?assignment={{ assignment.id }}" class="btn btn-primary btn-sm">
+                      <i class="bi bi-calendar-check me-2"></i>Take Attendance
+                    </a>
+                    <div class="btn-group" role="group">
+                      <a href="{% url 'teachers:students' %}?assignment={{ assignment.id }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-people me-1"></i>Students
+                      </a>
+                      <a href="{% url 'teachers:grades' %}?assignment={{ assignment.id }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-clipboard-data me-1"></i>Grades
+                      </a>
+                    </div>
+                    <form method="post" action="{% url 'teachers:remove_assignment' assignment.id %}" class="mt-2" onsubmit="return confirm('Are you sure you want to remove this subject assignment?');">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                        <i class="bi bi-trash me-1"></i>Remove Assignment
+                      </button>
+                    </form>
+                  </div>
+                </div>
               </div>
-              {% if item.assignment_id %}
-              <form method="post" action="{% url 'teachers:remove_assignment' item.assignment_id %}" class="mt-2" onsubmit="return confirm('Are you sure you want to remove this subject assignment?');">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-outline-danger btn-sm w-100">
-                  <i class="bi bi-trash me-1"></i>Remove Assignment
-                </button>
-              </form>
-              {% endif %}
             </div>
+            {% endfor %}
           </div>
         </div>
       </div>

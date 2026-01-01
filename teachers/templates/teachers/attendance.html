@@ -12,12 +12,12 @@
         <form method="GET" action="{% url 'teachers:attendance' %}">
             <div class="row g-4 mb-4">
                 <div class="col-md-6">
-                    <label for="subject-select" class="form-label">Subject</label>
-                    <select id="subject-select" name="subject" class="form-select" onchange="this.form.submit()">
-                        <option value="">-- Select a Subject --</option>
-                        {% for subject in subjects %}
-                        <option value="{{ subject.id }}" {% if selected_subject and selected_subject.id == subject.id %}selected{% endif %}>
-                            {{ subject.code }} - {{ subject.name }} ({{ subject.section.name }})
+                    <label for="assignment-select" class="form-label">Subject Assignment</label>
+                    <select id="assignment-select" name="assignment" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- Select a Subject Assignment --</option>
+                        {% for assignment in assignments %}
+                        <option value="{{ assignment.id }}" {% if selected_assignment and selected_assignment.id == assignment.id %}selected{% endif %}>
+                            {{ assignment.subject.code }} - {{ assignment.subject.name }} ({{ assignment.section.name }})
                         </option>
                         {% endfor %}
                     </select>
@@ -30,10 +30,10 @@
             </div>
         </form>
 
-        {% if selected_subject %}
+        {% if selected_assignment %}
         <form method="POST" action="{% url 'teachers:attendance' %}">
             {% csrf_token %}
-            <input type="hidden" name="subject" value="{{ selected_subject.id }}" />
+            <input type="hidden" name="assignment" value="{{ selected_assignment.id }}" />
             
             <!-- Scrollable area -->
             <div style="height: 500px; overflow-y: auto;">
@@ -161,11 +161,11 @@
 
     // Check for URL parameters to show success message
     document.addEventListener('DOMContentLoaded', function() {
-        const urlParams = new URLSearchParams(window.location.search);
+            const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('saved') === 'true') {
             showToast('Attendance saved successfully!', 'success');
             // Clean URL by removing the parameter
-            const newUrl = window.location.pathname + (urlParams.get('subject') ? '?subject=' + urlParams.get('subject') : '');
+            const newUrl = window.location.pathname + (urlParams.get('assignment') ? '?assignment=' + urlParams.get('assignment') : (urlParams.get('subject') ? '?subject=' + urlParams.get('subject') : ''));
             window.history.replaceState({}, '', newUrl);
         }
         

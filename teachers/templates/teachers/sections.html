@@ -115,12 +115,18 @@
             <!-- Subjects -->
             <div class="mb-3">
               <p class="text-muted small mb-2">Teaching Subjects</p>
-              {% if item.subjects %}
+              {% if item.assignments %}
               <div class="d-grid gap-2">
-                {% for subject_name in item.subjects %}
+                {% for assignment in item.assignments %}
                 <div class="d-flex justify-content-between align-items-center p-2 border rounded bg-light">
-                  <span>📚 {{ subject_name }}</span>
-                  <a href="{% url 'teachers:grades' %}?section={{ item.section.id }}" class="btn btn-outline-primary btn-sm">Gradebook →</a>
+                  <div>
+                    <span>📚 <strong>{{ assignment.subject_code }}</strong> - {{ assignment.subject_name }}</span>
+                  </div>
+                  <div class="btn-group" role="group">
+                    <a href="{% url 'teachers:students' %}?assignment={{ assignment.id }}" class="btn btn-outline-secondary btn-sm" title="Manage Students">👥</a>
+                    <a href="{% url 'teachers:attendance' %}?assignment={{ assignment.id }}" class="btn btn-outline-primary btn-sm" title="Mark Attendance">✔️</a>
+                    <a href="{% url 'teachers:grades' %}?assignment={{ assignment.id }}" class="btn btn-outline-success btn-sm" title="Enter Grades">📊</a>
+                  </div>
                 </div>
                 {% endfor %}
               </div>
@@ -194,10 +200,19 @@
             {% endif %}
 
             <!-- Quick Actions -->
-            <div class="d-grid gap-2 d-md-flex">
-              <a href="{% url 'teachers:students' %}?section={{ item.section.id }}" class="btn btn-outline-secondary btn-sm me-md-2 flex-fill">👁 View Details</a>
-              <a href="{% url 'teachers:attendance' %}?section={{ item.section.id }}" class="btn btn-outline-secondary btn-sm flex-fill">✔️ Mark Attendance</a>
+            {% if item.assignments %}
+            <div class="d-grid gap-2">
+              <small class="text-muted mb-1">Quick Actions (First Subject)</small>
+              <div class="d-grid gap-2 d-md-flex">
+                <a href="{% url 'teachers:students' %}?assignment={{ item.assignments.0.id }}" class="btn btn-outline-secondary btn-sm me-md-2 flex-fill">👁 View Details</a>
+                <a href="{% url 'teachers:attendance' %}?assignment={{ item.assignments.0.id }}" class="btn btn-outline-secondary btn-sm flex-fill">✔️ Mark Attendance</a>
+              </div>
             </div>
+            {% else %}
+            <div class="d-grid gap-2">
+              <small class="text-muted">No subjects assigned to this section</small>
+            </div>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -237,9 +252,9 @@
                 <td><strong>{{ item.section.name }}</strong></td>
                 <td>{{ item.student_count }}</td>
                 <td>
-                  {% if item.subjects %}
-                    {% for subject_name in item.subjects %}
-                    <span class="badge bg-secondary-subtle text-secondary">{{ subject_name }}</span>
+                  {% if item.assignments %}
+                    {% for assignment in item.assignments %}
+                    <span class="badge bg-secondary-subtle text-secondary" title="{{ assignment.subject_name }}">{{ assignment.subject_code }}</span>
                     {% endfor %}
                   {% else %}
                     <span class="text-muted">—</span>

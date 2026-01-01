@@ -946,33 +946,39 @@ def grades(request):
     except TeacherProfile.DoesNotExist:
         return redirect('dashboard')
     
-    # Get teacher's subjects
-    subjects = Subject.objects.filter(teacher=teacher_profile).select_related('section').order_by('code')
+    # Get teacher's assignments
+    assignments = TeacherSubjectAssignment.objects.filter(
+        teacher=teacher_profile
+    ).select_related('subject', 'section').order_by('subject__code')
     
-    # Get all unique sections from teacher's subjects
-    section_ids = subjects.values_list('section', flat=True).distinct()
-    sections = ClassSection.objects.filter(id__in=section_ids).order_by('name')
+    # Get unique subjects from assignments
+    subjects = [assignment.subject for assignment in assignments]
+    
+    # Get all unique sections from teacher's assignments
+    section_ids = list(set([assignment.section.id for assignment in assignments if assignment.section]))
+    sections = ClassSection.objects.filter(id__in=section_ids).order_by('name') if section_ids else ClassSection.objects.none()
     
     # Get all students in teacher's sections
     students = StudentProfile.objects.filter(
-        section__in=section_ids
-    ).select_related('user', 'section').order_by('section__name', 'user__last_name', 'user__first_name')
+        section__id__in=section_ids
+    ).select_related('user', 'section').order_by('section__name', 'user__last_name', 'user__first_name') if section_ids else StudentProfile.objects.none()
     
-    # Get all assessments for teacher's subjects
+    # Get all assessments for teacher's assignments
     assessments = Assessment.objects.filter(
-        subject__teacher=teacher_profile
-    ).select_related('subject', 'created_by').order_by('-date', 'category', 'name')
+        assignment__teacher=teacher_profile
+    ).select_related('assignment__subject', 'created_by').order_by('-date', 'category', 'name')
     
     # Get all assessment scores
     assessment_scores = AssessmentScore.objects.filter(
-        assessment__subject__teacher=teacher_profile
-    ).select_related('student', 'assessment', 'recorded_by')
+        assessment__assignment__teacher=teacher_profile
+    ).select_related('enrollment__student', 'assessment', 'recorded_by')
     
-    # Get category weights for each subject
+    # Get category weights for each assignment
     category_weights_dict = {}
-    for subject in subjects:
+    for assignment in assignments:
+        subject = assignment.subject
         try:
-            weights = CategoryWeights.objects.get(subject=subject)
+            weights = CategoryWeights.objects.get(assignment=assignment)
             category_weights_dict[subject.id] = {
                 'Activities': weights.activities_weight,
                 'Quizzes': weights.quizzes_weight,
@@ -995,7 +1001,7 @@ def grades(request):
     
     # Get unique subject codes (only teacher's subjects)
     # Use codes instead of names since codes are unique per section
-    all_subjects = list(subjects.values_list('code', flat=True).distinct())
+    all_subjects = list(set([subject.code for subject in subjects]))
     
     # Get unique section names (only sections where teacher teaches)
     sections_array = list(sections.values_list('name', flat=True))
@@ -1013,13 +1019,16 @@ def grades(request):
     # Create mapping of section to subjects for that section
     # Use subject code (unique per section) instead of name to avoid conflicts
     section_to_subjects = {}
-    for subject in subjects:
-        section_name = subject.section.name
-        if section_name not in section_to_subjects:
-            section_to_subjects[section_name] = []
-        # Use subject code which is unique per section (e.g., "IT102-BSIT1A")
-        if subject.code not in section_to_subjects[section_name]:
-            section_to_subjects[section_name].append(subject.code)
+    for assignment in assignments:
+        subject = assignment.subject
+        section = assignment.section
+        if section:
+            section_name = section.name
+            if section_name not in section_to_subjects:
+                section_to_subjects[section_name] = []
+            # Use subject code which is unique per section (e.g., "IT102-BSIT1A")
+            if subject.code not in section_to_subjects[section_name]:
+                section_to_subjects[section_name].append(subject.code)
     
     assessments_data = []
     # Map subject names to IDs for category weights lookup - populate from all subjects
@@ -1037,12 +1046,13 @@ def grades(request):
                 subject_name_to_id[subject.name] = subject.id
     
     for assessment in assessments:
+        subject = assessment.assignment.subject if assessment.assignment else assessment.subject
         assessments_data.append({
             'id': assessment.id,
             'name': assessment.name,
             'category': assessment.category,
-            'subject': assessment.subject.code,  # Use code instead of name for consistency
-            'subjectId': assessment.subject.id,
+            'subject': subject.code,  # Use code instead of name for consistency
+            'subjectId': subject.id,
             'maxScore': float(assessment.max_score),
             'date': assessment.date.strftime('%Y-%m-%d'),
             'term': assessment.term,
@@ -1050,9 +1060,10 @@ def grades(request):
     
     scores_data = []
     for score in assessment_scores:
+        student = score.enrollment.student if score.enrollment else score.student
         scores_data.append({
             'id': score.id,
-            'studentId': score.student.id,
+            'studentId': student.id,
             'assessmentId': score.assessment.id,
             'score': float(score.score),
         })
@@ -1110,13 +1121,22 @@ def add_assessment(request):
         
         subject = subject_or_error
         
+        # Get the assignment for this subject
+        assignment = TeacherSubjectAssignment.objects.filter(
+            teacher=teacher_profile,
+            subject=subject
+        ).first()
+        
+        if not assignment:
+            return JsonResponse({'success': False, 'error': 'Assignment not found for this subject'}, status=404)
+        
         # Validate assessment name
         assessment_name = validate_input(data.get('name'), 'string', max_length=200)
         if not assessment_name:
             return JsonResponse({'success': False, 'error': 'Invalid assessment name'}, status=400)
         
-        # Check for duplicate assessment name in the same subject
-        if Assessment.objects.filter(subject=subject, name=assessment_name).exists():
+        # Check for duplicate assessment name in the same assignment
+        if Assessment.objects.filter(assignment=assignment, name=assessment_name).exists():
             return JsonResponse({
                 'success': False,
                 'error': f'An assessment with the name "{assessment_name}" already exists for this subject.'
@@ -1146,7 +1166,7 @@ def add_assessment(request):
         assessment = Assessment.objects.create(
             name=assessment_name,
             category=category,
-            subject=subject,
+            assignment=assignment,
             max_score=Decimal(str(max_score)),
             date=assessment_date,
             term=term,
@@ -1340,9 +1360,19 @@ def update_score(request):
                     'error': f'Score cannot exceed maximum score of {assessment.max_score}'
                 }, status=400)
         
+        # Get enrollment for this student and assignment
+        enrollment = StudentEnrollment.objects.filter(
+            student=student,
+            assignment=assessment.assignment,
+            is_active=True
+        ).first()
+        
+        if not enrollment:
+            return JsonResponse({'success': False, 'error': 'Student is not enrolled in this subject'}, status=400)
+        
         # Handle score deletion or update/create
         try:
-            assessment_score = AssessmentScore.objects.get(student=student, assessment=assessment)
+            assessment_score = AssessmentScore.objects.get(enrollment=enrollment, assessment=assessment)
             # Score exists
             if score_value is None:
                 # Delete the score
@@ -1377,7 +1407,7 @@ def update_score(request):
             else:
                 # Create new score
                 assessment_score = AssessmentScore.objects.create(
-                    student=student,
+                    enrollment=enrollment,
                     assessment=assessment,
                     score=score_value,
                     recorded_by=teacher_profile
@@ -1456,9 +1486,18 @@ def update_category_weights(request):
                 'error': f'Category weights must total 100%. Current total: {total}%'
             }, status=400)
         
+        # Get the assignment for this subject
+        assignment = TeacherSubjectAssignment.objects.filter(
+            teacher=teacher_profile,
+            subject=subject
+        ).first()
+        
+        if not assignment:
+            return JsonResponse({'success': False, 'error': 'Assignment not found for this subject'}, status=404)
+        
         # Update or create category weights within transaction
         category_weights, created = CategoryWeights.objects.select_for_update().update_or_create(
-            subject=subject,
+            assignment=assignment,
             defaults={
                 'activities_weight': activities_weight,
                 'quizzes_weight': quizzes_weight,

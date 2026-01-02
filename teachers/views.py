@@ -571,16 +571,7 @@ def sections(request):
         section_assignments = TeacherSubjectAssignment.objects.filter(
             teacher=teacher_profile,
             section=section
-        ).select_related('subject').order_by('subject__code')
-        
-        # Build assignments list with subject details
-        assignments_list = []
-        for assignment in section_assignments:
-            assignments_list.append({
-                'id': assignment.id,
-                'subject_code': assignment.subject.code,
-                'subject_name': assignment.subject.name,
-            })
+        ).select_related('subject', 'section').order_by('subject__code')
         
         # Calculate attendance for this section
         # Get enrollments for this section's assignments
@@ -618,7 +609,7 @@ def sections(request):
         sections_data.append({
             'section': section,
             'student_count': student_count,
-            'assignments': assignments_list,  # Changed from 'subjects' to 'assignments'
+            'assignments': list(section_assignments),  # Pass actual TeacherSubjectAssignment objects
             'attendance_percentage': round(attendance_percentage, 1) if attendance_percentage else 0,
             'avg_grade': round(avg_grade, 2) if avg_grade else 0,
         })

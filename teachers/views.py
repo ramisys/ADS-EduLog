@@ -495,6 +495,69 @@ def assign_subject(request):
 
 @login_required
 @role_required('teacher')
+def get_sections_by_year_level(request):
+    """AJAX endpoint to get sections for a given year level"""
+    year_level_id = request.GET.get('year_level_id')
+    
+    if not year_level_id:
+        return JsonResponse({'error': 'Year level ID is required'}, status=400)
+    
+    try:
+        from core.models import YearLevel, ClassSection
+        year_level = YearLevel.objects.get(id=year_level_id)
+        sections = ClassSection.objects.filter(
+            year_level=year_level
+        ).order_by('name').values('id', 'name')
+        
+        return JsonResponse({
+            'sections': list(sections)
+        })
+    except YearLevel.DoesNotExist:
+        return JsonResponse({'error': 'Year level not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error getting sections: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'An error occurred'}, status=500)
+
+
+@login_required
+@role_required('teacher')
+def get_subjects_by_year_level(request):
+    """AJAX endpoint to get subjects for a given year level"""
+    year_level_id = request.GET.get('year_level_id')
+    
+    if not year_level_id:
+        return JsonResponse({'error': 'Year level ID is required'}, status=400)
+    
+    try:
+        from core.models import YearLevel, Subject
+        year_level = YearLevel.objects.get(id=year_level_id)
+        
+        # Get subjects for this year level
+        # Subjects are organized by year level - we'll match by subject code pattern
+        # Year 1: IT101, IT102, etc. (codes like "IT101-BSIT1A")
+        # Year 2: IT201, IT202, etc. (codes like "IT201-BSIT2A")
+        # Year 3: IT301, IT302, etc. (codes like "IT301-BSIT3A")
+        # Year 4: IT401, IT402, etc. (codes like "IT401-BSIT4A")
+        level = year_level.level
+        # Match subjects that start with the year level number (e.g., IT1xx for year 1)
+        # Subjects may have codes like "IT101-BSIT1A", so we match the base code pattern
+        subjects = Subject.objects.filter(
+            is_active=True,
+            code__startswith=f'IT{level}'
+        ).order_by('code', 'name').values('id', 'code', 'name')
+        
+        return JsonResponse({
+            'subjects': list(subjects)
+        })
+    except YearLevel.DoesNotExist:
+        return JsonResponse({'error': 'Year level not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error getting subjects: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'An error occurred'}, status=500)
+
+
+@login_required
+@role_required('teacher')
 @require_http_methods(["POST"])
 def remove_assignment(request, assignment_id):
     """

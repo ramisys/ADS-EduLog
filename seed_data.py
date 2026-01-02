@@ -16,6 +16,7 @@ from core.models import (
     StudentProfile,
     ClassSection,
     Subject,
+    YearLevel,
 )
 
 User = get_user_model()
@@ -27,14 +28,32 @@ NUM_TEACHERS = 4
 SECTIONS_PER_TEACHER = 4
 MIN_SUBJECTS_PER_TEACHER = 2
 STUDENTS_PER_SECTION = 10
-SUBJECT_POOL = [
-    ("IT101", "Intro to IT"),
-    ("IT102", "Programming 1"),
-    ("IT201", "Data Structures"),
-    ("IT202", "OOP"),
-    ("IT203", "Networks"),
-    ("IT301", "Database Systems"),
-]
+SUBJECTS_BY_YEAR_LEVEL = {
+    1: [
+        ("IT101", "Introduction to Information Technology"),
+        ("IT102", "Programming Fundamentals"),
+        ("IT103", "Computer Systems"),
+        ("IT104", "Mathematics for IT"),
+    ],
+    2: [
+        ("IT201", "Data Structures and Algorithms"),
+        ("IT202", "Object-Oriented Programming"),
+        ("IT203", "Computer Networks"),
+        ("IT204", "Web Development"),
+    ],
+    3: [
+        ("IT301", "Database Systems"),
+        ("IT302", "Software Engineering"),
+        ("IT303", "Operating Systems"),
+        ("IT304", "Mobile Application Development"),
+    ],
+    4: [
+        ("IT401", "Capstone Project"),
+        ("IT402", "IT Project Management"),
+        ("IT403", "Information Security"),
+        ("IT404", "Cloud Computing"),
+    ],
+}
 
 # ==========================
 # HELPERS
@@ -73,6 +92,7 @@ def clear_existing_data():
     ParentProfile.objects.all().delete()
     ClassSection.objects.all().delete()
     TeacherProfile.objects.all().delete()
+    YearLevel.objects.all().delete()
     (
         User.objects.filter(role__in=["teacher", "student", "parent"])
         .exclude(is_superuser=True)
@@ -103,6 +123,7 @@ def create_teachers():
 
 
 def create_parents():
+    """Create parents without relating them to students"""
     parents = []
     # Calculate total parents needed: NUM_TEACHERS * SECTIONS_PER_TEACHER * STUDENTS_PER_SECTION
     total_parents_needed = NUM_TEACHERS * SECTIONS_PER_TEACHER * STUDENTS_PER_SECTION
@@ -121,32 +142,52 @@ def create_parents():
             user=user, contact_number=f"09{random.randint(100000000, 999999999)}"
         )
         parents.append(parent)
-    print(f"   Created {len(parents)} parents (1 per student)")
+    print(f"   Created {len(parents)} parents (not related to students)")
     return parents
 
 
-def create_sections(teachers):
+def create_year_levels():
+    """Create year level records (1st Year, 2nd Year, 3rd Year, 4th Year)"""
+    year_levels = []
+    for level in range(1, 5):
+        year_level, created = YearLevel.objects.get_or_create(
+            level=level,
+            defaults={
+                'name': f'{level}{"st" if level == 1 else "nd" if level == 2 else "rd" if level == 3 else "th"} Year',
+                'order': level,
+                'is_active': True,
+            }
+        )
+        year_levels.append(year_level)
+    print(f"   Created/verified {len(year_levels)} year levels")
+    return year_levels
+
+
+def create_sections(year_levels):
+    """Create sections without relating them to teachers"""
     sections = []
-    section_counter = 1
-    # Each teacher gets SECTIONS_PER_TEACHER sections
-    for teacher in teachers:
+    # Create sections for each year level
+    for year_level in year_levels:
         for i in range(SECTIONS_PER_TEACHER):
-            sec_name = f"BSIT {section_counter}{chr(65 + i)}"  # 1A, 1B, 1C, 1D, then 2A, 2B, etc.
-            section = ClassSection.objects.create(name=sec_name, adviser=teacher)
+            sec_name = f"BSIT {year_level.level}{chr(65 + i)}"  # 1A, 1B, 1C, 1D, then 2A, 2B, etc.
+            section = ClassSection.objects.create(
+                name=sec_name,
+                year_level=year_level,
+                adviser=None  # No adviser assigned
+            )
             sections.append(section)
-        section_counter += 1
-    print(f"   Created {len(sections)} sections ({SECTIONS_PER_TEACHER} per teacher)")
+    print(f"   Created {len(sections)} sections ({SECTIONS_PER_TEACHER} per year level)")
     return sections
 
 
-def create_students(parents, sections):
+def create_students(year_levels):
+    """Create students without relating them to parents or sections"""
     students = []
     student_counter = 1
-    parent_index = 0
     
-    # Each section needs STUDENTS_PER_SECTION students
-    for section in sections:
-        for i in range(STUDENTS_PER_SECTION):
+    # Create students for each year level
+    for year_level in year_levels:
+        for i in range(STUDENTS_PER_SECTION * SECTIONS_PER_TEACHER):
             username = f"student{student_counter}"
             first, last = rand_name()
             user = User.objects.create_user(
@@ -157,108 +198,88 @@ def create_students(parents, sections):
                 first_name=first,
                 last_name=last,
             )
-            # Assign parent: each student gets a unique parent
-            parent = parents[parent_index]
-            parent_index += 1
-            
-            # Determine year level based on section name (extract number from section name)
-            section_num = ''.join(filter(str.isdigit, section.name))
-            if section_num:
-                year_num = int(section_num)
-                if year_num == 1:
-                    year_level = "1st Year"
-                elif year_num == 2:
-                    year_level = "2nd Year"
-                elif year_num == 3:
-                    year_level = "3rd Year"
-                else:
-                    year_level = f"{year_num}th Year"
-            else:
-                year_level = "1st Year"
             
             student = StudentProfile.objects.create(
                 user=user,
-                parent=parent,
+                parent=None,  # No parent assigned
                 course="BSIT",
                 year_level=year_level,
-                section=section,
+                section=None,  # No section assigned
             )
             students.append(student)
             student_counter += 1
     
-    print(f"   Created {len(students)} students ({STUDENTS_PER_SECTION} per section)")
+    print(f"   Created {len(students)} students ({STUDENTS_PER_SECTION * SECTIONS_PER_TEACHER} per year level)")
     return students
 
 
-def create_subjects(sections, teachers):
+def create_subjects(year_levels, sections):
+    """Create subjects organized by year level and section"""
     subjects = []
-    # Track teacher assignments to ensure each teacher teaches at least MIN_SUBJECTS_PER_TEACHER subjects
-    teacher_assignments = {teacher.id: {'sections': set(), 'subjects': set()} for teacher in teachers}
+    sections_by_year_level = {}
     
-    # Group sections by teacher (adviser)
-    sections_by_teacher = {teacher: [] for teacher in teachers}
+    # Group sections by year level
     for section in sections:
-        sections_by_teacher[section.adviser].append(section)
+        year_level_id = section.year_level.level
+        if year_level_id not in sections_by_year_level:
+            sections_by_year_level[year_level_id] = []
+        sections_by_year_level[year_level_id].append(section)
     
-    # Assign subjects to each teacher
-    # Each teacher teaches at least MIN_SUBJECTS_PER_TEACHER subjects
-    # Each subject is taught in all sections that the teacher advises
-    for teacher in teachers:
-        teacher_sections = sections_by_teacher[teacher]
-        # Select at least MIN_SUBJECTS_PER_TEACHER subjects for this teacher
-        num_subjects = max(MIN_SUBJECTS_PER_TEACHER, random.randint(MIN_SUBJECTS_PER_TEACHER, len(SUBJECT_POOL)))
-        selected_subjects = random.sample(SUBJECT_POOL, num_subjects)
-        
-        # For each selected subject, create it in each section the teacher advises
-        for code, name in selected_subjects:
-            for section in teacher_sections:
-                subject = Subject.objects.create(
-                    code=f"{code}-{section.name.replace(' ', '')}",
-                    name=name,
-                    teacher=teacher,
-                    section=section,
-                )
-                subjects.append(subject)
-                teacher_assignments[teacher.id]['sections'].add(section.id)
-                teacher_assignments[teacher.id]['subjects'].add((code, name))
+    # Create subjects for each year level
+    for year_level in year_levels:
+        level = year_level.level
+        if level in SUBJECTS_BY_YEAR_LEVEL:
+            year_subjects = SUBJECTS_BY_YEAR_LEVEL[level]
+            sections_for_level = sections_by_year_level.get(level, [])
+            
+            # Create subjects for this year level
+            for code, name in year_subjects:
+                # Create one subject entry per section in this year level
+                for section in sections_for_level:
+                    # Create unique subject code per section (e.g., IT101-BSIT1A)
+                    unique_code = f"{code}-{section.name.replace(' ', '')}"
+                    subject = Subject.objects.create(
+                        code=unique_code,
+                        name=name,
+                        description=f"{name} for {section.name}",
+                        is_active=True,
+                    )
+                    subjects.append(subject)
     
-    # Verify assignments
-    teachers_with_enough_subjects = sum(1 for t in teacher_assignments.values() if len(t['subjects']) >= MIN_SUBJECTS_PER_TEACHER)
-    
-    print(f"   Created {len(subjects)} subjects")
-    print(f"   Teachers with at least {MIN_SUBJECTS_PER_TEACHER} subjects: {teachers_with_enough_subjects}/{len(teachers)}")
-    for teacher in teachers:
-        num_subjects = len(teacher_assignments[teacher.id]['subjects'])
-        num_sections = len(teacher_assignments[teacher.id]['sections'])
-        print(f"      {teacher.user.get_full_name()}: {num_subjects} subjects across {num_sections} sections")
+    print(f"   Created {len(subjects)} subjects (organized by year level and section)")
     return subjects
 
 
 def main():
     clear_existing_data()
 
+    with atomic_section("Generating year levels"):
+        year_levels = create_year_levels()
+
     with atomic_section("Generating teachers"):
         teachers = create_teachers()
 
     with atomic_section("Generating sections"):
-        sections = create_sections(teachers)
+        sections = create_sections(year_levels)
 
     with atomic_section("Generating parents"):
         parents = create_parents()
 
     with atomic_section("Generating students"):
-        students = create_students(parents, sections)
+        students = create_students(year_levels)
 
     with atomic_section("Generating subjects"):
-        subjects = create_subjects(sections, teachers)
+        subjects = create_subjects(year_levels, sections)
 
     print("\n=== DATASET GENERATION COMPLETE ===")
     print(f"\nSummary:")
+    print(f"  - Year Levels: {len(year_levels)}")
     print(f"  - Teachers: {len(teachers)}")
-    print(f"  - Sections: {len(sections)} ({SECTIONS_PER_TEACHER} per teacher)")
-    print(f"  - Subjects: {len(subjects)}")
-    print(f"  - Students: {len(students)} ({STUDENTS_PER_SECTION} per section)")
-    print(f"  - Parents: {len(parents)} (1 per student)")
+    print(f"  - Sections: {len(sections)} ({SECTIONS_PER_TEACHER} per year level, no adviser assigned)")
+    print(f"  - Subjects: {len(subjects)} (organized by year level and section)")
+    print(f"  - Students: {len(students)} ({STUDENTS_PER_SECTION * SECTIONS_PER_TEACHER} per year level, no section/parent assigned)")
+    print(f"  - Parents: {len(parents)} (not related to students)")
+    print(f"\nNote: No relationships created. Entities are standalone.")
 
 
 if __name__ == "__main__":

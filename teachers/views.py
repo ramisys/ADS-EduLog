@@ -472,6 +472,9 @@ def assign_subject(request):
         if form.is_valid():
             try:
                 assignment = form.save()
+                # Verify assignment was created with all required fields
+                if not assignment.subject or not assignment.section:
+                    raise ValueError("Assignment was created but missing required fields")
                 messages.success(
                     request,
                     f'Successfully assigned {assignment.subject.code} ({assignment.subject.name}) to section {assignment.section.name}.'
@@ -482,7 +485,8 @@ def assign_subject(request):
                 messages.error(request, f'An error occurred while creating the assignment: {str(e)}')
         else:
             # Form has errors, they will be displayed in template
-            pass
+            # Log form errors for debugging
+            logger.warning(f"Form validation failed: {form.errors}")
     else:
         form = TeacherSubjectAssignmentForm(teacher=teacher_profile)
     

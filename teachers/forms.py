@@ -51,14 +51,30 @@ class TeacherSubjectAssignmentForm(forms.ModelForm):
     
     class Meta:
         model = TeacherSubjectAssignment
-        fields = ['year_level', 'section', 'subject']
+        fields = ['section', 'subject']  # year_level is not a model field, only used for filtering
     
     def __init__(self, *args, **kwargs):
         self.teacher = kwargs.pop('teacher', None)
         super().__init__(*args, **kwargs)
         
-        # Year level queryset is already set in field definition
-        # Section and subject querysets will be populated via AJAX based on year level selection
+        # If form has data (POST request), populate querysets to allow proper validation
+        if self.data:
+            # Get year level from POST data if available
+            year_level_id = self.data.get('year_level')
+            if year_level_id:
+                try:
+                    year_level = YearLevel.objects.get(id=year_level_id, is_active=True)
+                    # Update section queryset to include sections for this year level
+                    self.fields['section'].queryset = ClassSection.objects.filter(
+                        year_level=year_level
+                    ).order_by('name')
+                    # Update subject queryset - for now, include all active subjects
+                    # (In a real scenario, you might filter by year level if subjects are year-specific)
+                    self.fields['subject'].queryset = Subject.objects.filter(
+                        is_active=True
+                    ).order_by('code')
+                except (YearLevel.DoesNotExist, ValueError):
+                    pass  # Keep empty querysets if year level is invalid
     
     def clean(self):
         cleaned_data = super().clean()
@@ -98,8 +114,22 @@ class TeacherSubjectAssignmentForm(forms.ModelForm):
         return cleaned_data
     
     def save(self, commit=True):
-        assignment = super().save(commit=False)
-        assignment.teacher = self.teacher
+        # Get cleaned data - form must be valid to call save()
+        cleaned_data = self.cleaned_data
+        subject = cleaned_data.get('subject')
+        section = cleaned_data.get('section')
+        
+        # Validate that we have all required fields
+        if not subject or not section or not self.teacher:
+            raise ValueError("Cannot save assignment: missing required fields (subject, section, or teacher)")
+        
+        # Create the assignment instance explicitly
+        assignment = TeacherSubjectAssignment(
+            teacher=self.teacher,
+            subject=subject,
+            section=section
+        )
+        
         if commit:
             assignment.save()
         return assignment

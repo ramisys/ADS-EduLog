@@ -706,22 +706,27 @@ class Attendance(models.Model):
         ordering = ['-date', 'enrollment']
     
     def __str__(self):
-        return f"{self.enrollment.student.student_id} - {self.enrollment.assignment.subject.code} ({self.status})"
+        if not self.enrollment:
+            return f"Attendance (No Enrollment) - {self.date} ({self.status})"
+        try:
+            return f"{self.enrollment.student.student_id} - {self.enrollment.assignment.subject.code} ({self.status})"
+        except AttributeError:
+            return f"Attendance - {self.date} ({self.status})"
     
     @property
     def student(self):
         """Convenience property to access student through enrollment"""
-        return self.enrollment.student
+        return self.enrollment.student if self.enrollment else None
     
     @property
     def subject(self):
         """Convenience property to access subject through enrollment"""
-        return self.enrollment.assignment.subject
+        return self.enrollment.assignment.subject if self.enrollment and self.enrollment.assignment else None
     
     @property
     def assignment(self):
         """Convenience property to access assignment through enrollment"""
-        return self.enrollment.assignment
+        return self.enrollment.assignment if self.enrollment else None
 
 
 # ===== GRADE =====
@@ -771,22 +776,27 @@ class Grade(models.Model):
         ordering = ['-term', 'enrollment']
     
     def __str__(self):
-        return f"{self.enrollment.student.student_id} - {self.enrollment.assignment.subject.code} ({self.term}): {self.grade}"
+        if not self.enrollment:
+            return f"Grade (No Enrollment) - {self.term}: {self.grade}"
+        try:
+            return f"{self.enrollment.student.student_id} - {self.enrollment.assignment.subject.code} ({self.term}): {self.grade}"
+        except AttributeError:
+            return f"Grade - {self.term}: {self.grade}"
     
     @property
     def student(self):
         """Convenience property to access student through enrollment"""
-        return self.enrollment.student
+        return self.enrollment.student if self.enrollment else None
     
     @property
     def subject(self):
         """Convenience property to access subject through enrollment"""
-        return self.enrollment.assignment.subject
+        return self.enrollment.assignment.subject if self.enrollment and self.enrollment.assignment else None
     
     @property
     def assignment(self):
         """Convenience property to access assignment through enrollment"""
-        return self.enrollment.assignment
+        return self.enrollment.assignment if self.enrollment else None
 
 
 # ===== NOTIFICATION =====

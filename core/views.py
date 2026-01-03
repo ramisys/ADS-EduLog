@@ -573,7 +573,7 @@ def feedback_detail(request, feedback_id):
 def semester_management(request):
     """Admin view for managing semesters"""
     semesters = Semester.objects.all().order_by('-academic_year', '-start_date')
-    current_semester = get_current_semester()
+    current_semester = Semester.get_current()
     
     context = {
         'semesters': semesters,

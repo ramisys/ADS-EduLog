@@ -481,8 +481,8 @@ class TeacherSubjectAssignment(models.Model):
         verbose_name_plural = 'Teacher Subject Assignments'
         constraints = [
             models.UniqueConstraint(
-                fields=['teacher', 'subject', 'section'],
-                name='unique_teacher_subject_section'
+                fields=['teacher', 'subject', 'section', 'semester'],
+                name='unique_teacher_subject_section_semester'
             ),
         ]
         indexes = [

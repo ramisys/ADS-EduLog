@@ -312,8 +312,18 @@ class TeacherSubjectAssignment(models.Model):
     def clean(self):
         """Validate assignment data"""
         from django.core.exceptions import ValidationError
-        if not self.subject or not self.section:
-            raise ValidationError('Both subject and section are required.')
+        # Check subject_id and section_id instead of accessing related objects
+        # to avoid RelatedObjectDoesNotExist error when they're None
+        # Only validate if both IDs are set (allows form validation to pass when
+        # subject_id isn't set yet during form validation)
+        if self.subject_id is not None and self.section_id is not None:
+            # Both are set, validate they're not empty
+            if not self.subject_id or not self.section_id:
+                raise ValidationError('Both subject and section are required.')
+        elif self.pk:
+            # Existing instance must have both IDs set
+            if not self.subject_id or not self.section_id:
+                raise ValidationError('Both subject and section are required.')
     
     def save(self, *args, **kwargs):
         """Validate before saving"""

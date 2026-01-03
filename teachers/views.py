@@ -468,17 +468,69 @@ def assign_subject(request):
         return redirect('teachers:subjects')
     
     if request.method == 'POST':
-        form = TeacherSubjectAssignmentForm(request.POST, teacher=teacher_profile)
+        # Check if subjects were selected
+        selected_subjects = request.POST.getlist('subjects')
+        if not selected_subjects:
+            messages.error(request, 'Please select at least one subject to assign.')
+            form = TeacherSubjectAssignmentForm(request.POST, teacher=teacher_profile)
+        else:
+            form = TeacherSubjectAssignmentForm(request.POST, teacher=teacher_profile)
+        
         if form.is_valid():
             try:
-                assignment = form.save()
-                # Verify assignment was created with all required fields
-                if not assignment.subject or not assignment.section:
-                    raise ValueError("Assignment was created but missing required fields")
-                messages.success(
-                    request,
-                    f'Successfully assigned {assignment.subject.code} ({assignment.subject.name}) to section {assignment.section.name}.'
-                )
+                assignments = form.save_many()
+                if not assignments:
+                    messages.warning(request, 'No new assignments were created. All selected subjects may already be assigned.')
+                    return redirect('teachers:subjects')
+                
+                # Re-fetch all assignments with select_related to ensure relationships are loaded
+                assignment_ids = [a.pk for a in assignments if a.pk]
+                if not assignment_ids:
+                    messages.error(request, 'Assignments were created but could not be retrieved.')
+                    return redirect('teachers:subjects')
+                
+                assignments = TeacherSubjectAssignment.objects.select_related('subject', 'section').filter(pk__in=assignment_ids)
+                
+                # Filter out any assignments without subjects and collect subject info safely
+                valid_assignments = []
+                for assignment in assignments:
+                    if not assignment.subject_id:
+                        logger.warning(f"Assignment {assignment.id} is missing subject_id")
+                        continue
+                    try:
+                        # Try to access subject to ensure it exists
+                        subject_code = assignment.subject.code
+                        subject_name = assignment.subject.name
+                        section_name = assignment.section.name if assignment.section else 'Unknown'
+                        valid_assignments.append({
+                            'assignment': assignment,
+                            'subject_code': subject_code,
+                            'subject_name': subject_name,
+                            'section_name': section_name
+                        })
+                    except Exception as e:
+                        logger.error(f"Error accessing subject for assignment {assignment.id}: {str(e)}")
+                        continue
+                
+                if not valid_assignments:
+                    messages.error(request, 'Assignments were created but none have valid subjects.')
+                    return redirect('teachers:subjects')
+                
+                # Create success message based on number of valid assignments
+                if len(valid_assignments) == 1:
+                    info = valid_assignments[0]
+                    messages.success(
+                        request,
+                        f'Successfully assigned {info["subject_code"]} ({info["subject_name"]}) to section {info["section_name"]}.'
+                    )
+                else:
+                    subject_codes = [info['subject_code'] for info in valid_assignments]
+                    subject_names = ', '.join(subject_codes)
+                    section_name = valid_assignments[0]['section_name']
+                    messages.success(
+                        request,
+                        f'Successfully assigned {len(valid_assignments)} subjects ({subject_names}) to section {section_name}.'
+                    )
                 return redirect('teachers:subjects')
             except Exception as e:
                 logger.error(f"Error creating subject assignment: {str(e)}", exc_info=True)

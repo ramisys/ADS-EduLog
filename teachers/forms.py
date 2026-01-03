@@ -4,7 +4,7 @@ Forms for Teacher Subject Assignment
 from django import forms
 from django.db.models import Q
 import logging
-from core.models import TeacherSubjectAssignment, Subject, ClassSection, TeacherProfile, YearLevel
+from core.models import TeacherSubjectAssignment, Subject, ClassSection, TeacherProfile, YearLevel, StudentProfile, StudentEnrollment
 
 logger = logging.getLogger(__name__)
 
@@ -321,4 +321,131 @@ class TeacherSubjectAssignmentForm(forms.ModelForm):
             logger.warning(f"Filtered out {len(assignments) - len(valid_assignments)} invalid assignments")
         
         return valid_assignments
+
+
+class AddStudentToAssignmentForm(forms.Form):
+    """
+    Form for teachers to add students to a subject assignment.
+    Shows available students from the assignment's section who are not yet enrolled.
+    """
+    students = forms.ModelMultipleChoiceField(
+        queryset=StudentProfile.objects.none(),
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'form-check-input',
+            'id': 'id_students'
+        }),
+        label="Select Students",
+        help_text="Select one or more students to enroll in this subject",
+        required=True
+    )
+    
+    def __init__(self, *args, **kwargs):
+        self.assignment = kwargs.pop('assignment', None)
+        super().__init__(*args, **kwargs)
+        
+        if self.assignment:
+            # Get students from the assignment's section who are not yet enrolled
+            enrolled_student_ids = StudentEnrollment.objects.filter(
+                assignment=self.assignment,
+                is_active=True
+            ).values_list('student_id', flat=True)
+            
+            # Get available students (same section, not enrolled)
+            available_students = StudentProfile.objects.filter(
+                section=self.assignment.section,
+                year_level=self.assignment.section.year_level
+            ).exclude(
+                id__in=enrolled_student_ids
+            ).select_related('user').order_by('user__last_name', 'user__first_name')
+            
+            self.fields['students'].queryset = available_students
+        else:
+            self.fields['students'].queryset = StudentProfile.objects.none()
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        students = cleaned_data.get('students', [])
+        assignment = self.assignment
+        
+        if not assignment:
+            raise forms.ValidationError("Assignment is required.")
+        
+        # Check if there are any available students
+        if not self.fields['students'].queryset.exists():
+            raise forms.ValidationError("No students are available to enroll in this subject.")
+        
+        if not students:
+            raise forms.ValidationError("Please select at least one student to enroll.")
+        
+        # Validate that all selected students belong to the assignment's section
+        invalid_students = []
+        for student in students:
+            if student.section != assignment.section:
+                invalid_students.append(f"{student.user.get_full_name()} ({student.student_id})")
+            elif student.year_level != assignment.section.year_level:
+                invalid_students.append(f"{student.user.get_full_name()} ({student.student_id})")
+        
+        if invalid_students:
+            raise forms.ValidationError(
+                f"The following students do not belong to section {assignment.section.name}: "
+                f"{', '.join(invalid_students)}"
+            )
+        
+        # Check for already enrolled students (race condition check)
+        already_enrolled = []
+        for student in students:
+            if StudentEnrollment.objects.filter(
+                student=student,
+                assignment=assignment,
+                is_active=True
+            ).exists():
+                already_enrolled.append(f"{student.user.get_full_name()} ({student.student_id})")
+        
+        if already_enrolled:
+            raise forms.ValidationError(
+                f"The following students are already enrolled: {', '.join(already_enrolled)}"
+            )
+        
+        return cleaned_data
+    
+    def save(self, commit=True):
+        """
+        Create StudentEnrollment records for selected students.
+        Returns list of created enrollments.
+        """
+        if not self.is_valid():
+            raise ValueError("Form must be valid before saving.")
+        
+        students = self.cleaned_data.get('students', [])
+        assignment = self.assignment
+        
+        if not assignment:
+            raise ValueError("Assignment is required.")
+        
+        enrollments = []
+        for student in students:
+            # Double-check for duplicates (race condition)
+            if StudentEnrollment.objects.filter(
+                student=student,
+                assignment=assignment,
+                is_active=True
+            ).exists():
+                continue
+            
+            enrollment = StudentEnrollment(
+                student=student,
+                assignment=assignment
+            )
+            
+            if commit:
+                try:
+                    enrollment.save()
+                    enrollments.append(enrollment)
+                except Exception as e:
+                    logger.error(f"Error creating enrollment for student {student.id}: {str(e)}")
+                    continue
+            else:
+                enrollments.append(enrollment)
+        
+        return enrollments
 

@@ -13,7 +13,7 @@ from core.models import (
     Assessment, AssessmentScore, CategoryWeights, AuditLog, TeacherSubjectAssignment, StudentEnrollment,
     Semester
 )
-from teachers.forms import TeacherSubjectAssignmentForm
+from teachers.forms import TeacherSubjectAssignmentForm, AddStudentToAssignmentForm
 from django.db.models import Avg
 from core.notifications import send_attendance_notification, check_and_send_performance_notifications, check_consecutive_absences
 from core.permissions import role_required, validate_input, validate_teacher_access
@@ -776,10 +776,26 @@ def students(request):
     except TeacherProfile.DoesNotExist:
         return redirect('dashboard')
     
+    # Get assignment filter from query parameter (optional)
+    assignment_id = request.GET.get('assignment')
+    selected_assignment = None
+    
     # Get all assignments for this teacher
     assignments = TeacherSubjectAssignment.objects.filter(
         teacher=teacher_profile
     ).select_related('subject', 'section').order_by('subject__code', 'subject__name')
+    
+    # Filter by assignment if specified
+    if assignment_id:
+        try:
+            selected_assignment = TeacherSubjectAssignment.objects.get(
+                id=assignment_id,
+                teacher=teacher_profile
+            )
+            assignments = assignments.filter(id=assignment_id)
+        except TeacherSubjectAssignment.DoesNotExist:
+            messages.error(request, 'Assignment not found or access denied.')
+            return redirect('teachers:students')
     
     # Get subjects with their students
     subjects_data = []
@@ -798,7 +814,8 @@ def students(request):
         
         enrolled_students = [e.student for e in enrollments]
         student_count = len(enrolled_students)
-        if student_count == 0:
+        # Show assignment even if no students when filtering by assignment
+        if student_count == 0 and not selected_assignment:
             continue
         
         # Sort students by name
@@ -810,57 +827,59 @@ def students(request):
         subject_grades_sum = 0
         subject_grades_count = 0
         
-        for student in enrolled_students:
-            # Track unique students across all subjects
-            unique_student_ids.add(student.id)
-            
-            # Get enrollment for this student-assignment combination
-            enrollment = StudentEnrollment.objects.get(
-                student=student,
-                assignment=assignment,
-                is_active=True
-            )
-            
-            # Calculate attendance percentage for this specific enrollment
-            student_attendance = Attendance.objects.filter(
-                enrollment=enrollment
-            )
-            total_attendance = student_attendance.count()
-            present_count = student_attendance.filter(status='present').count()
-            attendance_percentage = (present_count / total_attendance * 100) if total_attendance > 0 else 0
-            subject_attendance_sum += attendance_percentage
-            
-            # Calculate grade for this specific enrollment
-            student_grades = Grade.objects.filter(
-                enrollment=enrollment
-            )
-            if student_grades.exists():
-                gpa = student_grades.aggregate(Avg('grade'))['grade__avg'] or 0
-                subject_grades_sum += gpa
-                subject_grades_count += 1
-            else:
-                gpa = 0
-            
-            # Determine status based on this subject's performance
-            if attendance_percentage >= 80 and gpa >= 80:
-                status = 'active'
-            elif attendance_percentage < 70 or gpa < 70:
-                status = 'at_risk'
-            else:
-                status = 'active'
-            
-            # Track overall status (if at_risk in any subject, mark as at_risk)
-            if student.id not in student_status_map:
-                student_status_map[student.id] = status
-            elif status == 'at_risk':
-                student_status_map[student.id] = 'at_risk'
-            
-            students_data.append({
-                'student': student,
-                'attendance_percentage': round(attendance_percentage, 1),
-                'gpa': round(gpa, 2),
-                'status': status,
-            })
+        # Process students if any exist
+        if student_count > 0:
+            for student in enrolled_students:
+                # Track unique students across all subjects
+                unique_student_ids.add(student.id)
+                
+                # Get enrollment for this student-assignment combination
+                enrollment = StudentEnrollment.objects.get(
+                    student=student,
+                    assignment=assignment,
+                    is_active=True
+                )
+                
+                # Calculate attendance percentage for this specific enrollment
+                student_attendance = Attendance.objects.filter(
+                    enrollment=enrollment
+                )
+                total_attendance = student_attendance.count()
+                present_count = student_attendance.filter(status='present').count()
+                attendance_percentage = (present_count / total_attendance * 100) if total_attendance > 0 else 0
+                subject_attendance_sum += attendance_percentage
+                
+                # Calculate grade for this specific enrollment
+                student_grades = Grade.objects.filter(
+                    enrollment=enrollment
+                )
+                if student_grades.exists():
+                    gpa = student_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+                    subject_grades_sum += gpa
+                    subject_grades_count += 1
+                else:
+                    gpa = 0
+                
+                # Determine status based on this subject's performance
+                if attendance_percentage >= 80 and gpa >= 80:
+                    status = 'active'
+                elif attendance_percentage < 70 or gpa < 70:
+                    status = 'at_risk'
+                else:
+                    status = 'active'
+                
+                # Track overall status (if at_risk in any subject, mark as at_risk)
+                if student.id not in student_status_map:
+                    student_status_map[student.id] = status
+                elif status == 'at_risk':
+                    student_status_map[student.id] = 'at_risk'
+                
+                students_data.append({
+                    'student': student,
+                    'attendance_percentage': round(attendance_percentage, 1),
+                    'gpa': round(gpa, 2),
+                    'status': status,
+                })
         
         # Calculate subject averages
         avg_attendance = (subject_attendance_sum / student_count) if student_count > 0 else 0
@@ -868,6 +887,8 @@ def students(request):
         
         subjects_data.append({
             'subject': subject,
+            'assignment': assignment,  # Include assignment for section info
+            'section': section,
             'students': students_data,
             'student_count': student_count,
             'avg_attendance': round(avg_attendance, 1),
@@ -888,8 +909,94 @@ def students(request):
         'active_students': active_students_count,
         'at_risk_students': at_risk_count,
         'total_subjects': len(subjects_data),
+        'selected_assignment': selected_assignment,
+        'all_assignments': TeacherSubjectAssignment.objects.filter(
+            teacher=teacher_profile
+        ).select_related('subject', 'section').order_by('subject__code', 'subject__name'),
     }
     return render(request, 'teachers/students.html', context)
+
+
+@login_required
+@role_required('teacher')
+def add_student(request):
+    """
+    View to add students to a subject assignment.
+    Handles both GET (show form) and POST (enroll students).
+    """
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        messages.error(request, 'Teacher profile not found.')
+        return redirect('teachers:students')
+    
+    # Get assignment from query parameter (required)
+    assignment_id = request.GET.get('assignment')
+    if not assignment_id:
+        messages.error(request, 'Please select a subject assignment.')
+        return redirect('teachers:students')
+    
+    try:
+        assignment = TeacherSubjectAssignment.objects.get(
+            id=assignment_id,
+            teacher=teacher_profile
+        )
+    except TeacherSubjectAssignment.DoesNotExist:
+        messages.error(request, 'Assignment not found or access denied.')
+        return redirect('teachers:students')
+    
+    # Check if semester allows enrollment
+    if assignment.semester and not assignment.semester.can_enroll_students():
+        messages.error(
+            request,
+            f'Cannot enroll students in {assignment.semester.get_status_display()} semester.'
+        )
+        return redirect('teachers:students')
+    
+    if request.method == 'POST':
+        form = AddStudentToAssignmentForm(request.POST, assignment=assignment)
+        if form.is_valid():
+            try:
+                enrollments = form.save()
+                if enrollments:
+                    count = len(enrollments)
+                    messages.success(
+                        request,
+                        f'Successfully enrolled {count} student{"s" if count > 1 else ""} in '
+                        f'{assignment.subject.code} ({assignment.section.name}).'
+                    )
+                else:
+                    messages.warning(request, 'No students were enrolled. They may already be enrolled.')
+                
+                # Redirect back to students page with assignment filter
+                return redirect(f"{reverse('teachers:students')}?assignment={assignment.id}")
+            except Exception as e:
+                logger.error(f"Error enrolling students: {str(e)}", exc_info=True)
+                messages.error(request, f'An error occurred while enrolling students: {str(e)}')
+        else:
+            # Form has errors, they will be displayed in template
+            logger.warning(f"Form validation failed: {form.errors}")
+    else:
+        form = AddStudentToAssignmentForm(assignment=assignment)
+    
+    # Get available students count for display
+    available_students_count = form.fields['students'].queryset.count()
+    
+    # Get currently enrolled students count
+    enrolled_count = StudentEnrollment.objects.filter(
+        assignment=assignment,
+        is_active=True
+    ).count()
+    
+    context = {
+        'form': form,
+        'assignment': assignment,
+        'teacher_profile': teacher_profile,
+        'available_students_count': available_students_count,
+        'enrolled_count': enrolled_count,
+    }
+    return render(request, 'teachers/add_student.html', context)
+
 
 @login_required
 @role_required('teacher')

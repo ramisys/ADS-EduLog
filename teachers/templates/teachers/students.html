@@ -7,11 +7,41 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="text-primary">Manage Students</h2>
-            <p class="text-muted small">View students organized by their subjects</p>
+            <p class="text-muted small">
+                {% if selected_assignment %}
+                    Viewing: {{ selected_assignment.subject.code }} - {{ selected_assignment.subject.name }} ({{ selected_assignment.section.name }})
+                {% else %}
+                    View students organized by their subjects
+                {% endif %}
+            </p>
         </div>
-        <button class="btn btn-primary d-flex align-items-center">
-            <span class="me-2">+</span> Add Student
-        </button>
+        <div class="d-flex gap-2">
+            {% if selected_assignment %}
+                <a href="{% url 'teachers:add_student' %}?assignment={{ selected_assignment.id }}" class="btn btn-primary d-flex align-items-center">
+                    <i class="bi bi-plus-circle me-2"></i>Add Student
+                </a>
+                <a href="{% url 'teachers:students' %}" class="btn btn-outline-secondary d-flex align-items-center">
+                    <i class="bi bi-x-circle me-2"></i>Clear Filter
+                </a>
+            {% else %}
+                <div class="dropdown">
+                    <button class="btn btn-primary d-flex align-items-center dropdown-toggle" type="button" id="addStudentDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-plus-circle me-2"></i>Add Student
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="addStudentDropdown">
+                        {% for assignment in all_assignments %}
+                        <li>
+                            <a class="dropdown-item" href="{% url 'teachers:add_student' %}?assignment={{ assignment.id }}">
+                                {{ assignment.subject.code }} - {{ assignment.section.name }}
+                            </a>
+                        </li>
+                        {% empty %}
+                        <li><span class="dropdown-item-text text-muted">No assignments available</span></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        </div>
     </div>
 
     <!-- Summary Cards -->
@@ -85,26 +115,36 @@
     <div class="card p-4 mt-4">
 
         <!-- Subject Header -->
-        <div class="d-flex justify-content-between pb-3 border-bottom mb-3">
+        <div class="d-flex justify-content-between align-items-center pb-3 border-bottom mb-3">
             <div class="d-flex align-items-center gap-3">
                 <div class="bg-primary-subtle p-3 rounded">
                     <i class="bi bi-book fs-4 text-primary"></i>
                 </div>
                 <div>
                     <h4 class="text-primary mb-1">{{ subject_data.subject.code }} - {{ subject_data.subject.name }}</h4>
-                    <p class="text-muted small mb-0">{{ subject_data.subject.section.name }} • {{ subject_data.student_count }} Students</p>
+                    <p class="text-muted small mb-0">
+                        {{ subject_data.section.name }} • {{ subject_data.student_count }} Student{{ subject_data.student_count|pluralize }}
+                    </p>
                 </div>
             </div>
-
-            <div class="d-flex gap-4">
-                <div class="text-end">
-                    <p class="text-muted small mb-1">Avg Attendance</p>
-                    <span class="badge {% if subject_data.avg_attendance >= 80 %}bg-success-subtle text-success{% elif subject_data.avg_attendance >= 70 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %}">{{ subject_data.avg_attendance }}%</span>
+            <div class="d-flex align-items-center gap-4">
+                <div class="d-flex gap-4">
+                    <div class="text-end">
+                        <p class="text-muted small mb-1">Avg Attendance</p>
+                        <span class="badge {% if subject_data.avg_attendance >= 80 %}bg-success-subtle text-success{% elif subject_data.avg_attendance >= 70 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %}">{{ subject_data.avg_attendance }}%</span>
+                    </div>
+                    <div class="text-end">
+                        <p class="text-muted small mb-1">Avg Grade</p>
+                        <span class="badge {% if subject_data.avg_gpa >= 80 %}bg-primary-subtle text-primary{% elif subject_data.avg_gpa >= 70 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %}">{{ subject_data.avg_gpa|floatformat:2 }}</span>
+                    </div>
                 </div>
-                <div class="text-end">
-                    <p class="text-muted small mb-1">Avg Grade</p>
-                    <span class="badge {% if subject_data.avg_gpa >= 80 %}bg-primary-subtle text-primary{% elif subject_data.avg_gpa >= 70 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %}">{{ subject_data.avg_gpa|floatformat:2 }}</span>
+                {% if subject_data.assignment %}
+                <div>
+                    <a href="{% url 'teachers:add_student' %}?assignment={{ subject_data.assignment.id }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-plus-circle me-1"></i>Add More Students
+                    </a>
                 </div>
+                {% endif %}
             </div>
         </div>
 
@@ -153,7 +193,13 @@
         </div>
         {% else %}
         <div class="text-center py-4">
-            <p class="text-muted">No students in this subject</p>
+            <i class="bi bi-people text-muted" style="font-size: 2rem;"></i>
+            <p class="text-muted mt-2">No students enrolled in this subject</p>
+            {% if subject_data.assignment %}
+            <a href="{% url 'teachers:add_student' %}?assignment={{ subject_data.assignment.id }}" class="btn btn-primary btn-sm mt-2">
+                <i class="bi bi-plus-circle me-1"></i>Add Students
+            </a>
+            {% endif %}
         </div>
         {% endif %}
 

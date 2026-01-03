@@ -61,13 +61,13 @@ def dashboard(request):
         enrollment__assignment__teacher=teacher_profile
     )
     if current_semester:
-        recent_attendance = recent_attendance.filter(semester=current_semester)
+        recent_attendance = recent_attendance.filter(enrollment__semester=current_semester)
     recent_attendance = recent_attendance.select_related('enrollment', 'enrollment__student', 'enrollment__assignment__subject').order_by('-date')[:10]
     
     # Get attendance statistics - filter by current semester
     total_attendance = Attendance.objects.filter(enrollment__assignment__teacher=teacher_profile)
     if current_semester:
-        total_attendance = total_attendance.filter(semester=current_semester)
+        total_attendance = total_attendance.filter(enrollment__semester=current_semester)
     present_count = total_attendance.filter(status='present').count()
     absent_count = total_attendance.filter(status='absent').count()
     late_count = total_attendance.filter(status='late').count()

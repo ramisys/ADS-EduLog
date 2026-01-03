@@ -48,23 +48,25 @@ class User(AbstractUser):
 
 # ===== FIXED ID GENERATOR =====
 def generate_custom_id(prefix):
+    """
+    Generate custom ID for profiles (Student, Teacher, Parent).
+    Uses explicit model mapping instead of eval() for security.
+    """
     from datetime import datetime
     year = datetime.now().year
 
-    # Map model and field name per prefix
+    # Explicit model mapping - no eval() for security
+    from core.models import StudentProfile, TeacherProfile, ParentProfile
+    
     model_map = {
-        'STD': ('StudentProfile', 'student_id'),
-        'TCH': ('TeacherProfile', 'teacher_id'),
-        'PRT': ('ParentProfile', 'parent_id'),
+        'STD': (StudentProfile, 'student_id'),
+        'TCH': (TeacherProfile, 'teacher_id'),
+        'PRT': (ParentProfile, 'parent_id'),
     }
 
-    model_name, field_name = model_map.get(prefix, (None, None))
-    if not model_name:
+    model, field_name = model_map.get(prefix, (None, None))
+    if not model:
         return None
-
-    # Dynamically import model
-    from core.models import StudentProfile, TeacherProfile, ParentProfile
-    model = eval(model_name)
 
     # Get last record with same year prefix
     last_entry = model.objects.filter(**{f"{field_name}__startswith": f"{prefix}-{year}"}).order_by('id').last()
@@ -162,6 +164,184 @@ class YearLevel(models.Model):
             self.order = self.level
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+# ===== SEMESTER =====
+class Semester(models.Model):
+    """
+    Represents an academic semester with lifecycle management.
+    Enforces only one current semester at a time and prevents deletion if related records exist.
+    """
+    STATUS_CHOICES = [
+        ('upcoming', 'Upcoming'),
+        ('active', 'Active'),
+        ('closed', 'Closed'),
+        ('archived', 'Archived'),
+    ]
+    
+    name = models.CharField(max_length=50, help_text="Semester name (e.g., '1st Semester', '2nd Semester')")
+    academic_year = models.CharField(max_length=20, help_text="Academic year (e.g., '2025-2026')")
+    start_date = models.DateField(help_text="Semester start date")
+    end_date = models.DateField(help_text="Semester end date")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='upcoming', 
+                             help_text="Current status of the semester")
+    is_current = models.BooleanField(default=False, help_text="Whether this is the current active semester")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Semester'
+        verbose_name_plural = 'Semesters'
+        ordering = ['-academic_year', '-start_date']
+        indexes = [
+            models.Index(fields=['status', 'is_current']),
+            models.Index(fields=['academic_year', 'status']),
+            models.Index(fields=['is_current']),
+        ]
+        constraints = [
+            # DB-level constraint: Only one active semester at a time
+            # Note: SQLite doesn't support partial unique constraints directly,
+            # so we enforce this in Python. For PostgreSQL, use:
+            # models.UniqueConstraint(fields=['is_current'], condition=Q(is_current=True), name='unique_active_semester')
+        ]
+    
+    @classmethod
+    def get_current(cls):
+        """
+        Class method to get the current active semester.
+        Centralized logic for semester retrieval.
+        Returns None if no current semester is set.
+        """
+        try:
+            return cls.objects.filter(is_current=True).first()
+        except cls.DoesNotExist:
+            return None
+    
+    def __str__(self):
+        return f"{self.name} - {self.academic_year}"
+    
+    def clean(self):
+        """Validate semester data and enforce business rules"""
+        from django.core.exceptions import ValidationError
+        from django.db.models import Q
+        
+        # Validate date range
+        if self.start_date and self.end_date:
+            if self.start_date >= self.end_date:
+                raise ValidationError('End date must be after start date.')
+        
+        # Enforce only one current semester
+        if self.is_current:
+            existing_current = Semester.objects.filter(is_current=True)
+            if self.pk:
+                existing_current = existing_current.exclude(pk=self.pk)
+            if existing_current.exists():
+                raise ValidationError(
+                    'Only one semester can be marked as current. Please deactivate the current semester first.'
+                )
+        
+        # Validate status transitions
+        if self.pk:
+            old_instance = Semester.objects.get(pk=self.pk)
+            # Only allow specific transitions
+            valid_transitions = {
+                'upcoming': ['active'],
+                'active': ['closed'],
+                'closed': ['archived'],
+                'archived': []  # Archived cannot transition
+            }
+            if old_instance.status in valid_transitions:
+                if self.status not in valid_transitions[old_instance.status] and self.status != old_instance.status:
+                    raise ValidationError(
+                        f'Cannot transition from {old_instance.get_status_display()} to {self.get_status_display()}. '
+                        f'Valid transitions: {", ".join(valid_transitions[old_instance.status])}'
+                    )
+    
+    def save(self, *args, **kwargs):
+        """Auto-deactivate other semesters when setting this as current"""
+        # If setting this as current, deactivate all others
+        if self.is_current:
+            Semester.objects.filter(is_current=True).exclude(pk=self.pk if self.pk else None).update(is_current=False)
+        
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        """
+        Prevent deletion if related records exist.
+        Uses apps.get_model() to avoid circular import issues.
+        """
+        from django.core.exceptions import ProtectedError
+        from django.apps import apps
+        
+        # Use apps.get_model() to avoid circular imports
+        # Check for related records dynamically
+        related_checks = [
+            ('core', 'TeacherSubjectAssignment', 'teacher_assignments'),
+            ('core', 'StudentEnrollment', 'enrollments'),
+            ('core', 'Attendance', 'attendances'),
+            ('core', 'Grade', 'grades'),
+        ]
+        
+        for app_label, model_name, attr_name in related_checks:
+            try:
+                model_class = apps.get_model(app_label, model_name)
+                # Use the related manager if available, otherwise query directly
+                if hasattr(self, attr_name):
+                    count = getattr(self, attr_name).count()
+                else:
+                    # Fallback: query directly using the semester field
+                    count = model_class.objects.filter(semester=self).count()
+                
+                if count > 0:
+                    raise ProtectedError(
+                        f'Cannot delete semester "{self}" because it has {count} related {model_name.lower()} records. '
+                        f'Archive the semester instead.',
+                        self
+                    )
+            except LookupError:
+                # Model not found (shouldn't happen, but safe fallback)
+                continue
+        
+        super().delete(*args, **kwargs)
+    
+    def can_edit_grades(self):
+        """Check if grades can be edited for this semester"""
+        return self.status == 'active'
+    
+    def can_record_attendance(self):
+        """Check if attendance can be recorded for this semester"""
+        return self.status == 'active'
+    
+    def can_enroll_students(self):
+        """Check if students can be enrolled for this semester"""
+        return self.status == 'active'
+    
+    def is_read_only(self):
+        """Check if semester is in read-only mode"""
+        return self.status in ['closed', 'archived']
+    
+    @property
+    def status_badge_class(self):
+        """Return Bootstrap badge class for status"""
+        badge_map = {
+            'active': 'success',
+            'upcoming': 'warning',
+            'closed': 'danger',
+            'archived': 'secondary',
+        }
+        return badge_map.get(self.status, 'secondary')
+    
+    @property
+    def status_icon(self):
+        """Return icon class for status"""
+        icon_map = {
+            'active': 'bi-check-circle-fill',
+            'upcoming': 'bi-clock-fill',
+            'closed': 'bi-x-circle-fill',
+            'archived': 'bi-archive-fill',
+        }
+        return icon_map.get(self.status, 'bi-circle')
 
 
 # ===== CLASS SECTION =====
@@ -291,13 +471,20 @@ class TeacherSubjectAssignment(models.Model):
     teacher = models.ForeignKey(TeacherProfile, on_delete=models.CASCADE, related_name='subject_assignments')
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='teacher_assignments')
     section = models.ForeignKey(ClassSection, on_delete=models.CASCADE, related_name='teacher_subject_assignments')
+    semester = models.ForeignKey('Semester', on_delete=models.PROTECT, related_name='teacher_assignments',
+                                 null=True, blank=True, help_text="Semester for this assignment")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         verbose_name = 'Teacher Subject Assignment'
         verbose_name_plural = 'Teacher Subject Assignments'
-        unique_together = [['teacher', 'subject', 'section']]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['teacher', 'subject', 'section'],
+                name='unique_teacher_subject_section'
+            ),
+        ]
         indexes = [
             models.Index(fields=['teacher', 'section']),
             models.Index(fields=['subject', 'section']),
@@ -326,16 +513,21 @@ class TeacherSubjectAssignment(models.Model):
                 raise ValidationError('Both subject and section are required.')
     
     def save(self, *args, **kwargs):
-        """Validate before saving"""
+        """Validate before saving and auto-assign current semester"""
+        # Auto-assign current semester if not set
+        if not self.semester_id:
+            current_semester = Semester.get_current()
+            if current_semester:
+                self.semester = current_semester
         self.full_clean()
         super().save(*args, **kwargs)
     
     def get_enrolled_students(self):
-        """Get all enrolled students for this assignment"""
+        """Get all enrolled students for this assignment with optimized queryset"""
         return StudentEnrollment.objects.filter(
             assignment=self,
             is_active=True
-        ).select_related('student', 'student__user')
+        ).select_related('student', 'student__user', 'semester')
     
     def can_teacher_manage(self, teacher_profile):
         """Check if a teacher can manage this assignment"""
@@ -355,13 +547,20 @@ class StudentEnrollment(models.Model):
     """
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='enrollments')
     assignment = models.ForeignKey('TeacherSubjectAssignment', on_delete=models.CASCADE, related_name='enrollments', null=True, blank=True)
+    semester = models.ForeignKey('Semester', on_delete=models.PROTECT, related_name='enrollments',
+                                  null=True, blank=True, help_text="Semester for this enrollment")
     enrolled_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     
     class Meta:
         verbose_name = 'Student Enrollment'
         verbose_name_plural = 'Student Enrollments'
-        unique_together = [['student', 'assignment']]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['student', 'assignment'],
+                name='unique_student_assignment_enrollment'
+            ),
+        ]
         indexes = [
             models.Index(fields=['student', 'is_active']),
             models.Index(fields=['assignment', 'is_active']),
@@ -374,7 +573,7 @@ class StudentEnrollment(models.Model):
         return f"{self.student.student_id} - {self.assignment.subject.code} ({self.assignment.section.name})"
     
     def clean(self):
-        """Validate enrollment constraints"""
+        """Validate enrollment constraints including semester consistency"""
         from django.core.exceptions import ValidationError
         
         if not self.student or not self.assignment:
@@ -394,6 +593,17 @@ class StudentEnrollment(models.Model):
                 f"section's year level ({self.assignment.section.year_level.name})."
             )
         
+        # Enforce semester consistency: enrollment semester must match assignment semester
+        if self.semester_id and self.assignment.semester_id:
+            if self.semester_id != self.assignment.semester_id:
+                raise ValidationError(
+                    f"Enrollment semester ({self.semester}) must match "
+                    f"assignment semester ({self.assignment.semester})."
+                )
+        elif self.assignment.semester_id:
+            # Auto-sync enrollment semester to assignment semester
+            self.semester_id = self.assignment.semester_id
+        
         # Check for duplicate enrollment (excluding current instance if updating)
         existing = StudentEnrollment.objects.filter(
             student=self.student,
@@ -409,7 +619,21 @@ class StudentEnrollment(models.Model):
             )
     
     def save(self, *args, **kwargs):
-        """Validate before saving"""
+        """Validate before saving and auto-assign current semester"""
+        # Auto-assign semester from assignment if available, otherwise use current
+        if not self.semester_id:
+            if self.assignment_id and self.assignment.semester_id:
+                self.semester_id = self.assignment.semester_id
+            else:
+                current_semester = Semester.get_current()
+                if current_semester:
+                    self.semester = current_semester
+        
+        # Validate semester status for enrollment
+        if self.semester and not self.semester.can_enroll_students():
+            from django.core.exceptions import ValidationError
+            raise ValidationError(f'Cannot enroll students in {self.semester.get_status_display()} semester.')
+        
         self.full_clean()
         super().save(*args, **kwargs)
     
@@ -434,6 +658,7 @@ class Attendance(models.Model):
     """
     Tracks student attendance for enrolled subjects.
     References StudentEnrollment to ensure attendance is only recorded for enrolled students.
+    Semester is derived from enrollment (no redundant ForeignKey).
     """
     STATUS_CHOICES = [
         ('present', 'Present'),
@@ -443,6 +668,29 @@ class Attendance(models.Model):
     enrollment = models.ForeignKey('StudentEnrollment', on_delete=models.CASCADE, related_name='attendances', null=True, blank=True)
     date = models.DateField()
     status = models.CharField(max_length=10, choices=STATUS_CHOICES)
+    
+    def clean(self):
+        """Validate attendance can be recorded"""
+        from django.core.exceptions import ValidationError
+        
+        if not self.enrollment:
+            return  # Skip validation if enrollment isn't set yet
+        
+        # Validate semester status through enrollment
+        if self.enrollment.semester and not self.enrollment.semester.can_record_attendance():
+            raise ValidationError(
+                f'Cannot record attendance for {self.enrollment.semester.get_status_display()} semester.'
+            )
+    
+    def save(self, *args, **kwargs):
+        """Validate before saving"""
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
+    @property
+    def semester(self):
+        """Derive semester from enrollment"""
+        return self.enrollment.semester if self.enrollment else None
     
     class Meta:
         verbose_name = 'Attendance'
@@ -481,10 +729,34 @@ class Grade(models.Model):
     """
     Tracks student grades per term for enrolled subjects.
     References StudentEnrollment to ensure grades are only recorded for enrolled students.
+    Semester is derived from enrollment (no redundant ForeignKey).
     """
     enrollment = models.ForeignKey('StudentEnrollment', on_delete=models.CASCADE, related_name='grades', null=True, blank=True)
     term = models.CharField(max_length=20, default="Midterm")
     grade = models.DecimalField(max_digits=5, decimal_places=2)
+    
+    def clean(self):
+        """Validate grade can be edited"""
+        from django.core.exceptions import ValidationError
+        
+        if not self.enrollment:
+            return  # Skip validation if enrollment isn't set yet
+        
+        # Validate semester status through enrollment
+        if self.enrollment.semester and not self.enrollment.semester.can_edit_grades():
+            raise ValidationError(
+                f'Cannot edit grades for {self.enrollment.semester.get_status_display()} semester.'
+            )
+    
+    def save(self, *args, **kwargs):
+        """Validate before saving"""
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
+    @property
+    def semester(self):
+        """Derive semester from enrollment"""
+        return self.enrollment.semester if self.enrollment else None
     
     class Meta:
         verbose_name = 'Grade'
@@ -596,6 +868,21 @@ class Assessment(models.Model):
     def __str__(self):
         return f"{self.name} ({self.category}) - {self.assignment.subject.code} ({self.assignment.section.name})"
     
+    def clean(self):
+        """Validate assessment can be created if semester allows it"""
+        from django.core.exceptions import ValidationError
+        
+        if self.assignment and self.assignment.semester:
+            if self.assignment.semester.is_read_only():
+                raise ValidationError(
+                    f'Cannot create assessments for {self.assignment.semester.get_status_display()} semester.'
+                )
+    
+    def save(self, *args, **kwargs):
+        """Validate before saving"""
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
     @property
     def subject(self):
         """Convenience property to access subject through assignment"""
@@ -605,6 +892,11 @@ class Assessment(models.Model):
     def section(self):
         """Convenience property to access section through assignment"""
         return self.assignment.section
+    
+    @property
+    def semester(self):
+        """Derive semester from assignment"""
+        return self.assignment.semester if self.assignment else None
     
     def can_teacher_manage(self, teacher_profile):
         """Check if a teacher can manage this assessment"""
@@ -627,7 +919,12 @@ class AssessmentScore(models.Model):
     class Meta:
         verbose_name = 'Assessment Score'
         verbose_name_plural = 'Assessment Scores'
-        unique_together = ['enrollment', 'assessment']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['enrollment', 'assessment'],
+                name='unique_enrollment_assessment_score'
+            ),
+        ]
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['enrollment', 'assessment']),
@@ -681,7 +978,12 @@ class CategoryWeights(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = ['assignment']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['assignment'],
+                name='unique_assignment_category_weights'
+            ),
+        ]
         verbose_name = 'Category Weight'
         verbose_name_plural = 'Category Weights'
     
@@ -800,3 +1102,14 @@ class Feedback(models.Model):
     def __str__(self):
         user_display = 'Anonymous' if self.is_anonymous else (self.user.get_full_name() if self.user else 'Unknown')
         return f"Feedback from {user_display} - {self.get_feedback_type_display()} ({self.created_at.strftime('%Y-%m-%d')})"
+
+
+# ===== UTILITY FUNCTIONS =====
+# Note: get_current_semester() has been moved to Semester.get_current() classmethod
+# This function is kept for backward compatibility during migration period
+def get_current_semester():
+    """
+    DEPRECATED: Use Semester.get_current() instead.
+    Kept for backward compatibility.
+    """
+    return Semester.get_current()

@@ -6,7 +6,7 @@ from django.utils import timezone
 from django.utils.safestring import mark_safe
 from datetime import timedelta
 import json
-from core.models import StudentProfile, Grade, Attendance, Subject, Notification, Assessment, AssessmentScore
+from core.models import StudentProfile, Grade, Attendance, Subject, Notification, Assessment, AssessmentScore, StudentEnrollment, Semester
 from core.db_functions import calculate_student_gpa, calculate_attendance_rate
 
 def percentage_to_gwa(percentage):
@@ -58,30 +58,50 @@ def dashboard(request):
     except StudentProfile.DoesNotExist:
         return redirect('dashboard')
     
-    # Get student's subjects (based on their section)
-    subjects = []
-    if student_profile.section:
-        subjects = Subject.objects.filter(section=student_profile.section)
+    # Get current semester
+    current_semester = Semester.get_current()
     
-    # Get recent grades
-    recent_grades = Grade.objects.filter(student=student_profile).select_related('subject').order_by('-id')[:10]
+    # Get student's enrollments for current semester
+    enrollments = StudentEnrollment.objects.filter(
+        student=student_profile,
+        is_active=True
+    )
+    if current_semester:
+        enrollments = enrollments.filter(semester=current_semester)
     
-    # Get grade statistics using database function
+    # Get subjects from enrollments
+    subjects = [enrollment.assignment.subject for enrollment in enrollments.select_related('assignment__subject')]
+    
+    # Get recent grades - filter by current semester
+    recent_grades = Grade.objects.filter(enrollment__student=student_profile)
+    if current_semester:
+        recent_grades = recent_grades.filter(semester=current_semester)
+    recent_grades = recent_grades.select_related('enrollment__assignment__subject').order_by('-id')[:10]
+    
+    # Get grade statistics using database function (filtered by current semester)
+    all_grades = Grade.objects.filter(enrollment__student=student_profile)
+    if current_semester:
+        all_grades = all_grades.filter(semester=current_semester)
+    
     gpa_result = calculate_student_gpa(student_id=student_profile.id)
     if 'error' not in gpa_result:
         average_grade = gpa_result.get('average_grade', 0)
         total_subjects_with_grades = gpa_result.get('grade_count', 0)
     else:
         # Fallback to manual calculation if function fails
-        all_grades = Grade.objects.filter(student=student_profile)
         average_grade = all_grades.aggregate(Avg('grade'))['grade__avg'] or 0
-        total_subjects_with_grades = all_grades.values('subject').distinct().count()
+        total_subjects_with_grades = all_grades.values('enrollment__assignment__subject').distinct().count()
     
-    # Get recent attendance
-    recent_attendance = Attendance.objects.filter(student=student_profile).select_related('subject').order_by('-date')[:10]
+    # Get recent attendance - filter by current semester
+    recent_attendance = Attendance.objects.filter(enrollment__student=student_profile)
+    if current_semester:
+        recent_attendance = recent_attendance.filter(semester=current_semester)
+    recent_attendance = recent_attendance.select_related('enrollment__assignment__subject').order_by('-date')[:10]
     
-    # Get total attendance queryset (needed for monthly data later)
-    total_attendance = Attendance.objects.filter(student=student_profile)
+    # Get total attendance queryset (needed for monthly data later) - filter by current semester
+    total_attendance = Attendance.objects.filter(enrollment__student=student_profile)
+    if current_semester:
+        total_attendance = total_attendance.filter(semester=current_semester)
     
     # Calculate attendance statistics using database function
     attendance_result = calculate_attendance_rate(student_id=student_profile.id)
@@ -281,8 +301,11 @@ def dashboard(request):
     # Get subject performance data for radar chart (all subjects, even without grades)
     subject_performance_data = []
     subject_labels = []
-    for subject in subjects:
-        subject_grades = Grade.objects.filter(student=student_profile, subject=subject)
+    for enrollment in enrollments:
+        subject = enrollment.assignment.subject
+        subject_grades = Grade.objects.filter(enrollment=enrollment)
+        if current_semester:
+            subject_grades = subject_grades.filter(semester=current_semester)
         if subject_grades.exists():
             avg_grade = subject_grades.aggregate(Avg('grade'))['grade__avg'] or 0
             subject_performance_data.append(round(avg_grade, 2))
@@ -322,6 +345,7 @@ def dashboard(request):
         'grade_progress_by_subject': grade_progress_by_subject,
         'subject_performance_data': subject_performance_data,
         'subject_labels': subject_labels,
+        'current_semester': current_semester,
         'performance_distribution': {
             'excellent': excellent_count,
             'good': good_count,

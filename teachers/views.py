@@ -10,7 +10,8 @@ from decimal import Decimal
 import logging
 from core.models import (
     TeacherProfile, Subject, ClassSection, StudentProfile, Attendance, Grade, Notification,
-    Assessment, AssessmentScore, CategoryWeights, AuditLog, TeacherSubjectAssignment, StudentEnrollment
+    Assessment, AssessmentScore, CategoryWeights, AuditLog, TeacherSubjectAssignment, StudentEnrollment,
+    Semester
 )
 from teachers.forms import TeacherSubjectAssignmentForm
 from django.db.models import Avg
@@ -34,10 +35,16 @@ def dashboard(request):
     except TeacherProfile.DoesNotExist:
         return redirect('dashboard')
     
-    # Get teacher's subject assignments (new architecture)
+    # Get current semester
+    current_semester = Semester.get_current()
+    
+    # Get teacher's subject assignments (new architecture) - filter by current semester
     assignments = TeacherSubjectAssignment.objects.filter(
         teacher=teacher_profile
-    ).select_related('subject', 'section').order_by('subject__code', 'section__name')
+    )
+    if current_semester:
+        assignments = assignments.filter(semester=current_semester)
+    assignments = assignments.select_related('subject', 'section').order_by('subject__code', 'section__name')
     
     # Get unique subjects from assignments
     subjects = [assignment.subject for assignment in assignments]
@@ -49,13 +56,18 @@ def dashboard(request):
     section_ids = list(set([assignment.section.id for assignment in assignments if assignment.section]))
     student_count = StudentProfile.objects.filter(section__id__in=section_ids).count() if section_ids else 0
     
-    # Get recent attendance records for teacher's assignments
+    # Get recent attendance records for teacher's assignments - filter by current semester
     recent_attendance = Attendance.objects.filter(
         enrollment__assignment__teacher=teacher_profile
-    ).select_related('enrollment', 'enrollment__student', 'enrollment__assignment__subject').order_by('-date')[:10]
+    )
+    if current_semester:
+        recent_attendance = recent_attendance.filter(semester=current_semester)
+    recent_attendance = recent_attendance.select_related('enrollment', 'enrollment__student', 'enrollment__assignment__subject').order_by('-date')[:10]
     
-    # Get attendance statistics
+    # Get attendance statistics - filter by current semester
     total_attendance = Attendance.objects.filter(enrollment__assignment__teacher=teacher_profile)
+    if current_semester:
+        total_attendance = total_attendance.filter(semester=current_semester)
     present_count = total_attendance.filter(status='present').count()
     absent_count = total_attendance.filter(status='absent').count()
     late_count = total_attendance.filter(status='late').count()
@@ -375,6 +387,7 @@ def dashboard(request):
         'weekly_attendance_labels': weekly_attendance_labels,
         'subject_performance_data': subject_performance_data,
         'subject_performance_labels': subject_performance_labels,
+        'current_semester': current_semester,
     }
     
     return render(request, 'teachers/dashboard.html', context)
@@ -392,10 +405,16 @@ def subjects(request):
         messages.error(request, 'Teacher profile not found.')
         return redirect('dashboard')
     
-    # Get teacher's subject assignments (new architecture)
+    # Get current semester
+    current_semester = Semester.get_current()
+    
+    # Get teacher's subject assignments (new architecture) - filter by current semester
     assignments = TeacherSubjectAssignment.objects.filter(
         teacher=teacher_profile
-    ).select_related('subject', 'section').order_by('section__name', 'subject__code')
+    )
+    if current_semester:
+        assignments = assignments.filter(semester=current_semester)
+    assignments = assignments.select_related('subject', 'section').order_by('section__name', 'subject__code')
     
     # Group assignments by section
     sections_dict = {}

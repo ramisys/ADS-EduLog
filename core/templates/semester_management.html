@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+
+{% block title %}Semester Management - EduLog{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-container {
+        padding: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+    .semester-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .semester-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    }
+    .semester-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 1rem;
+    }
+    .semester-info h4 {
+        margin: 0 0 0.5rem 0;
+        color: #333;
+    }
+    .semester-meta {
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .status-badge.active {
+        background-color: #d1f2eb;
+        color: #0d9488;
+    }
+    .status-badge.upcoming {
+        background-color: #fef3c7;
+        color: #d97706;
+    }
+    .status-badge.closed {
+        background-color: #fee2e2;
+        color: #dc2626;
+    }
+    .status-badge.archived {
+        background-color: #e5e7eb;
+        color: #6b7280;
+    }
+    .current-indicator {
+        background-color: #2563eb;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+    }
+    .semester-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .action-btn {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        border: none;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .action-btn.btn-primary {
+        background-color: #2563eb;
+        color: white;
+    }
+    .action-btn.btn-primary:hover {
+        background-color: #1d4ed8;
+    }
+    .action-btn.btn-danger {
+        background-color: #dc2626;
+        color: white;
+    }
+    .action-btn.btn-danger:hover {
+        background-color: #b91c1c;
+    }
+    .action-btn.btn-secondary {
+        background-color: #6b7280;
+        color: white;
+    }
+    .action-btn.btn-secondary:hover {
+        background-color: #4b5563;
+    }
+    .action-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .create-semester-form {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #333;
+    }
+    .form-group input,
+    .form-group select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 0.875rem;
+    }
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="page-header">
+        <div>
+            <h1>Semester Management</h1>
+            <p class="text-muted">Manage academic semesters and their lifecycle</p>
+        </div>
+    </div>
+
+    <!-- Create Semester Form -->
+    <div class="create-semester-form">
+        <h3 class="mb-3">Create New Semester</h3>
+        <form method="POST" action="{% url 'semester_create' %}">
+            {% csrf_token %}
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="name">Semester Name *</label>
+                    <input type="text" id="name" name="name" required placeholder="e.g., 1st Semester">
+                </div>
+                <div class="form-group">
+                    <label for="academic_year">Academic Year *</label>
+                    <input type="text" id="academic_year" name="academic_year" required placeholder="e.g., 2025-2026">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="start_date">Start Date *</label>
+                    <input type="date" id="start_date" name="start_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="end_date">End Date *</label>
+                    <input type="date" id="end_date" name="end_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="status">Initial Status</label>
+                    <select id="status" name="status">
+                        <option value="upcoming" selected>Upcoming</option>
+                        <option value="active">Active</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="action-btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create Semester
+            </button>
+        </form>
+    </div>
+
+    <!-- Semesters List -->
+    <div>
+        <h3 class="mb-3">All Semesters</h3>
+        {% if semesters %}
+            {% for semester in semesters %}
+            <div class="semester-card">
+                <div class="semester-header">
+                    <div class="semester-info">
+                        <h4>
+                            {{ semester.name }}
+                            {% if semester.is_current %}
+                            <span class="current-indicator">CURRENT</span>
+                            {% endif %}
+                        </h4>
+                        <div class="semester-meta">
+                            <i class="bi bi-calendar3"></i> {{ semester.academic_year }} | 
+                            <i class="bi bi-calendar-event"></i> {{ semester.start_date|date:"M d, Y" }} - {{ semester.end_date|date:"M d, Y" }}
+                        </div>
+                    </div>
+                    <div>
+                        <span class="status-badge {{ semester.status }}">
+                            <i class="bi {{ semester.status_icon }}"></i>
+                            {{ semester.get_status_display }}
+                        </span>
+                    </div>
+                </div>
+                <div class="semester-actions">
+                    {% if semester.status == 'upcoming' or semester.status == 'active' %}
+                        {% if not semester.is_current %}
+                        <form method="POST" action="{% url 'semester_set_active' semester.id %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="action-btn btn-primary" 
+                                    onclick="return confirm('Set {{ semester.name }} as the active semester? This will deactivate the current semester.')">
+                                <i class="bi bi-check-circle"></i> Set as Active
+                            </button>
+                        </form>
+                        {% endif %}
+                    {% endif %}
+                    
+                    {% if semester.status == 'active' %}
+                    <form method="POST" action="{% url 'semester_close' semester.id %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="action-btn btn-danger"
+                                onclick="return confirm('Close {{ semester.name }}? This will prevent further enrollment, attendance, and grade editing.')">
+                            <i class="bi bi-x-circle"></i> Close Semester
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    {% if semester.status == 'closed' %}
+                    <form method="POST" action="{% url 'semester_archive' semester.id %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="action-btn btn-secondary"
+                                onclick="return confirm('Archive {{ semester.name }}? This is a permanent action.')">
+                            <i class="bi bi-archive"></i> Archive Semester
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    {% if semester.status == 'archived' %}
+                    <span class="text-muted" style="font-size: 0.875rem;">
+                        <i class="bi bi-lock"></i> Archived - Read Only
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <i class="bi bi-calendar-x"></i>
+                <h4>No semesters found</h4>
+                <p>Create your first semester to get started.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize icons
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    });
+</script>
+{% endblock %}
+

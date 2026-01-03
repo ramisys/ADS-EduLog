@@ -1,12 +1,12 @@
-from django.shortcuts import render, redirect
-from django.http import HttpResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse, JsonResponse
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Avg
 from datetime import datetime
-from .models import TeacherProfile, StudentProfile, ParentProfile, User, Subject, Attendance, Grade, Notification, ClassSection, Feedback
+from .models import TeacherProfile, StudentProfile, ParentProfile, User, Subject, Attendance, Grade, Notification, ClassSection, Feedback, Semester
 from .permissions import validate_input, role_required
 
 def check_password_with_plaintext(user, password):
@@ -76,6 +76,9 @@ def admin_dashboard(request):
     """Admin dashboard with feedback management and system overview"""
     from django.db.models import Count, Q
     
+    # Get current semester
+    current_semester = Semester.get_current()
+    
     # Feedback statistics
     total_feedbacks = Feedback.objects.count()
     unread_feedbacks = Feedback.objects.filter(is_read=False, is_archived=False).count()
@@ -109,6 +112,7 @@ def admin_dashboard(request):
         'admins_count': admins_count,
         'recent_feedbacks': recent_feedbacks,
         'feedback_by_type': feedback_by_type,
+        'current_semester': current_semester,
     }
     return render(request, 'admin_dashboard.html', context)
 
@@ -562,3 +566,135 @@ def feedback_detail(request, feedback_id):
         'feedback': feedback,
     }
     return render(request, 'feedback_detail.html', context)
+
+
+@login_required
+@role_required('admin')
+def semester_management(request):
+    """Admin view for managing semesters"""
+    semesters = Semester.objects.all().order_by('-academic_year', '-start_date')
+    current_semester = get_current_semester()
+    
+    context = {
+        'semesters': semesters,
+        'current_semester': current_semester,
+    }
+    return render(request, 'semester_management.html', context)
+
+
+@login_required
+@role_required('admin')
+def semester_set_active(request, semester_id):
+    """Set a semester as active (deactivates previous current semester)"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        semester = get_object_or_404(Semester, pk=semester_id)
+        
+        # Validate semester can be activated
+        if semester.status not in ['upcoming', 'active']:
+            messages.error(request, f'Cannot activate {semester.get_status_display()} semester.')
+            return redirect('semester_management')
+        
+        # Set as current (this will auto-deactivate others)
+        semester.is_current = True
+        semester.status = 'active'
+        semester.save()
+        
+        messages.success(request, f'{semester} is now the active semester.')
+    except Exception as e:
+        messages.error(request, f'Error activating semester: {str(e)}')
+    
+    return redirect('semester_management')
+
+
+@login_required
+@role_required('admin')
+def semester_close(request, semester_id):
+    """Close an active semester"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        semester = get_object_or_404(Semester, pk=semester_id)
+        
+        if semester.status != 'active':
+            messages.error(request, f'Only active semesters can be closed.')
+            return redirect('semester_management')
+        
+        semester.status = 'closed'
+        semester.is_current = False
+        semester.save()
+        
+        messages.success(request, f'{semester} has been closed.')
+    except Exception as e:
+        messages.error(request, f'Error closing semester: {str(e)}')
+    
+    return redirect('semester_management')
+
+
+@login_required
+@role_required('admin')
+def semester_archive(request, semester_id):
+    """Archive a closed semester"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        semester = get_object_or_404(Semester, pk=semester_id)
+        
+        if semester.status != 'closed':
+            messages.error(request, f'Only closed semesters can be archived.')
+            return redirect('semester_management')
+        
+        semester.status = 'archived'
+        semester.save()
+        
+        messages.success(request, f'{semester} has been archived.')
+    except Exception as e:
+        messages.error(request, f'Error archiving semester: {str(e)}')
+    
+    return redirect('semester_management')
+
+
+@login_required
+@role_required('admin')
+def semester_create(request):
+    """Create a new semester"""
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        academic_year = request.POST.get('academic_year', '').strip()
+        start_date = request.POST.get('start_date', '')
+        end_date = request.POST.get('end_date', '')
+        status = request.POST.get('status', 'upcoming')
+        
+        # Validate required fields
+        if not name or not academic_year or not start_date or not end_date:
+            messages.error(request, 'Please fill in all required fields.')
+            return redirect('semester_management')
+        
+        try:
+            from datetime import datetime
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            
+            semester = Semester.objects.create(
+                name=name,
+                academic_year=academic_year,
+                start_date=start_date_obj,
+                end_date=end_date_obj,
+                status=status,
+                is_current=False  # Don't auto-set as current
+            )
+            
+            messages.success(request, f'Semester "{semester}" created successfully.')
+        except ValueError as e:
+            messages.error(request, f'Invalid date format: {str(e)}')
+        except Exception as e:
+            messages.error(request, f'Error creating semester: {str(e)}')
+        
+        return redirect('semester_management')
+    
+    # GET request - redirect to management page
+    return redirect('semester_management')

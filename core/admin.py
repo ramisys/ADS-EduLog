@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.core.exceptions import ValidationError
 from .models import *
 
 
@@ -93,6 +94,38 @@ class TeacherProfileAdmin(admin.ModelAdmin):
     list_display = ['teacher_id', 'user', 'department']
     search_fields = ['teacher_id', 'user__username', 'user__first_name', 'user__last_name', 'user__email', 'department']
     list_filter = ['department']
+
+
+@admin.register(Semester)
+class SemesterAdmin(admin.ModelAdmin):
+    list_display = ['name', 'academic_year', 'start_date', 'end_date', 'status', 'is_current', 'created_at']
+    list_filter = ['status', 'is_current', 'academic_year']
+    search_fields = ['name', 'academic_year']
+    readonly_fields = ['created_at', 'updated_at']
+    date_hierarchy = 'start_date'
+    
+    fieldsets = (
+        ('Semester Information', {
+            'fields': ('name', 'academic_year', 'start_date', 'end_date')
+        }),
+        ('Status', {
+            'fields': ('status', 'is_current')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        """Override save to handle validation"""
+        try:
+            obj.full_clean()
+            super().save_model(request, obj, form, change)
+        except ValidationError as e:
+            from django.contrib import messages
+            messages.error(request, f'Error saving semester: {"; ".join(e.messages)}')
+            raise
 
 
 admin.site.register(Subject)

@@ -246,6 +246,12 @@
                     </a>
                 </li>
                 <li>
+                    <a href="{% url 'semester_management' %}" class="sidebar-link {% if request.resolver_match.url_name == 'semester_management' or request.resolver_match.url_name == 'semester_create' or request.resolver_match.url_name == 'semester_set_active' or request.resolver_match.url_name == 'semester_close' or request.resolver_match.url_name == 'semester_archive' %}active{% endif %}">
+                        <i data-lucide="calendar"></i>
+                        Semester Management
+                    </a>
+                </li>
+                <li>
                     <a href="/admin/" class="sidebar-link" target="_blank">
                         <i data-lucide="settings"></i>
                         Django Admin

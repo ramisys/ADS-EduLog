@@ -22,3 +22,23 @@ class AdminAccessMiddleware:
         response = self.get_response(request)
         return response
 
+
+class SemesterMiddleware:
+    """
+    Optional middleware to inject the current semester into request object.
+    This allows templates and views to access request.semester directly.
+    """
+    
+    def __init__(self, get_response):
+        self.get_response = get_response
+    
+    def __call__(self, request):
+        # Inject current semester into request
+        try:
+            from core.models import Semester
+            request.semester = Semester.get_current()
+        except Exception:
+            request.semester = None
+        
+        response = self.get_response(request)
+        return response

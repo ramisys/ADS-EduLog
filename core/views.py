@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Avg
+from django.core.exceptions import ValidationError
 from datetime import datetime
 from .models import TeacherProfile, StudentProfile, ParentProfile, User, Subject, Attendance, Grade, Notification, ClassSection, Feedback, Semester
 from .permissions import validate_input, role_required
@@ -597,14 +598,55 @@ def semester_set_active(request, semester_id):
             messages.error(request, f'Cannot activate {semester.get_status_display()} semester.')
             return redirect('semester_management')
         
+        # Validate required fields before activation
+        if not semester.academic_year:
+            messages.error(request, 'Cannot activate semester: Academic year is required. Please edit the semester and add an academic year first.')
+            return redirect('semester_management')
+        
+        if not semester.name:
+            messages.error(request, 'Cannot activate semester: Semester name is required. Please edit the semester and add a name first.')
+            return redirect('semester_management')
+        
+        if not semester.start_date or not semester.end_date:
+            messages.error(request, 'Cannot activate semester: Start date and end date are required. Please edit the semester and add dates first.')
+            return redirect('semester_management')
+        
         # Set as current (this will auto-deactivate others)
         semester.is_current = True
         semester.status = 'active'
         semester.save()
         
         messages.success(request, f'{semester} is now the active semester.')
+    except ValidationError as e:
+        # Handle Django validation errors specifically
+        error_dict = e.error_dict if hasattr(e, 'error_dict') else {}
+        error_messages = e.error_list if hasattr(e, 'error_list') else []
+        
+        # Check for specific field errors
+        if 'academic_year' in error_dict:
+            messages.error(request, 'Cannot activate semester: Academic year is required. Please edit the semester and add an academic year first.')
+        elif 'name' in error_dict:
+            messages.error(request, 'Cannot activate semester: Semester name is required. Please edit the semester and add a name first.')
+        elif 'start_date' in error_dict or 'end_date' in error_dict:
+            messages.error(request, 'Cannot activate semester: Start date and end date are required. Please edit the semester and add dates first.')
+        else:
+            # Format validation errors nicely
+            if error_dict:
+                field_errors = []
+                for field, errors in error_dict.items():
+                    field_errors.append(f"{field}: {', '.join([str(err) for err in errors])}")
+                messages.error(request, f'Validation error: {"; ".join(field_errors)}')
+            elif error_messages:
+                messages.error(request, f'Validation error: {"; ".join([str(err) for err in error_messages])}')
+            else:
+                messages.error(request, f'Validation error: {str(e)}')
     except Exception as e:
-        messages.error(request, f'Error activating semester: {str(e)}')
+        # Handle other exceptions
+        error_msg = str(e)
+        if 'academic_year' in error_msg or "'academic_year'" in error_msg:
+            messages.error(request, 'Cannot activate semester: Academic year is required. Please edit the semester and add an academic year first.')
+        else:
+            messages.error(request, f'Error activating semester: {error_msg}')
     
     return redirect('semester_management')
 

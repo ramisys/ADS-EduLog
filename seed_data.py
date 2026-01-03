@@ -213,40 +213,27 @@ def create_students(year_levels):
     return students
 
 
-def create_subjects(year_levels, sections):
-    """Create subjects organized by year level and section"""
+def create_subjects(year_levels):
+    """Create subjects as master catalog entries for each year level"""
     subjects = []
-    sections_by_year_level = {}
     
-    # Group sections by year level
-    for section in sections:
-        year_level_id = section.year_level.level
-        if year_level_id not in sections_by_year_level:
-            sections_by_year_level[year_level_id] = []
-        sections_by_year_level[year_level_id].append(section)
-    
-    # Create subjects for each year level
+    # Create subjects for each year level (master catalog - one per year level)
     for year_level in year_levels:
         level = year_level.level
         if level in SUBJECTS_BY_YEAR_LEVEL:
             year_subjects = SUBJECTS_BY_YEAR_LEVEL[level]
-            sections_for_level = sections_by_year_level.get(level, [])
             
-            # Create subjects for this year level
+            # Create subjects for this year level (one entry per subject code)
             for code, name in year_subjects:
-                # Create one subject entry per section in this year level
-                for section in sections_for_level:
-                    # Create unique subject code per section (e.g., IT101-BSIT1A)
-                    unique_code = f"{code}-{section.name.replace(' ', '')}"
-                    subject = Subject.objects.create(
-                        code=unique_code,
-                        name=name,
-                        description=f"{name} for {section.name}",
-                        is_active=True,
-                    )
-                    subjects.append(subject)
+                subject = Subject.objects.create(
+                    code=code,
+                    name=name,
+                    description=f"Master catalog entry for {name} ({year_level.name})",
+                    is_active=True,
+                )
+                subjects.append(subject)
     
-    print(f"   Created {len(subjects)} subjects (organized by year level and section)")
+    print(f"   Created {len(subjects)} subjects (master catalog, one per year level)")
     return subjects
 
 
@@ -269,14 +256,14 @@ def main():
         students = create_students(year_levels)
 
     with atomic_section("Generating subjects"):
-        subjects = create_subjects(year_levels, sections)
+        subjects = create_subjects(year_levels)
 
     print("\n=== DATASET GENERATION COMPLETE ===")
     print(f"\nSummary:")
     print(f"  - Year Levels: {len(year_levels)}")
     print(f"  - Teachers: {len(teachers)}")
     print(f"  - Sections: {len(sections)} ({SECTIONS_PER_TEACHER} per year level, no adviser assigned)")
-    print(f"  - Subjects: {len(subjects)} (organized by year level and section)")
+    print(f"  - Subjects: {len(subjects)} (master catalog, one per year level)")
     print(f"  - Students: {len(students)} ({STUDENTS_PER_SECTION * SECTIONS_PER_TEACHER} per year level, no section/parent assigned)")
     print(f"  - Parents: {len(parents)} (not related to students)")
     print(f"\nNote: No relationships created. Entities are standalone.")

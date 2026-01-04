@@ -408,12 +408,18 @@ def subjects(request):
     # Get current semester
     current_semester = Semester.get_current()
     
-    # Get teacher's subject assignments (new architecture) - show all assignments
-    # Filter by current semester if specified, otherwise show all
+    # Get teacher's subject assignments (new architecture) - filter by active semester
     assignments = TeacherSubjectAssignment.objects.filter(
         teacher=teacher_profile
     )
-    # Show all assignments regardless of semester to ensure nothing is hidden
+    # Filter by active semester only
+    if current_semester:
+        assignments = assignments.filter(semester=current_semester)
+    else:
+        # If no active semester, show empty list with warning
+        assignments = assignments.none()
+        messages.warning(request, 'No active semester is set. Please contact the administrator.')
+    
     assignments = assignments.select_related('subject', 'section', 'semester').order_by('section__name', 'subject__code')
     
     # Group assignments by section
@@ -475,6 +481,7 @@ def subjects(request):
         'total_students': total_unique_students,
         'total_sections': total_sections,
         'avg_students_per_subject': round(avg_students_per_subject, 1),
+        'current_semester': current_semester,
     }
     return render(request, 'teachers/subjects.html', context)
 
@@ -695,10 +702,18 @@ def sections(request):
     # Get sections where teacher is adviser
     advised_section_ids = ClassSection.objects.filter(adviser=teacher_profile).values_list('id', flat=True)
     
-    # Get sections where teacher teaches subjects (through assignments)
-    sections_with_subjects_ids = ClassSection.objects.filter(
+    # Get current semester
+    current_semester = Semester.get_current()
+    
+    # Get sections where teacher teaches subjects (through assignments) - filter by active semester
+    sections_with_subjects_filter = ClassSection.objects.filter(
         teacher_subject_assignments__teacher=teacher_profile
-    ).values_list('id', flat=True).distinct()
+    )
+    if current_semester:
+        sections_with_subjects_filter = sections_with_subjects_filter.filter(
+            teacher_subject_assignments__semester=current_semester
+        )
+    sections_with_subjects_ids = sections_with_subjects_filter.values_list('id', flat=True).distinct()
     
     # Combine both sets of IDs
     all_section_ids = set(list(advised_section_ids) + list(sections_with_subjects_ids))
@@ -715,11 +730,14 @@ def sections(request):
     total_grades_count = 0
     
     for section in all_sections:
-        # Get assignments teacher has in this section
+        # Get assignments teacher has in this section - filter by active semester
         section_assignments = TeacherSubjectAssignment.objects.filter(
             teacher=teacher_profile,
             section=section
-        ).select_related('subject', 'section').order_by('subject__code')
+        )
+        if current_semester:
+            section_assignments = section_assignments.filter(semester=current_semester)
+        section_assignments = section_assignments.select_related('subject', 'section').order_by('subject__code')
         
         # Calculate attendance for this section
         # Get enrollments for this section's assignments
@@ -786,14 +804,24 @@ def students(request):
     except TeacherProfile.DoesNotExist:
         return redirect('dashboard')
     
+    # Get current semester
+    current_semester = Semester.get_current()
+    
     # Get assignment filter from query parameter (optional)
     assignment_id = request.GET.get('assignment')
     selected_assignment = None
     
-    # Get all assignments for this teacher
+    # Get assignments for this teacher - filter by active semester
     assignments = TeacherSubjectAssignment.objects.filter(
         teacher=teacher_profile
-    ).select_related('subject', 'section').order_by('subject__code', 'subject__name')
+    )
+    if current_semester:
+        assignments = assignments.filter(semester=current_semester)
+    else:
+        assignments = assignments.none()
+        messages.warning(request, 'No active semester is set. Please contact the administrator.')
+    
+    assignments = assignments.select_related('subject', 'section').order_by('subject__code', 'subject__name')
     
     # Filter by assignment if specified
     if assignment_id:
@@ -1431,10 +1459,15 @@ def attendance(request):
                 messages.error(request, subject_or_error)
                 return redirect('teachers:attendance')
             selected_subject = subject_or_error
-            assignment = TeacherSubjectAssignment.objects.filter(
+            # Get current semester for filtering
+            current_semester = Semester.get_current()
+            assignment_filter = TeacherSubjectAssignment.objects.filter(
                 teacher=teacher_profile,
                 subject=selected_subject
-            ).first()
+            )
+            if current_semester:
+                assignment_filter = assignment_filter.filter(semester=current_semester)
+            assignment = assignment_filter.first()
             if not assignment:
                 messages.error(request, 'Assignment not found.')
                 return redirect('teachers:attendance')
@@ -1537,10 +1570,20 @@ def attendance(request):
         # Redirect with assignment_id
         return redirect(reverse('teachers:attendance') + '?assignment=' + str(assignment.id) + '&saved=true')
     
-    # Get teacher's assignments
+    # Get current semester
+    current_semester = Semester.get_current()
+    
+    # Get teacher's assignments - filter by active semester
     assignments = TeacherSubjectAssignment.objects.filter(
         teacher=teacher_profile
-    ).select_related('subject', 'section').order_by('subject__code')
+    )
+    if current_semester:
+        assignments = assignments.filter(semester=current_semester)
+    else:
+        assignments = assignments.none()
+        messages.warning(request, 'No active semester is set. Please contact the administrator.')
+    
+    assignments = assignments.select_related('subject', 'section').order_by('subject__code')
     
     # Get unique subjects from assignments
     subjects = [assignment.subject for assignment in assignments]
@@ -1649,10 +1692,20 @@ def grades(request):
     except TeacherProfile.DoesNotExist:
         return redirect('dashboard')
     
-    # Get teacher's assignments
+    # Get current semester
+    current_semester = Semester.get_current()
+    
+    # Get teacher's assignments - filter by active semester
     assignments = TeacherSubjectAssignment.objects.filter(
         teacher=teacher_profile
-    ).select_related('subject', 'section').order_by('subject__code')
+    )
+    if current_semester:
+        assignments = assignments.filter(semester=current_semester)
+    else:
+        assignments = assignments.none()
+        messages.warning(request, 'No active semester is set. Please contact the administrator.')
+    
+    assignments = assignments.select_related('subject', 'section').order_by('subject__code')
     
     # Get unique subjects from assignments
     subjects = [assignment.subject for assignment in assignments]

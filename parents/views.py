@@ -39,16 +39,16 @@ def dashboard(request):
     # Get grades for all children (recent)
     children_grades = (
         Grade.objects
-        .filter(student__in=children)
-        .select_related('student', 'subject')
+        .filter(enrollment__student__in=children)
+        .select_related('enrollment__student', 'enrollment__assignment__subject')
         .order_by('-id')[:10]
     )
     
     # Get attendance for all children (recent)
     children_attendance = (
         Attendance.objects
-        .filter(student__in=children)
-        .select_related('student', 'subject')
+        .filter(enrollment__student__in=children)
+        .select_related('enrollment__student', 'enrollment__assignment__subject')
         .order_by('-date')[:10]
     )
     
@@ -105,7 +105,7 @@ def dashboard(request):
         })
     
     # Overall statistics across all children
-    all_grades = Grade.objects.filter(student__in=children)
+    all_grades = Grade.objects.filter(enrollment__student__in=children)
     overall_avg_value = all_grades.aggregate(avg_grade=Avg('grade'))['avg_grade']
     has_grade_data = overall_avg_value is not None
     overall_avg = round(float(overall_avg_value), 2) if has_grade_data else None
@@ -126,7 +126,7 @@ def dashboard(request):
         a_count = b_count = c_count = d_count = 0
         grade_a_percent = grade_b_percent = grade_c_percent = grade_d_percent = 0
     
-    all_attendance = Attendance.objects.filter(student__in=children)
+    all_attendance = Attendance.objects.filter(enrollment__student__in=children)
     total_present = all_attendance.filter(status='present').count()
     total_absent = all_attendance.filter(status='absent').count()
     total_late = all_attendance.filter(status='late').count()
@@ -167,7 +167,7 @@ def dashboard(request):
     if children.exists():
         attendance_qs = (
             Attendance.objects
-            .filter(student__in=children, date__gte=month_starts[0])
+            .filter(enrollment__student__in=children, date__gte=month_starts[0])
             .annotate(month=TruncMonth('date'))
             .values('month')
             .annotate(

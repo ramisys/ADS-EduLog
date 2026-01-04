@@ -730,6 +730,7 @@ def reports(request):
     subjects_count = 0
     subject_performance = []
     concern_subjects = []
+    historical_reports = []  # Initialize to avoid UnboundLocalError
     
     if child:
         # Use database function for comprehensive performance summary

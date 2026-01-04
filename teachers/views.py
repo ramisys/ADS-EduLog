@@ -53,9 +53,15 @@ def dashboard(request):
     # Get classes/sections the teacher is advising
     advised_sections = ClassSection.objects.filter(adviser=teacher_profile)
     
-    # Get all students in teacher's sections
-    section_ids = list(set([assignment.section.id for assignment in assignments if assignment.section]))
-    student_count = StudentProfile.objects.filter(section__id__in=section_ids).count() if section_ids else 0
+    # Get all students enrolled in teacher's assignments for the active semester
+    # Count unique students enrolled in the teacher's assignments for the active semester
+    teacher_enrollments_for_count = StudentEnrollment.objects.filter(
+        assignment__teacher=teacher_profile,
+        is_active=True
+    )
+    if current_semester:
+        teacher_enrollments_for_count = teacher_enrollments_for_count.filter(semester=current_semester)
+    student_count = teacher_enrollments_for_count.values('student').distinct().count()
     
     # Get recent attendance records for teacher's assignments - filter by current semester
     recent_attendance = Attendance.objects.filter(
@@ -111,8 +117,10 @@ def dashboard(request):
             label = subject.code
         
         # Calculate average for this assignment (subject-section combination)
-        # Get enrollments for this assignment, then get grades
+        # Get enrollments for this assignment in the active semester, then get grades
         enrollments = StudentEnrollment.objects.filter(assignment=assignment, is_active=True)
+        if current_semester:
+            enrollments = enrollments.filter(semester=current_semester)
         subject_grades = Grade.objects.filter(enrollment__in=enrollments)
         has_data = False
         subject_avg = None
@@ -162,22 +170,27 @@ def dashboard(request):
     logger.debug(f"Subject performance labels: {subject_performance_labels}")
     
     # Calculate class average as the average of all subject-section averages
-    # This gives the overall average across all subject-sections
+    # This gives the overall average across all subject-sections for the active semester
     if subject_section_averages:
         average_grade = sum(subject_section_averages) / len(subject_section_averages)
-        # Count total number of Grade records for this teacher
-        # Get all enrollments for teacher's assignments
+        # Count total number of Grade records for this teacher in the active semester
+        # Get all enrollments for teacher's assignments in the active semester
         teacher_enrollments = StudentEnrollment.objects.filter(
             assignment__teacher=teacher_profile,
             is_active=True
         )
+        if current_semester:
+            teacher_enrollments = teacher_enrollments.filter(semester=current_semester)
         grades_count = Grade.objects.filter(enrollment__in=teacher_enrollments).count()
     else:
         # Fallback: If no subject-section averages, try to calculate from all grades
+        # Filter by active semester
         teacher_enrollments = StudentEnrollment.objects.filter(
             assignment__teacher=teacher_profile,
             is_active=True
         )
+        if current_semester:
+            teacher_enrollments = teacher_enrollments.filter(semester=current_semester)
         total_grades = Grade.objects.filter(enrollment__in=teacher_enrollments)
         grades_count = total_grades.count()
         
@@ -189,11 +202,17 @@ def dashboard(request):
                 average_grade = 0
         else:
             # Final fallback: Calculate from assessment scores
-            # Get assessments for teacher's assignments
+            # Get assessments for teacher's assignments in the active semester
             teacher_assessments = Assessment.objects.filter(assignment__teacher=teacher_profile)
+            if current_semester:
+                teacher_assessments = teacher_assessments.filter(assignment__semester=current_semester)
+            # Filter assessment scores by enrollments in the active semester
             assessment_scores = AssessmentScore.objects.filter(
                 assessment__in=teacher_assessments
-            ).select_related('assessment')
+            )
+            if current_semester:
+                assessment_scores = assessment_scores.filter(enrollment__semester=current_semester)
+            assessment_scores = assessment_scores.select_related('assessment')
             
             if assessment_scores.exists():
                 total_score = sum(float(score.score) for score in assessment_scores)
@@ -233,13 +252,15 @@ def dashboard(request):
         student_avg = None
         
         # Try to get average from Grade records first
-        # Calculate average across ALL assignments the teacher teaches for this student
-        # Get enrollments for this student in teacher's assignments
+        # Calculate average across ALL assignments the teacher teaches for this student in the active semester
+        # Get enrollments for this student in teacher's assignments in the active semester
         student_enrollments = StudentEnrollment.objects.filter(
             student=student,
             assignment__teacher=teacher_profile,
             is_active=True
         )
+        if current_semester:
+            student_enrollments = student_enrollments.filter(semester=current_semester)
         student_grades = Grade.objects.filter(enrollment__in=student_enrollments)
         if student_grades.exists():
             # Get the subjects these grades are for
@@ -251,14 +272,18 @@ def dashboard(request):
         
         # Fallback: Calculate from assessment scores if Grade records don't exist
         if student_avg is None:
-            # Get assessments for teacher's assignments
+            # Get assessments for teacher's assignments in the active semester
             teacher_assessments = Assessment.objects.filter(assignment__teacher=teacher_profile)
-            # Get scores for this student
+            if current_semester:
+                teacher_assessments = teacher_assessments.filter(assignment__semester=current_semester)
+            # Get scores for this student in the active semester
             student_enrollments = StudentEnrollment.objects.filter(
                 student=student,
                 assignment__teacher=teacher_profile,
                 is_active=True
             )
+            if current_semester:
+                student_enrollments = student_enrollments.filter(semester=current_semester)
             assessment_scores = AssessmentScore.objects.filter(
                 enrollment__in=student_enrollments,
                 assessment__in=teacher_assessments
@@ -320,12 +345,15 @@ def dashboard(request):
                 continue
     else:
         # Fallback to manual calculation if function fails
+        # Note: assignments are already filtered by current_semester above
         subject_stats = []
         for assignment in assignments:
             subject = assignment.subject
             section = assignment.section
-            # Get enrolled students for this assignment
+            # Get enrolled students for this assignment in the active semester
             enrollments = StudentEnrollment.objects.filter(assignment=assignment, is_active=True)
+            if current_semester:
+                enrollments = enrollments.filter(semester=current_semester)
             subject_students = enrollments.count()
             subject_grades = Grade.objects.filter(enrollment__in=enrollments)
             subject_avg = subject_grades.aggregate(Avg('grade'))['grade__avg'] or 0
@@ -336,7 +364,7 @@ def dashboard(request):
                 'grades_count': subject_grades.count()
             })
     
-    # Calculate weekly attendance data (last 7 days)
+    # Calculate weekly attendance data (last 7 days) for the active semester
     today = timezone.now().date()
     weekly_attendance_data = []
     weekly_attendance_labels = []
@@ -347,6 +375,8 @@ def dashboard(request):
             enrollment__assignment__teacher=teacher_profile,
             date=date
         )
+        if current_semester:
+            date_attendance = date_attendance.filter(enrollment__semester=current_semester)
         present = date_attendance.filter(status='present').count()
         absent = date_attendance.filter(status='absent').count()
         late = date_attendance.filter(status='late').count()

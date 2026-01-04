@@ -71,7 +71,7 @@ def dashboard(request):
             grades_count = gpa_result.get('grade_count', 0)
         else:
             # Fallback to manual calculation
-            child_grades = Grade.objects.filter(student=child)
+            child_grades = Grade.objects.filter(enrollment__student=child)
             child_avg = child_grades.aggregate(Avg('grade'))['grade__avg'] or 0
             grades_count = child_grades.count()
         
@@ -83,7 +83,7 @@ def dashboard(request):
             attendance_percentage = attendance_result.get('attendance_rate', 0)
         else:
             # Fallback to manual calculation
-            child_attendance = Attendance.objects.filter(student=child)
+            child_attendance = Attendance.objects.filter(enrollment__student=child)
             present_count = child_attendance.filter(status='present').count()
             absent_count = child_attendance.filter(status='absent').count()
             late_count = child_attendance.filter(status='late').count()
@@ -376,12 +376,12 @@ def child_subjects(request):
         for subject in subjects_qs:
             avg_grade = (
                 Grade.objects
-                .filter(student=child, subject=subject)
+                .filter(enrollment__student=child, enrollment__assignment__subject=subject)
                 .aggregate(avg_value=Avg('grade'))['avg_value']
             )
             avg_grade = round(float(avg_grade), 2) if avg_grade is not None else None
 
-            attendance_qs = Attendance.objects.filter(student=child, subject=subject)
+            attendance_qs = Attendance.objects.filter(enrollment__student=child, enrollment__assignment__subject=subject)
             total_attendance = attendance_qs.count()
             present_attendance = attendance_qs.filter(status='present').count()
             attendance_rate = (
@@ -389,10 +389,10 @@ def child_subjects(request):
                 if total_attendance > 0 else None
             )
 
-            total_assessments = Assessment.objects.filter(subject=subject).count()
+            total_assessments = Assessment.objects.filter(assignment__subject=subject).count()
             completed_assessments = AssessmentScore.objects.filter(
-                student=child,
-                assessment__subject=subject
+                enrollment__student=child,
+                assessment__assignment__subject=subject
             ).count()
 
             assignment_summary = (
@@ -468,7 +468,7 @@ def attendance(request):
     if child:
         
         # Overall attendance statistics
-        all_attendance = Attendance.objects.filter(student=child)
+        all_attendance = Attendance.objects.filter(enrollment__student=child)
         present_count = all_attendance.filter(status='present').count()
         absent_count = all_attendance.filter(status='absent').count()
         late_count = all_attendance.filter(status='late').count()
@@ -491,7 +491,7 @@ def attendance(request):
         subjects_qs = Subject.objects.filter(section=child.section).select_related('teacher__user')
         
         for subject in subjects_qs:
-            subject_attendance_qs = Attendance.objects.filter(student=child, subject=subject)
+            subject_attendance_qs = Attendance.objects.filter(enrollment__student=child, enrollment__assignment__subject=subject)
             subject_total = subject_attendance_qs.count()
             subject_present = subject_attendance_qs.filter(status='present').count()
             subject_rate = (
@@ -512,8 +512,8 @@ def attendance(request):
         # Recent attendance records (last 20)
         recent_attendance = (
             Attendance.objects
-            .filter(student=child)
-            .select_related('subject', 'subject__teacher__user')
+            .filter(enrollment__student=child)
+            .select_related('enrollment__student', 'enrollment__assignment__subject', 'enrollment__assignment__teacher__user')
             .order_by('-date')[:20]
         )
 
@@ -572,7 +572,7 @@ def grades(request):
         
         for subject in subjects_qs:
             # Get average grade for this subject (across all terms or latest term)
-            grade_qs = Grade.objects.filter(student=child, subject=subject)
+            grade_qs = Grade.objects.filter(enrollment__student=child, enrollment__assignment__subject=subject)
             avg_grade = grade_qs.aggregate(avg_value=Avg('grade'))['avg_value']
             
             # Get latest term grade
@@ -596,8 +596,8 @@ def grades(request):
         # Get detailed assessment scores
         assessment_scores = (
             AssessmentScore.objects
-            .filter(student=child)
-            .select_related('assessment', 'assessment__subject', 'assessment__subject__teacher__user', 'recorded_by__user')
+            .filter(enrollment__student=child)
+            .select_related('enrollment__student', 'assessment', 'assessment__assignment__subject', 'assessment__assignment__teacher__user', 'recorded_by__user')
             .order_by('-assessment__date', '-created_at')[:50]
         )
         
@@ -703,7 +703,7 @@ def reports(request):
                     
                     # Calculate improvement (compare latest term with previous term if available)
                     improvement = None
-                    subject_grades = Grade.objects.filter(student=child, subject=subject)
+                    subject_grades = Grade.objects.filter(enrollment__student=child, enrollment__assignment__subject=subject)
                     if subject_grades.count() >= 2:
                         latest_grade = subject_grades.order_by('-term').first()
                         previous_grade = subject_grades.order_by('-term')[1] if subject_grades.count() > 1 else None
@@ -733,7 +733,7 @@ def reports(request):
         else:
             # Fallback to manual calculation if function fails
             # Calculate overall GPA (average of all grades)
-            all_grades = Grade.objects.filter(student=child)
+            all_grades = Grade.objects.filter(enrollment__student=child)
             if all_grades.exists():
                 avg_grade_value = all_grades.aggregate(avg_value=Avg('grade'))['avg_value']
                 if avg_grade_value:
@@ -742,7 +742,7 @@ def reports(request):
                     overall_gpa = round((avg_grade / 100) * 4.0, 2)
             
             # Calculate overall attendance
-            all_attendance = Attendance.objects.filter(student=child)
+            all_attendance = Attendance.objects.filter(enrollment__student=child)
             total_attendance = all_attendance.count()
             present_count = all_attendance.filter(status='present').count()
             if total_attendance > 0:
@@ -754,7 +754,7 @@ def reports(request):
             
             for subject in subjects_qs:
                 # Get grade for this subject
-                subject_grades = Grade.objects.filter(student=child, subject=subject)
+                subject_grades = Grade.objects.filter(enrollment__student=child, enrollment__assignment__subject=subject)
                 subject_avg_grade = None
                 if subject_grades.exists():
                     avg = subject_grades.aggregate(avg_value=Avg('grade'))['avg_value']
@@ -762,7 +762,7 @@ def reports(request):
                         subject_avg_grade = round(float(avg), 2)
                 
                 # Get attendance for this subject
-                subject_attendance_qs = Attendance.objects.filter(student=child, subject=subject)
+                subject_attendance_qs = Attendance.objects.filter(enrollment__student=child, enrollment__assignment__subject=subject)
                 subject_total = subject_attendance_qs.count()
                 subject_present = subject_attendance_qs.filter(status='present').count()
                 subject_attendance_rate = None
@@ -801,11 +801,11 @@ def reports(request):
         
         # Generate historical performance reports (by term)
         historical_reports = []
-        terms = Grade.objects.filter(student=child).values_list('term', flat=True).distinct().order_by('-term')
+        terms = Grade.objects.filter(enrollment__student=child).values_list('term', flat=True).distinct().order_by('-term')
         
         for term in terms:
             # Get grades for this term
-            term_grades = Grade.objects.filter(student=child, term=term)
+            term_grades = Grade.objects.filter(enrollment__student=child, term=term)
             term_avg = term_grades.aggregate(avg_value=Avg('grade'))['avg_value']
             term_gpa = None
             if term_avg:

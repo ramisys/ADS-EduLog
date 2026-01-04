@@ -1,0 +1,497 @@
+{% extends "base.html" %}
+{% block title %}Assign Subject | EduLog{% endblock %}
+{% block extra_css %}
+<style>
+  #subjects-container {
+    min-height: 200px;
+    border: 2px solid #dee2e6 !important;
+    transition: border-color 0.2s;
+  }
+  
+  #subjects-container:focus-within {
+    border-color: #0d6efd !important;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.1) !important;
+  }
+  
+  /* Custom Scrollbar */
+  #subjects-container::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  #subjects-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+  
+  #subjects-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+  }
+  
+  #subjects-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+  }
+  
+  /* Subject Checkbox Items */
+  #subjects-list .form-check {
+    padding: 0.75rem 1rem;
+    margin: 0.25rem 0;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+    background-color: #ffffff;
+  }
+  
+  #subjects-list .form-check:hover {
+    background-color: #f0f7ff;
+    border-color: #b3d9ff;
+    transform: translateX(2px);
+  }
+  
+  #subjects-list .form-check:has(input:checked) {
+    background-color: #e7f3ff;
+    border-color: #0d6efd;
+    box-shadow: 0 2px 4px rgba(13, 110, 253, 0.1);
+  }
+  
+  #subjects-list .form-check-input {
+    width: 1.2rem;
+    height: 1.2rem;
+    margin-top: 0.3rem;
+    cursor: pointer;
+    border: 2px solid #6c757d;
+    transition: all 0.2s;
+  }
+  
+  #subjects-list .form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+  }
+  
+  #subjects-list .form-check-input:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+  }
+  
+  #subjects-list .form-check-label {
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.95rem;
+    color: #212529;
+    padding-left: 0.5rem;
+    line-height: 1.5;
+    transition: color 0.2s;
+  }
+  
+  #subjects-list .form-check:hover .form-check-label {
+    color: #0d6efd;
+  }
+  
+  #subjects-list .form-check:has(input:checked) .form-check-label {
+    font-weight: 500;
+    color: #0d6efd;
+  }
+  
+  /* Select All Styling */
+  #select-all-subjects {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid #6c757d;
+  }
+  
+  #select-all-subjects:checked {
+    background-color: #198754;
+    border-color: #198754;
+  }
+  
+  /* Empty State */
+  #subjects-empty {
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Selected Count Badge */
+  #selected-count {
+    font-weight: 600;
+    color: #0d6efd;
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="dashboard-container container py-4">
+  
+  <!-- Header -->
+  <div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="text-primary">Assign Subject to Section</h2>
+      <a href="{% url 'teachers:subjects' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Back to Subjects
+      </a>
+    </div>
+    <p class="text-muted small">Select one or more subjects and a section to create assignments</p>
+    {% if current_semester %}
+    <div class="alert alert-info d-inline-flex align-items-center gap-2 py-2 px-3 mt-2">
+      <i class="bi bi-calendar-check"></i>
+      <span><strong>Current Semester:</strong> {{ current_semester.name }} - {{ current_semester.academic_year }}</span>
+      <span class="badge bg-{{ current_semester.status_badge_class }}">{{ current_semester.get_status_display }}</span>
+    </div>
+    {% else %}
+    <div class="alert alert-warning d-inline-flex align-items-center gap-2 py-2 px-3 mt-2">
+      <i class="bi bi-exclamation-triangle"></i>
+      <span><strong>Warning:</strong> No active semester is set. Please contact the administrator to set a current semester.</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Form Card -->
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+      <div class="card border rounded-3 p-4">
+        <form method="post">
+          {% csrf_token %}
+          
+          <!-- Display form errors -->
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger" role="alert">
+            {% for error in form.non_field_errors %}
+              <div>{{ error }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          
+          <!-- Year Level Field -->
+          <div class="mb-3">
+            <label for="{{ form.year_level.id_for_label }}" class="form-label">
+              {{ form.year_level.label }}
+              <span class="text-danger">*</span>
+            </label>
+            {{ form.year_level }}
+            {% if form.year_level.errors %}
+              <div class="text-danger small mt-1">
+                {% for error in form.year_level.errors %}
+                  <div>{{ error }}</div>
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if form.year_level.help_text %}
+            <div class="form-text">{{ form.year_level.help_text }}</div>
+            {% endif %}
+          </div>
+          
+          <!-- Section Field -->
+          <div class="mb-3">
+            <label for="{{ form.section.id_for_label }}" class="form-label">
+              {{ form.section.label }}
+              <span class="text-danger">*</span>
+            </label>
+            {{ form.section }}
+            {% if form.section.errors %}
+              <div class="text-danger small mt-1">
+                {% for error in form.section.errors %}
+                  <div>{{ error }}</div>
+                {% endfor %}
+              </div>
+            {% endif %}
+            {% if form.section.help_text %}
+            <div class="form-text">{{ form.section.help_text }}</div>
+            {% endif %}
+          </div>
+          
+          <!-- Subjects Field (Checkboxes) -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">
+              <i class="bi bi-book me-2"></i>{{ form.subjects.label }}
+              <span class="text-danger">*</span>
+            </label>
+            {% if form.subjects.errors %}
+              <div class="alert alert-danger py-2 px-3 mb-3">
+                {% for error in form.subjects.errors %}
+                  <div class="small mb-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                {% endfor %}
+              </div>
+            {% endif %}
+            <div id="subjects-container" class="border rounded-3 shadow-sm p-0" style="max-height: 450px; overflow-y: auto; background-color: #ffffff;">
+              <!-- Select All Header -->
+              <div class="bg-light border-bottom p-3 sticky-top" style="z-index: 10;">
+                <div class="form-check mb-0">
+                  <input type="checkbox" class="form-check-input form-check-input-lg" id="select-all-subjects" style="width: 1.25rem; height: 1.25rem; cursor: pointer;">
+                  <label class="form-check-label fw-semibold ms-2" for="select-all-subjects" style="cursor: pointer; font-size: 1rem;">
+                    <i class="bi bi-check-square me-2"></i>Select All Subjects
+                  </label>
+                </div>
+                <small class="text-muted d-block mt-1 ms-4">
+                  <span id="selected-count">0</span> of <span id="total-count">0</span> subjects selected
+                </small>
+              </div>
+              
+              <!-- Subjects List -->
+              <div id="subjects-list" class="p-3">
+                {{ form.subjects }}
+              </div>
+              
+              <!-- Empty State -->
+              <div id="subjects-empty" class="text-center p-5 text-muted" style="display: none;">
+                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                <p class="mb-0">No subjects available. Please select a year level first.</p>
+              </div>
+            </div>
+            {% if form.subjects.help_text %}
+            <div class="form-text mt-2">
+              <i class="bi bi-info-circle me-1"></i>{{ form.subjects.help_text }}
+            </div>
+            {% endif %}
+          </div>
+          
+          <!-- Submit Buttons -->
+          <div class="d-flex gap-2 justify-content-end">
+            <a href="{% url 'teachers:subjects' %}" class="btn btn-outline-secondary">
+              Cancel
+            </a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-circle me-2"></i>Assign Subjects
+            </button>
+          </div>
+        </form>
+      </div>
+      
+      <!-- Info Card -->
+      <div class="card border rounded-3 p-3 mt-3 bg-light">
+        <div class="d-flex align-items-start">
+          <i class="bi bi-info-circle text-primary me-2 fs-5"></i>
+          <div class="small">
+            <strong>Note:</strong> You can select multiple subjects at once to assign them all to the selected section in a single operation. 
+            You can assign the same subjects to multiple sections. However, you cannot create duplicate assignments for the same subject and section combination.
+            {% if current_semester %}
+            <br><br>
+            <strong>Semester:</strong> Assignments will be created for <strong>{{ current_semester.name }} - {{ current_semester.academic_year }}</strong>. 
+            Students can only be enrolled in assignments for the active semester.
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const yearLevelSelect = document.getElementById('id_year_level');
+    const sectionSelect = document.getElementById('id_section');
+    const subjectsContainer = document.getElementById('subjects-list');
+    const selectAllCheckbox = document.getElementById('select-all-subjects');
+    
+    // Function to load sections based on year level
+    function loadSections(yearLevelId) {
+        if (!yearLevelId) {
+            sectionSelect.innerHTML = '<option value="">Select a section</option>';
+            sectionSelect.disabled = true;
+            // Hide subjects when year level is cleared
+            loadSubjects(null, null);
+            return;
+        }
+        
+        fetch(`{% url 'teachers:get_sections_by_year_level' %}?year_level_id=${yearLevelId}`)
+            .then(response => response.json())
+            .then(data => {
+                sectionSelect.innerHTML = '<option value="">Select a section</option>';
+                if (data.sections && data.sections.length > 0) {
+                    data.sections.forEach(section => {
+                        const option = document.createElement('option');
+                        option.value = section.id;
+                        option.textContent = section.name;
+                        sectionSelect.appendChild(option);
+                    });
+                    sectionSelect.disabled = false;
+                } else {
+                    sectionSelect.innerHTML = '<option value="">No sections available</option>';
+                    sectionSelect.disabled = true;
+                }
+                // Hide subjects when section list changes (until new section is selected)
+                loadSubjects(yearLevelId, null);
+            })
+            .catch(error => {
+                console.error('Error loading sections:', error);
+                sectionSelect.innerHTML = '<option value="">Error loading sections</option>';
+                sectionSelect.disabled = true;
+                loadSubjects(yearLevelId, null);
+            });
+    }
+    
+    // Function to update selected count
+    function updateSelectedCount() {
+        const checkboxes = subjectsContainer.querySelectorAll('input[type="checkbox"][name="subjects"]');
+        const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+        const totalCount = checkboxes.length;
+        
+        const selectedCountEl = document.getElementById('selected-count');
+        const totalCountEl = document.getElementById('total-count');
+        
+        if (selectedCountEl) selectedCountEl.textContent = checkedCount;
+        if (totalCountEl) totalCountEl.textContent = totalCount;
+    }
+    
+    // Function to load subjects based on year level and section
+    function loadSubjects(yearLevelId, sectionId) {
+        const emptyState = document.getElementById('subjects-empty');
+        const subjectsList = document.getElementById('subjects-list');
+        
+        // Hide subjects if year level or section is not selected
+        if (!yearLevelId || !sectionId) {
+            if (subjectsList) subjectsList.style.display = 'none';
+            if (emptyState) {
+                emptyState.style.display = 'flex';
+                if (!yearLevelId) {
+                    emptyState.innerHTML = `
+                        <i class="bi bi-inbox fs-1 d-block mb-2 text-muted"></i>
+                        <p class="mb-0">Please select a year level first</p>
+                    `;
+                } else if (!sectionId) {
+                    emptyState.innerHTML = `
+                        <i class="bi bi-inbox fs-1 d-block mb-2 text-muted"></i>
+                        <p class="mb-0">Please select a section first</p>
+                    `;
+                }
+            }
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.disabled = true;
+            }
+            updateSelectedCount();
+            return;
+        }
+        
+        fetch(`{% url 'teachers:get_subjects_by_year_level' %}?year_level_id=${yearLevelId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (emptyState) emptyState.style.display = 'none';
+                if (subjectsList) {
+                    subjectsList.style.display = 'block';
+                    subjectsList.innerHTML = '';
+                }
+                
+                if (data.subjects && data.subjects.length > 0) {
+                    data.subjects.forEach(subject => {
+                        const checkDiv = document.createElement('div');
+                        checkDiv.className = 'form-check';
+                        
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.className = 'form-check-input';
+                        checkbox.name = 'subjects';
+                        checkbox.value = subject.id;
+                        checkbox.id = `id_subjects_${subject.id}`;
+                        
+                        const label = document.createElement('label');
+                        label.className = 'form-check-label';
+                        label.htmlFor = `id_subjects_${subject.id}`;
+                        label.innerHTML = `<span class="fw-semibold text-primary">${subject.code}</span> - ${subject.name}`;
+                        
+                        checkDiv.appendChild(checkbox);
+                        checkDiv.appendChild(label);
+                        subjectsContainer.appendChild(checkDiv);
+                        
+                        // Add change listener to update count
+                        checkbox.addEventListener('change', updateSelectedCount);
+                    });
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.disabled = false;
+                        selectAllCheckbox.checked = false;
+                    }
+                    updateSelectedCount();
+                } else {
+                    if (subjectsList) subjectsList.style.display = 'none';
+                    if (emptyState) {
+                        emptyState.style.display = 'flex';
+                        emptyState.innerHTML = `
+                            <i class="bi bi-folder-x fs-1 d-block mb-2 text-muted"></i>
+                            <p class="mb-0">No subjects available for this year level</p>
+                        `;
+                    }
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = false;
+                        selectAllCheckbox.disabled = true;
+                    }
+                    updateSelectedCount();
+                }
+            })
+            .catch(error => {
+                console.error('Error loading subjects:', error);
+                if (subjectsList) subjectsList.style.display = 'none';
+                if (emptyState) {
+                    emptyState.style.display = 'flex';
+                    emptyState.innerHTML = `
+                        <i class="bi bi-exclamation-triangle fs-1 d-block mb-2 text-danger"></i>
+                        <p class="mb-0 text-danger">Error loading subjects. Please try again.</p>
+                    `;
+                }
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.disabled = true;
+                }
+                updateSelectedCount();
+            });
+    }
+    
+    // Event listener for year level change
+    yearLevelSelect.addEventListener('change', function() {
+        const yearLevelId = this.value;
+        loadSections(yearLevelId);
+        // Subjects will be loaded when section is selected
+    });
+    
+    // Event listener for section change
+    sectionSelect.addEventListener('change', function() {
+        const yearLevelId = yearLevelSelect.value;
+        const sectionId = this.value;
+        // Load subjects only when both year level and section are selected
+        loadSubjects(yearLevelId, sectionId);
+    });
+    
+    // Select All functionality
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            const checkboxes = subjectsContainer.querySelectorAll('input[type="checkbox"][name="subjects"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateSelectedCount();
+        });
+    }
+    
+    // Update Select All checkbox when individual checkboxes change
+    subjectsContainer.addEventListener('change', function(e) {
+        if (e.target.type === 'checkbox' && e.target.name === 'subjects' && selectAllCheckbox) {
+            const checkboxes = subjectsContainer.querySelectorAll('input[type="checkbox"][name="subjects"]');
+            const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+            selectAllCheckbox.checked = checkedCount === checkboxes.length && checkboxes.length > 0;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+            updateSelectedCount();
+        }
+    });
+    
+    // Initialize on page load if year level and section are already selected (form errors)
+    if (yearLevelSelect.value) {
+        loadSections(yearLevelSelect.value);
+        
+        // If section is also selected, load subjects
+        if (sectionSelect.value) {
+            sectionSelect.disabled = false;
+            loadSubjects(yearLevelSelect.value, sectionSelect.value);
+        } else {
+            // Hide subjects if section is not selected
+            loadSubjects(yearLevelSelect.value, null);
+        }
+    } else {
+        // Hide subjects initially
+        loadSubjects(null, null);
+    }
+});
+</script>
+{% endblock %}
+

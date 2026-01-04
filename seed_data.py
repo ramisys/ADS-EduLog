@@ -17,6 +17,7 @@ from core.models import (
     ClassSection,
     Subject,
     YearLevel,
+    Semester,
 )
 
 User = get_user_model()
@@ -28,31 +29,48 @@ NUM_TEACHERS = 4
 SECTIONS_PER_TEACHER = 4
 MIN_SUBJECTS_PER_TEACHER = 2
 STUDENTS_PER_SECTION = 10
+# Subjects organized by year level and semester
 SUBJECTS_BY_YEAR_LEVEL = {
-    1: [
-        ("IT101", "Introduction to Information Technology"),
-        ("IT102", "Programming Fundamentals"),
-        ("IT103", "Computer Systems"),
-        ("IT104", "Mathematics for IT"),
-    ],
-    2: [
-        ("IT201", "Data Structures and Algorithms"),
-        ("IT202", "Object-Oriented Programming"),
-        ("IT203", "Computer Networks"),
-        ("IT204", "Web Development"),
-    ],
-    3: [
-        ("IT301", "Database Systems"),
-        ("IT302", "Software Engineering"),
-        ("IT303", "Operating Systems"),
-        ("IT304", "Mobile Application Development"),
-    ],
-    4: [
-        ("IT401", "Capstone Project"),
-        ("IT402", "IT Project Management"),
-        ("IT403", "Information Security"),
-        ("IT404", "Cloud Computing"),
-    ],
+    1: {
+        'first_semester': [
+            ("IT101", "Introduction to Information Technology"),
+            ("IT102", "Programming Fundamentals"),
+        ],
+        'second_semester': [
+            ("IT103", "Computer Systems"),
+            ("IT104", "Mathematics for IT"),
+        ],
+    },
+    2: {
+        'first_semester': [
+            ("IT201", "Data Structures and Algorithms"),
+            ("IT202", "Object-Oriented Programming"),
+        ],
+        'second_semester': [
+            ("IT203", "Computer Networks"),
+            ("IT204", "Web Development"),
+        ],
+    },
+    3: {
+        'first_semester': [
+            ("IT301", "Database Systems"),
+            ("IT302", "Software Engineering"),
+        ],
+        'second_semester': [
+            ("IT303", "Operating Systems"),
+            ("IT304", "Mobile Application Development"),
+        ],
+    },
+    4: {
+        'first_semester': [
+            ("IT401", "Capstone Project"),
+            ("IT402", "IT Project Management"),
+        ],
+        'second_semester': [
+            ("IT403", "Information Security"),
+            ("IT404", "Cloud Computing"),
+        ],
+    },
 }
 
 # ==========================
@@ -93,6 +111,7 @@ def clear_existing_data():
     ClassSection.objects.all().delete()
     TeacherProfile.objects.all().delete()
     YearLevel.objects.all().delete()
+    Semester.objects.all().delete()
     (
         User.objects.filter(role__in=["teacher", "student", "parent"])
         .exclude(is_superuser=True)
@@ -213,27 +232,85 @@ def create_students(year_levels):
     return students
 
 
-def create_subjects(year_levels):
-    """Create subjects as master catalog entries for each year level"""
+def create_semesters():
+    """Create first and second semester for the current academic year"""
+    from datetime import date, timedelta
+    
+    # Get current year for academic year
+    current_year = date.today().year
+    academic_year = f"{current_year}-{current_year + 1}"
+    
+    # First Semester: August to December
+    first_sem_start = date(current_year, 8, 1)
+    first_sem_end = date(current_year, 12, 31)
+    
+    # Second Semester: January to May
+    second_sem_start = date(current_year + 1, 1, 1)
+    second_sem_end = date(current_year + 1, 5, 31)
+    
+    # Create or get first semester
+    first_semester, created = Semester.objects.get_or_create(
+        name="1st Semester",
+        academic_year=academic_year,
+        defaults={
+            'start_date': first_sem_start,
+            'end_date': first_sem_end,
+            'status': 'active',
+            'is_current': True,  # Set first semester as current
+        }
+    )
+    
+    # Create or get second semester
+    second_semester, created = Semester.objects.get_or_create(
+        name="2nd Semester",
+        academic_year=academic_year,
+        defaults={
+            'start_date': second_sem_start,
+            'end_date': second_sem_end,
+            'status': 'upcoming',
+            'is_current': False,
+        }
+    )
+    
+    # Ensure only one current semester
+    if first_semester.is_current:
+        Semester.objects.exclude(pk=first_semester.pk).update(is_current=False)
+    
+    print(f"   Created/verified semesters: {first_semester} (current), {second_semester}")
+    return first_semester, second_semester
+
+
+def create_subjects(year_levels, first_semester, second_semester):
+    """Create subjects as master catalog entries organized by semester"""
     subjects = []
     
-    # Create subjects for each year level (master catalog - one per year level)
+    # Create subjects for each year level, organized by semester
     for year_level in year_levels:
         level = year_level.level
         if level in SUBJECTS_BY_YEAR_LEVEL:
             year_subjects = SUBJECTS_BY_YEAR_LEVEL[level]
             
-            # Create subjects for this year level (one entry per subject code)
-            for code, name in year_subjects:
+            # Create first semester subjects
+            for code, name in year_subjects.get('first_semester', []):
                 subject = Subject.objects.create(
                     code=code,
                     name=name,
-                    description=f"Master catalog entry for {name} ({year_level.name})",
+                    description=f"Master catalog entry for {name} ({year_level.name}) - 1st Semester",
+                    is_active=True,
+                )
+                subjects.append(subject)
+            
+            # Create second semester subjects
+            for code, name in year_subjects.get('second_semester', []):
+                subject = Subject.objects.create(
+                    code=code,
+                    name=name,
+                    description=f"Master catalog entry for {name} ({year_level.name}) - 2nd Semester",
                     is_active=True,
                 )
                 subjects.append(subject)
     
-    print(f"   Created {len(subjects)} subjects (master catalog, one per year level)")
+    print(f"   Created {len(subjects)} subjects (master catalog, organized by semester)")
     return subjects
 
 
@@ -242,6 +319,9 @@ def main():
 
     with atomic_section("Generating year levels"):
         year_levels = create_year_levels()
+
+    with atomic_section("Generating semesters"):
+        first_semester, second_semester = create_semesters()
 
     with atomic_section("Generating teachers"):
         teachers = create_teachers()
@@ -256,17 +336,25 @@ def main():
         students = create_students(year_levels)
 
     with atomic_section("Generating subjects"):
-        subjects = create_subjects(year_levels)
+        subjects = create_subjects(year_levels, first_semester, second_semester)
 
     print("\n=== DATASET GENERATION COMPLETE ===")
     print(f"\nSummary:")
     print(f"  - Year Levels: {len(year_levels)}")
+    print(f"  - Semesters: 1st Semester (current), 2nd Semester (upcoming)")
     print(f"  - Teachers: {len(teachers)}")
     print(f"  - Sections: {len(sections)} ({SECTIONS_PER_TEACHER} per year level, no adviser assigned)")
-    print(f"  - Subjects: {len(subjects)} (master catalog, one per year level)")
+    print(f"  - Subjects: {len(subjects)} (master catalog, organized by semester)")
     print(f"  - Students: {len(students)} ({STUDENTS_PER_SECTION * SECTIONS_PER_TEACHER} per year level, no section/parent assigned)")
     print(f"  - Parents: {len(parents)} (not related to students)")
     print(f"\nNote: No relationships created. Entities are standalone.")
+    print(f"\nSubjects are organized by semester:")
+    for year_level in year_levels:
+        level = year_level.level
+        if level in SUBJECTS_BY_YEAR_LEVEL:
+            first_sem_count = len(SUBJECTS_BY_YEAR_LEVEL[level].get('first_semester', []))
+            second_sem_count = len(SUBJECTS_BY_YEAR_LEVEL[level].get('second_semester', []))
+            print(f"  - {year_level.name}: {first_sem_count} subjects (1st Sem), {second_sem_count} subjects (2nd Sem)")
 
 
 if __name__ == "__main__":

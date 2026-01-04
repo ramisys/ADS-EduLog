@@ -6,7 +6,6 @@ app_name = 'teachers'
 urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('subjects/', views.subjects, name='subjects'),
-    path('subjects/assign/', views.assign_subject, name='assign_subject'),
     path('subjects/remove/<int:assignment_id>/', views.remove_assignment, name='remove_assignment'),
     path('subjects/get-sections/', views.get_sections_by_year_level, name='get_sections_by_year_level'),
     path('subjects/get-subjects/', views.get_subjects_by_year_level, name='get_subjects_by_year_level'),

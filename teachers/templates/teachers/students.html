@@ -17,34 +17,13 @@
         </div>
         <div class="d-flex gap-2">
             {% if selected_assignment %}
-                <a href="{% url 'teachers:add_student' %}?assignment={{ selected_assignment.id }}" class="btn btn-primary d-flex align-items-center">
-                    <i class="bi bi-plus-circle me-2"></i>Add Student
-                </a>
                 <a href="{% url 'teachers:students' %}" class="btn btn-outline-secondary d-flex align-items-center">
                     <i class="bi bi-x-circle me-2"></i>Clear Filter
                 </a>
             {% else %}
-                <div class="btn-group">
-                    <a href="{% url 'teachers:enroll_student' %}" class="btn btn-success d-flex align-items-center">
-                        <i class="bi bi-person-plus me-2"></i>Enroll Student
-                    </a>
-                    <div class="dropdown">
-                        <button class="btn btn-primary d-flex align-items-center dropdown-toggle" type="button" id="addStudentDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-plus-circle me-2"></i>Add to Subject
-                        </button>
-                        <ul class="dropdown-menu" aria-labelledby="addStudentDropdown">
-                            {% for assignment in all_assignments %}
-                            <li>
-                                <a class="dropdown-item" href="{% url 'teachers:add_student' %}?assignment={{ assignment.id }}">
-                                    {{ assignment.subject.code }} - {{ assignment.section.name }}
-                                </a>
-                            </li>
-                            {% empty %}
-                            <li><span class="dropdown-item-text text-muted">No assignments available</span></li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                </div>
+                <a href="{% url 'teachers:enroll_student' %}" class="btn btn-success d-flex align-items-center">
+                    <i class="bi bi-person-plus me-2"></i>Enroll Student
+                </a>
             {% endif %}
         </div>
     </div>
@@ -143,13 +122,6 @@
                         <span class="badge {% if subject_data.avg_gpa >= 80 %}bg-primary-subtle text-primary{% elif subject_data.avg_gpa >= 70 %}bg-warning-subtle text-warning{% else %}bg-danger-subtle text-danger{% endif %}">{{ subject_data.avg_gpa|floatformat:2 }}</span>
                     </div>
                 </div>
-                {% if subject_data.assignment %}
-                <div>
-                    <a href="{% url 'teachers:add_student' %}?assignment={{ subject_data.assignment.id }}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-plus-circle me-1"></i>Add More Students
-                    </a>
-                </div>
-                {% endif %}
             </div>
         </div>
 
@@ -200,11 +172,6 @@
         <div class="text-center py-4">
             <i class="bi bi-people text-muted" style="font-size: 2rem;"></i>
             <p class="text-muted mt-2">No students enrolled in this subject</p>
-            {% if subject_data.assignment %}
-            <a href="{% url 'teachers:add_student' %}?assignment={{ subject_data.assignment.id }}" class="btn btn-primary btn-sm mt-2">
-                <i class="bi bi-plus-circle me-1"></i>Add Students
-            </a>
-            {% endif %}
         </div>
         {% endif %}
 

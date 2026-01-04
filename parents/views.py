@@ -18,6 +18,7 @@ from core.models import (
     AssessmentScore,
     StudentEnrollment,
     TeacherSubjectAssignment,
+    Semester,
 )
 from core.db_functions import calculate_student_gpa, calculate_attendance_rate, get_student_performance_summary
 
@@ -141,10 +142,18 @@ def dashboard(request):
 
     # Overall progress for the progress bar (use average grade as %)
     overall_progress = round(float(overall_avg_value), 1) if has_grade_data else 0
-    progress_display = overall_progress if has_grade_data else 89
+    progress_display = overall_progress if has_grade_data else 0
     progress_width = progress_display
-    progress_status_text = "On track for semester goals"
-    progress_alert_text = "Great progress! Improved in 4 out of 6 subjects."
+    
+    # Calculate progress status text based on actual data
+    current_semester = Semester.get_current()
+    if current_semester:
+        progress_status_text = f"Current Semester: {current_semester.name} - {current_semester.academic_year}"
+    else:
+        progress_status_text = "No active semester set"
+    
+    # Progress alert text will be calculated after term_rank is defined
+    progress_alert_text = "No grade data available yet."
 
     # Number of distinct subjects across all children
     subjects_count = (
@@ -227,7 +236,8 @@ def dashboard(request):
         subject_term_map.setdefault(subject_name, {})[term_name] = round(float(entry['avg_grade']), 2)
         terms_present.add(term_name)
 
-    term_hierarchy = ['Midterm', 'Final']
+    # Get term hierarchy from Assessment model TERM_CHOICES
+    term_hierarchy = [choice[0] for choice in Assessment.TERM_CHOICES]
     term_rank = {term: idx for idx, term in enumerate(term_hierarchy, start=1)}
 
     if terms_present:
@@ -244,6 +254,10 @@ def dashboard(request):
 
     subject_prev_values = []
     subject_current_values = []
+    
+    # Calculate progress alert text based on actual improvement data
+    improvement_count = 0
+    total_subjects_with_improvement = 0
 
     for subject_name in subject_labels:
         term_values = subject_term_map.get(subject_name, {})
@@ -258,12 +272,26 @@ def dashboard(request):
                 if len(sorted_terms_local) >= 2
                 else sorted_terms_local[-1][1]
             )
+            
+            # Track improvement for progress alert
+            if len(sorted_terms_local) >= 2:
+                if current_value > previous_value:
+                    improvement_count += 1
+                total_subjects_with_improvement += 1
         else:
             current_value = 0
             previous_value = 0
 
         subject_current_values.append(current_value)
         subject_prev_values.append(previous_value)
+    
+    # Update progress alert text based on calculated improvement
+    if improvement_count > 0 and total_subjects_with_improvement > 0:
+        progress_alert_text = f"Great progress! Improved in {improvement_count} out of {total_subjects_with_improvement} subject{'s' if total_subjects_with_improvement != 1 else ''}."
+    elif total_subjects_with_improvement > 0:
+        progress_alert_text = f"Performance tracked across {total_subjects_with_improvement} subject{'s' if total_subjects_with_improvement != 1 else ''}."
+    else:
+        progress_alert_text = "No grade data available yet."
 
     # Determine which child is selected for dashboard widgets
     selected_child_stats = None

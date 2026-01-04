@@ -386,8 +386,9 @@
       return typeof value === 'number' && value > 0;
     });
     if (!attendanceHasData) {
-      attendanceData = [98, 92, 100, 95, 99, 100];
-      attendanceLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+      // Use empty data instead of hardcoded values
+      attendanceData = [0, 0, 0, 0, 0, 0];
+      // Keep the actual month labels from the view
     }
     var attendanceCtx = document.getElementById('attendanceTrendChart');
     if (attendanceCtx && Array.isArray(attendanceLabels)) {
@@ -486,10 +487,10 @@
     var safeCurrentData = normalizeData(subjectCurrentData, safeSubjectLabels.length);
 
     var performanceHasData = safeCurrentData.some(function (value) { return value > 0; });
+    // Use empty data instead of hardcoded values when no data is available
     if (!performanceHasData) {
-      safeSubjectLabels = ['Math', 'Science', 'English', 'History', 'Art'];
-      safePrevData = [75, 82, 79, 81, 83];
-      safeCurrentData = [88, 92, 86, 89, 94];
+      // Keep the actual labels from the view (which will be empty or 'No Data')
+      // Keep the data as zeros
     }
 
     var academicCtx = document.getElementById('academicPerformanceChart');
@@ -579,9 +580,14 @@
     var radarLabels = safeSubjectLabels.slice();
     var radarData = safeSubjectData.slice();
     var radarHasData = Array.isArray(radarData) && radarData.some(function (value) { return value > 0; });
+    // Use empty data instead of hardcoded values when no data is available
     if (!radarHasData || radarLabels.length < 3) {
-      radarLabels = ['Math', 'Science', 'English', 'History', 'Art', 'PE'];
-      radarData = [90, 85, 78, 88, 92, 80];
+      // Keep the actual labels from the view (which will be empty or 'No Data')
+      // Keep the data as zeros
+      if (radarLabels.length === 0) {
+        radarLabels = ['No Data'];
+        radarData = [0];
+      }
     }
 
     var radarCtx = document.getElementById('subjectRadarChart');
@@ -643,8 +649,8 @@
     var gradeCtx = document.getElementById('gradeDistributionChart');
     if (gradeCtx) {
       var totalGrades = gradeData.reduce(function (sum, v) { return sum + v; }, 0);
-      // If there is no grade data yet, still render an even donut so the circle is visible
-      var gradeDataForChart = totalGrades > 0 ? gradeData : [1, 1, 1, 1];
+      // Use actual data - if no data, show zeros (chart will be empty but visible)
+      var gradeDataForChart = totalGrades > 0 ? gradeData : [0, 0, 0, 0];
 
       new Chart(gradeCtx, {
         type: 'doughnut',

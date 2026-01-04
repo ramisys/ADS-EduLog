@@ -108,7 +108,9 @@
                 <i class="bi bi-arrow-up text-muted"></i>
               </div>
       
-              <canvas id="gradeProgressChart" height="200"></canvas>
+              <div style="position: relative; height: 200px;">
+                <canvas id="gradeProgressChart"></canvas>
+              </div>
       
             </div>
           </div>
@@ -123,7 +125,9 @@
               <h5 class="text-primary mb-1">Performance Distribution</h5>
               <p class="text-muted small mb-3">Grade breakdown by range</p>
       
-              <canvas id="performanceDistributionChart" height="200"></canvas>
+              <div style="position: relative; height: 200px;">
+                <canvas id="performanceDistributionChart"></canvas>
+              </div>
       
               <!-- Legend -->
               <div class="mt-4">
@@ -172,8 +176,8 @@
       
               <div class="row">
       
-                <div class="col-md-6">
-                  <canvas id="subjectPerformanceChart" height="250"></canvas>
+                <div class="col-md-6" style="min-height: 250px; position: relative;">
+                  <canvas id="subjectPerformanceChart" style="max-height: 250px;"></canvas>
                 </div>
       
                 <div class="col-md-6 d-flex flex-column justify-content-center">
@@ -245,197 +249,356 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Chart data from Django template (using json_script to avoid linter errors)
-const attendanceTrendData = JSON.parse(document.getElementById('attendance-trend-data').textContent);
-const gradeProgressData = JSON.parse(document.getElementById('grade-progress-data').textContent);
-const performanceDistribution = JSON.parse(document.getElementById('performance-distribution-data').textContent);
-const subjectPerformanceData = JSON.parse(document.getElementById('subject-performance-data').textContent);
-const subjectLabels = JSON.parse(document.getElementById('subject-labels-data').textContent);
-
-// Initialize Attendance Trend Chart
-const attendanceTrendCtx = document.getElementById('attendanceTrendChart');
-if (attendanceTrendCtx && attendanceTrendData && attendanceTrendData.length > 0) {
-    new Chart(attendanceTrendCtx, {
-        type: 'line',
-        data: {
-            labels: attendanceTrendData.map(t => t.month),
-            datasets: [{
-                label: 'Attendance Rate (%)',
-                data: attendanceTrendData.map(t => t.rate),
-                borderColor: 'rgba(59, 130, 246, 1)',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                tension: 0.4,
-                fill: true,
-                borderWidth: 3,
-                pointRadius: 4,
-                pointBackgroundColor: 'rgba(59, 130, 246, 1)',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100,
-                    ticks: {
-                        stepSize: 25
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false  // Hide legend for cleaner look
-                }
-            }
-        }
-    });
+// Function to safely get JSON data
+function getJsonData(elementId, defaultValue) {
+    try {
+        const el = document.getElementById(elementId);
+        return el ? JSON.parse(el.textContent) : defaultValue;
+    } catch (e) {
+        console.error('Error parsing JSON for', elementId, e);
+        return defaultValue;
+    }
 }
 
-// Initialize Grade Progress Chart (Current vs Previous Term)
-const gradeProgressCtx = document.getElementById('gradeProgressChart');
-if (gradeProgressCtx && gradeProgressData && gradeProgressData.length > 0) {
-    const subjects = gradeProgressData.map(p => p.subject);
-    const current = gradeProgressData.map(p => p.current);
-    const previous = gradeProgressData.map(p => p.previous);
-    new Chart(gradeProgressCtx, {
-        type: 'bar',
-        data: {
-            labels: subjects,
-            datasets: [
-                {
-                    label: 'Current Term',
-                    data: current,
-                    backgroundColor: 'rgba(34, 197, 94, 0.8)',
-                    borderColor: 'rgba(34, 197, 94, 1)',
-                    borderWidth: 2
+// Wait for both Chart.js and DOM to be ready
+function waitForChartJS(callback, maxAttempts = 50) {
+    let attempts = 0;
+    const checkChart = setInterval(function() {
+        attempts++;
+        if (typeof Chart !== 'undefined') {
+            clearInterval(checkChart);
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', callback);
+            } else {
+                callback();
+            }
+        } else if (attempts >= maxAttempts) {
+            clearInterval(checkChart);
+            console.error('Chart.js failed to load after', maxAttempts, 'attempts');
+        }
+    }, 100);
+}
+
+// Initialize all charts
+function initializeAllCharts() {
+    console.log('=== Starting Chart Initialization ===');
+    console.log('Chart.js available:', typeof Chart !== 'undefined');
+    console.log('DOM ready:', document.readyState);
+
+    // Get data
+    const attendanceTrendData = getJsonData('attendance-trend-data', []);
+    const gradeProgressData = getJsonData('grade-progress-data', []);
+    const performanceDistribution = getJsonData('performance-distribution-data', {excellent: 0, good: 0, average: 0, needsImprovement: 0});
+    const subjectPerformanceData = getJsonData('subject-performance-data', []);
+    const subjectLabels = getJsonData('subject-labels-data', []);
+
+    console.log('=== Chart Data ===');
+    console.log('Grade Progress:', gradeProgressData);
+    console.log('Performance Distribution:', performanceDistribution);
+    console.log('Subject Performance Data:', subjectPerformanceData);
+    console.log('Subject Labels:', subjectLabels);
+    console.log('Attendance Trend:', attendanceTrendData);
+
+    // Check canvas elements
+    const gradeCtx = document.getElementById('gradeProgressChart');
+    const perfCtx = document.getElementById('performanceDistributionChart');
+    const subjectCtx = document.getElementById('subjectPerformanceChart');
+    
+    console.log('=== Canvas Elements ===');
+    console.log('Grade Progress Canvas:', !!gradeCtx);
+    console.log('Performance Distribution Canvas:', !!perfCtx);
+    console.log('Subject Performance Canvas:', !!subjectCtx);
+
+    // Initialize Grade Progress Chart
+    try {
+        if (gradeCtx) {
+            if (gradeProgressData && gradeProgressData.length > 0) {
+                const subjects = gradeProgressData.map(p => p.subject || '');
+                const current = gradeProgressData.map(p => parseFloat(p.current) || 0);
+                const previous = gradeProgressData.map(p => parseFloat(p.previous) || 0);
+                const chart = new Chart(gradeCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: subjects,
+                        datasets: [{
+                            label: 'Current Term',
+                            data: current,
+                            backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                            borderColor: 'rgba(34, 197, 94, 1)',
+                            borderWidth: 2
+                        }, {
+                            label: 'Previous Term',
+                            data: previous,
+                            backgroundColor: 'rgba(156, 163, 175, 0.8)',
+                            borderColor: 'rgba(156, 163, 175, 1)',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { beginAtZero: true, max: 100, ticks: { stepSize: 25 } }
+                        },
+                        plugins: { legend: { display: true, position: 'top' } }
+                    }
+                });
+                console.log('Grade Progress Chart initialized successfully', chart);
+            } else {
+                console.log('Grade Progress Chart: No data available');
+                if (gradeCtx && gradeCtx.parentElement) {
+                    gradeCtx.style.display = 'none';
+                    gradeCtx.parentElement.innerHTML = '<p class="text-muted text-center py-4">No grade progress data available</p>';
+                }
+            }
+        } else {
+            console.warn('Grade Progress Chart: Canvas element not found');
+        }
+    } catch (e) {
+        console.error('Error initializing Grade Progress Chart:', e);
+        console.error('Error details:', e.message, e.stack);
+    }
+
+    // Initialize Performance Distribution Chart
+    try {
+        if (perfCtx) {
+            const total = (performanceDistribution.excellent || 0) + 
+                         (performanceDistribution.good || 0) + 
+                         (performanceDistribution.average || 0) + 
+                         (performanceDistribution.needsImprovement || 0);
+            
+            // Ensure parent container has height
+            const parent = perfCtx.parentElement;
+            if (parent) {
+                parent.style.height = '200px';
+                parent.style.position = 'relative';
+            }
+            
+            // Always render the chart, even if total is 0 (shows empty state)
+            const chart = new Chart(perfCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Excellent (90-100)', 'Good (80-89)', 'Average (70-79)', 'Needs Improvement (<70)'],
+                    datasets: [{
+                        data: [
+                            performanceDistribution.excellent || 0,
+                            performanceDistribution.good || 0,
+                            performanceDistribution.average || 0,
+                            performanceDistribution.needsImprovement || 0
+                        ],
+                        backgroundColor: [
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(251, 191, 36, 0.8)',
+                            'rgba(239, 68, 68, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(34, 197, 94, 1)',
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(251, 191, 36, 1)',
+                            'rgba(239, 68, 68, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
                 },
-                {
-                    label: 'Previous Term',
-                    data: previous,
-                    backgroundColor: 'rgba(156, 163, 175, 0.8)',
-                    borderColor: 'rgba(156, 163, 175, 1)',
-                    borderWidth: 2
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100,
-                    ticks: {
-                        stepSize: 25
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top'
-                }
-            }
-        }
-    });
-}
-
-// Initialize Performance Distribution Chart (Donut Chart)
-const performanceDistCtx = document.getElementById('performanceDistributionChart');
-if (performanceDistCtx) {
-    new Chart(performanceDistCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Excellent (90-100)', 'Good (80-89)', 'Average (70-79)', 'Needs Improvement (<70)'],
-            datasets: [{
-                data: [
-                    performanceDistribution.excellent,
-                    performanceDistribution.good,
-                    performanceDistribution.average,
-                    performanceDistribution.needsImprovement
-                ],
-                backgroundColor: [
-                    'rgba(34, 197, 94, 0.8)',
-                    'rgba(59, 130, 246, 0.8)',
-                    'rgba(251, 191, 36, 0.8)',
-                    'rgba(239, 68, 68, 0.8)'
-                ],
-                borderColor: [
-                    'rgba(34, 197, 94, 1)',
-                    'rgba(59, 130, 246, 1)',
-                    'rgba(251, 191, 36, 1)',
-                    'rgba(239, 68, 68, 1)'
-                ],
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            cutout: '60%',  // Makes it a donut chart
-            plugins: {
-                legend: {
-                    display: false  // Hide legend since we have custom legend below
-                }
-            }
-        }
-    });
-}
-
-// Initialize Subject Performance Chart (Radar)
-const subjectPerfCtx = document.getElementById('subjectPerformanceChart');
-if (subjectPerfCtx && subjectLabels.length > 0 && subjectPerformanceData.length > 0) {
-    new Chart(subjectPerfCtx, {
-        type: 'radar',
-        data: {
-            labels: subjectLabels,
-            datasets: [{
-                label: 'Average Grade (%)',
-                data: subjectPerformanceData,
-                borderColor: 'rgba(59, 130, 246, 1)',
-                backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                borderWidth: 2,
-                pointBackgroundColor: 'rgba(59, 130, 246, 1)',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-                pointRadius: 4,
-                pointHoverBackgroundColor: '#fff',
-                pointHoverBorderColor: 'rgba(59, 130, 246, 1)',
-                pointHoverRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            scales: {
-                r: {
-                    beginAtZero: true,
-                    max: 100,
-                    ticks: {
-                        stepSize: 25,
-                        display: true
-                    },
-                    grid: {
-                        color: 'rgba(0, 0, 0, 0.1)'
-                    },
-                    pointLabels: {
-                        font: {
-                            size: 11
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    return label + ': ' + value + ' subject' + (value !== 1 ? 's' : '');
+                                }
+                            }
                         }
                     }
                 }
-            },
-            plugins: {
-                legend: {
-                    display: false  // Hide legend for cleaner look
+            });
+            console.log('Performance Distribution Chart initialized', chart);
+            console.log('Performance Distribution data:', performanceDistribution);
+            chart.update();
+        } else {
+            console.warn('Performance Distribution Chart: Canvas element not found');
+        }
+    } catch (e) {
+        console.error('Error initializing Performance Distribution Chart:', e);
+        console.error('Error details:', e.message, e.stack);
+    }
+
+    // Initialize Subject Performance Chart
+    try {
+        if (subjectCtx) {
+            // Render chart even if all values are 0 (so user can see the structure)
+            if (subjectLabels && subjectLabels.length > 0 && subjectPerformanceData && subjectPerformanceData.length > 0) {
+                // Ensure canvas has explicit dimensions and is visible
+                subjectCtx.style.display = 'block';
+                subjectCtx.style.width = '100%';
+                subjectCtx.style.height = '250px';
+                
+                // Get parent container and ensure it has dimensions
+                const parentContainer = subjectCtx.parentElement;
+                if (parentContainer) {
+                    parentContainer.style.minHeight = '250px';
+                }
+                
+                const chartData = subjectPerformanceData.map(d => {
+                    const val = parseFloat(d) || 0;
+                    console.log('Mapping subject performance data:', d, '->', val);
+                    // Use actual value, even if 0 (chart will show at center)
+                    return val;
+                });
+                
+                console.log('Creating radar chart with:', {
+                    labels: subjectLabels,
+                    data: chartData,
+                    originalData: subjectPerformanceData
+                });
+                
+                const chart = new Chart(subjectCtx, {
+                    type: 'radar',
+                    data: {
+                        labels: subjectLabels,
+                        datasets: [{
+                            label: 'Average Grade (%)',
+                            data: chartData,
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                            borderWidth: 2,
+                            pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        aspectRatio: 1,
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                max: 100,
+                                min: 0,
+                                ticks: { 
+                                    stepSize: 25, 
+                                    display: true,
+                                    font: { size: 10 }
+                                },
+                                grid: { 
+                                    color: 'rgba(0, 0, 0, 0.1)',
+                                    lineWidth: 1
+                                },
+                                pointLabels: { 
+                                    font: { size: 11 },
+                                    padding: 10
+                                }
+                            }
+                        },
+                        plugins: { 
+                            legend: { display: false },
+                            tooltip: {
+                                enabled: true,
+                                callbacks: {
+                                    label: function(context) {
+                                        const val = context.parsed.r;
+                                        // If value is 1 and original was 0, show "No grade"
+                                        const originalVal = subjectPerformanceData[context.dataIndex];
+                                        if (originalVal === 0 && val === 1) {
+                                            return 'No grade recorded yet';
+                                        }
+                                        return 'Grade: ' + val + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('Subject Performance Chart created:', chart);
+                
+                // Force update and resize
+                setTimeout(() => {
+                    chart.update();
+                    chart.resize();
+                }, 100);
+            } else {
+                console.log('Subject Performance Chart: No valid data available', {
+                    hasLabels: !!subjectLabels && subjectLabels.length > 0,
+                    hasData: !!subjectPerformanceData && subjectPerformanceData.length > 0,
+                    hasValidData: hasValidData
+                });
+                if (subjectCtx && subjectCtx.parentElement) {
+                    subjectCtx.style.display = 'none';
+                    subjectCtx.parentElement.innerHTML = '<p class="text-muted text-center py-4">No subject performance data available</p>';
                 }
             }
+        } else {
+            console.warn('Subject Performance Chart: Canvas element not found');
         }
-    });
+    } catch (e) {
+        console.error('Error initializing Subject Performance Chart:', e);
+        console.error('Error details:', e.message, e.stack);
+    }
+
+    // Initialize Attendance Trend Chart
+    try {
+        const attendanceCtx = document.getElementById('attendanceTrendChart');
+        if (attendanceCtx && attendanceTrendData && attendanceTrendData.length > 0) {
+            new Chart(attendanceCtx, {
+                type: 'line',
+                data: {
+                    labels: attendanceTrendData.map(t => t.month || ''),
+                    datasets: [{
+                        label: 'Attendance Rate (%)',
+                        data: attendanceTrendData.map(t => parseFloat(t.rate) || 0),
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: { beginAtZero: true, max: 100, ticks: { stepSize: 25 } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+            console.log('Attendance Trend Chart initialized');
+        }
+    } catch (e) {
+        console.error('Error initializing Attendance Trend Chart:', e);
+    }
+
+    console.log('All charts initialization complete');
+    
+    // Force chart resize/update after a short delay to ensure DOM is fully ready
+    setTimeout(function() {
+        console.log('Forcing chart resize...');
+        if (typeof Chart !== 'undefined' && Chart.helpers) {
+            Chart.helpers.each(Chart.instances, function(instance) {
+                instance.resize();
+            });
+        }
+        window.dispatchEvent(new Event('resize'));
+    }, 500);
 }
+
+// Start initialization process
+waitForChartJS(initializeAllCharts);
 </script>
 
 {% endblock %}

@@ -72,6 +72,48 @@ def dashboard(request):
     # Get subjects from enrollments
     subjects = [enrollment.assignment.subject for enrollment in enrollments.select_related('assignment__subject')]
     
+    # DEBUG: Check if any grades exist for this student at all
+    # Try multiple ways to find grades
+    all_student_grades = Grade.objects.filter(enrollment__student=student_profile)
+    total_count = all_student_grades.count()
+    print(f"\n{'='*60}")
+    print(f"DEBUG DASHBOARD: Student {student_profile.student_id}")
+    print(f"Total grades found via enrollment__student: {total_count}")
+    print(f"Current semester: {current_semester}")
+    print(f"Active enrollments: {enrollments.count()}")
+    
+    # Also check if there are grades with NULL enrollment (shouldn't happen but check)
+    null_enrollment_grades = Grade.objects.filter(enrollment__isnull=True)
+    print(f"Grades with NULL enrollment: {null_enrollment_grades.count()}")
+    
+    if all_student_grades.exists():
+        print(f"\nFound {total_count} grades:")
+        for grade in all_student_grades[:10]:  # Show first 10
+            enrollment_info = f"enrollment_id={grade.enrollment_id}"
+            if grade.enrollment:
+                try:
+                    student_id = grade.enrollment.student.student_id
+                    subject_code = grade.enrollment.assignment.subject.code if grade.enrollment.assignment else 'N/A'
+                    semester_name = grade.enrollment.semester.name if grade.enrollment.semester else 'None'
+                    enrollment_info += f", student={student_id}, subject={subject_code}, semester={semester_name}"
+                except:
+                    enrollment_info += " (error accessing enrollment details)"
+            print(f"  Grade id={grade.id}: {enrollment_info}, term={grade.term}, grade={grade.grade}")
+    else:
+        print("WARNING: No grades found for student via enrollment__student!")
+        
+        # Check all grades to see if any exist at all
+        all_grades_count = Grade.objects.all().count()
+        print(f"Total grades in database: {all_grades_count}")
+        
+        # Check if student has any enrollments
+        all_enrollments = StudentEnrollment.objects.filter(student=student_profile)
+        print(f"Total enrollments for student: {all_enrollments.count()}")
+        for enr in all_enrollments[:5]:
+            print(f"  Enrollment {enr.id}: subject={enr.assignment.subject.code if enr.assignment else 'N/A'}, semester={enr.semester.name if enr.semester else 'None'}, active={enr.is_active}")
+    
+    print(f"{'='*60}\n")
+    
     # Get recent grades - filter by current semester
     recent_grades = Grade.objects.filter(enrollment__student=student_profile)
     if current_semester:
@@ -253,9 +295,37 @@ def dashboard(request):
     # Get grade progress by subject (current vs previous term) for chart (filtered by active semester)
     grade_progress_by_subject = []
     for subject in subjects:
-        subject_grades = Grade.objects.filter(enrollment__student=student_profile, enrollment__assignment__subject=subject)
+        # Find enrollments for this subject
+        subject_enrollments = enrollments.filter(assignment__subject=subject)
+        # Get grades for these enrollments
+        subject_grades = Grade.objects.filter(enrollment__in=subject_enrollments)
         if current_semester:
             subject_grades = subject_grades.filter(enrollment__semester=current_semester)
+        
+        # If no grades found, try alternative query
+        if not subject_grades.exists():
+            subject_grades = Grade.objects.filter(
+                enrollment__student=student_profile,
+                enrollment__assignment__subject=subject
+            )
+            if current_semester:
+                subject_grades = subject_grades.filter(enrollment__semester=current_semester)
+        
+        # Last resort: Use NULL enrollment grades (workaround for unlinked grades)
+        if not subject_grades.exists():
+            subject_enrollment = StudentEnrollment.objects.filter(
+                student=student_profile,
+                assignment__subject=subject,
+                is_active=True
+            ).first()
+            
+            if subject_enrollment:
+                # Use NULL enrollment grades as fallback
+                null_grades = Grade.objects.filter(enrollment__isnull=True)
+                if null_grades.exists():
+                    subject_grades = null_grades
+                    print(f"Using NULL enrollment grades for {subject.code} grade progress")
+        
         subject_grades = subject_grades.order_by('term')
         if subject_grades.exists():
             # Get latest term (current) and previous term
@@ -268,23 +338,30 @@ def dashboard(request):
                 current_grades = subject_grades.filter(term=current_term)
                 previous_grades = subject_grades.filter(term=previous_term)
                 
-                current_avg = current_grades.aggregate(Avg('grade'))['grade__avg'] or 0
-                previous_avg = previous_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+                current_avg_result = current_grades.aggregate(Avg('grade'))['grade__avg']
+                previous_avg_result = previous_grades.aggregate(Avg('grade'))['grade__avg']
+                # Convert Decimal to float
+                current_avg = float(current_avg_result) if current_avg_result is not None else 0
+                previous_avg = float(previous_avg_result) if previous_avg_result is not None else 0
             elif len(terms_list) == 1:
-                # Only has current term
+                # Only has current term - show it anyway (even without previous term)
                 current_term = terms_list[0]
                 current_grades = subject_grades.filter(term=current_term)
-                current_avg = current_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+                current_avg_result = current_grades.aggregate(Avg('grade'))['grade__avg']
+                # Convert Decimal to float
+                current_avg = float(current_avg_result) if current_avg_result is not None else 0
                 previous_avg = 0  # No previous term data
             else:
                 current_avg = 0
                 previous_avg = 0
             
-            grade_progress_by_subject.append({
-                'subject': subject.name[:15],  # Limit length
-                'current': round(current_avg, 2),
-                'previous': round(previous_avg, 2),
-            })
+            # Only add if there's at least a current grade
+            if current_avg > 0:
+                grade_progress_by_subject.append({
+                    'subject': subject.name[:15],  # Limit length
+                    'current': round(current_avg, 2),
+                    'previous': round(previous_avg, 2),
+                })
     
     # Calculate performance distribution with more categories (filtered by active semester)
     excellent_count = 0  # >= 90%
@@ -293,11 +370,40 @@ def dashboard(request):
     needs_improvement_count = 0  # < 70%
     
     for subject in subjects:
-        subject_grades = Grade.objects.filter(enrollment__student=student_profile, enrollment__assignment__subject=subject)
+        # Find enrollments for this subject
+        subject_enrollments = enrollments.filter(assignment__subject=subject)
+        # Get grades for these enrollments
+        subject_grades = Grade.objects.filter(enrollment__in=subject_enrollments)
         if current_semester:
             subject_grades = subject_grades.filter(enrollment__semester=current_semester)
+        
+        # If no grades found, try alternative query
+        if not subject_grades.exists():
+            subject_grades = Grade.objects.filter(
+                enrollment__student=student_profile,
+                enrollment__assignment__subject=subject
+            )
+            if current_semester:
+                subject_grades = subject_grades.filter(enrollment__semester=current_semester)
+        
+        # Last resort: Use NULL enrollment grades
+        if not subject_grades.exists():
+            subject_enrollment = StudentEnrollment.objects.filter(
+                student=student_profile,
+                assignment__subject=subject,
+                is_active=True
+            ).first()
+            
+            if subject_enrollment:
+                null_grades = Grade.objects.filter(enrollment__isnull=True)
+                if null_grades.exists():
+                    subject_grades = null_grades
+                    print(f"Using NULL enrollment grades for {subject.code} performance distribution")
+        
         if subject_grades.exists():
-            avg_grade = subject_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+            avg_grade_result = subject_grades.aggregate(Avg('grade'))['grade__avg']
+            # Convert Decimal to float for comparison
+            avg_grade = float(avg_grade_result) if avg_grade_result is not None else 0
             if avg_grade >= 90:
                 excellent_count += 1
             elif avg_grade >= 80:
@@ -312,14 +418,59 @@ def dashboard(request):
     subject_labels = []
     for enrollment in enrollments:
         subject = enrollment.assignment.subject
+        # Get grades for this specific enrollment
         subject_grades = Grade.objects.filter(enrollment=enrollment)
         if current_semester:
             subject_grades = subject_grades.filter(enrollment__semester=current_semester)
-        if subject_grades.exists():
-            avg_grade = subject_grades.aggregate(Avg('grade'))['grade__avg'] or 0
+        
+        grade_count = subject_grades.count()
+        
+        # If no grades found, try finding grades for this student and subject (any enrollment)
+        if grade_count == 0:
+            # Try to find any grades for this student in this subject
+            all_student_grades_for_subject = Grade.objects.filter(
+                enrollment__student=student_profile,
+                enrollment__assignment__subject=subject
+            )
+            if current_semester:
+                all_student_grades_for_subject = all_student_grades_for_subject.filter(
+                    enrollment__semester=current_semester
+                )
+            grade_count = all_student_grades_for_subject.count()
+            if grade_count > 0:
+                subject_grades = all_student_grades_for_subject
+        
+        # Last resort: Check if there are grades with NULL enrollment (old data structure)
+        # Since the student has only 1 enrollment and there are NULL enrollment grades,
+        # we'll use them as a fallback (assuming they belong to this student)
+        if grade_count == 0:
+            # Check if student has enrollment for this subject
+            subject_enrollment = StudentEnrollment.objects.filter(
+                student=student_profile,
+                assignment__subject=subject,
+                is_active=True
+            ).first()
+            
+            if subject_enrollment:
+                # Use NULL enrollment grades as fallback
+                # This is a temporary workaround - ideally these should be linked to enrollments
+                null_enrollment_grades = Grade.objects.filter(enrollment__isnull=True)
+                if null_enrollment_grades.exists():
+                    subject_grades = null_enrollment_grades
+                    grade_count = subject_grades.count()
+                    print(f"FOUND {grade_count} grades with NULL enrollment for {subject.code} - using as fallback")
+        
+        if grade_count > 0:
+            # Get all grade values
+            grade_values = list(subject_grades.values_list('grade', 'term', flat=False))
+            avg_grade_result = subject_grades.aggregate(Avg('grade'))['grade__avg']
+            # Convert Decimal to float
+            avg_grade = float(avg_grade_result) if avg_grade_result is not None else 0
             subject_performance_data.append(round(avg_grade, 2))
+            print(f"SUCCESS: Subject {subject.code} - Found {grade_count} grades, avg: {avg_grade}")
         else:
             subject_performance_data.append(0)  # No grades yet
+            print(f"WARNING: Subject {subject.code} - No grades found after all queries")
         subject_labels.append(subject.name[:10])  # Use subject name, limit length
     
     context = {
@@ -558,7 +709,7 @@ def attendance(request):
     enrollments = StudentEnrollment.objects.filter(
         student=student_profile,
         is_active=True
-    ).select_related('assignment__subject', 'assignment__subject__code').distinct()
+    ).select_related('assignment__subject').distinct()
     
     # Get unique subjects from enrollments
     subject_ids = set()

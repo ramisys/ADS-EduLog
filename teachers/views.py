@@ -2080,9 +2080,26 @@ def calculate_and_update_grade(student, subject, term='Midterm'):
         float: The calculated grade, or None if no assessments exist
     """
     try:
-        # Get category weights for this subject
+        # Find the enrollment for this student and subject first
+        # Get the assignment for this subject (need to find which assignment the student is enrolled in)
+        from core.models import TeacherSubjectAssignment, StudentEnrollment
+        
+        # Find assignments for this subject
+        assignments = TeacherSubjectAssignment.objects.filter(subject=subject)
+        # Find enrollment for this student in any of these assignments
+        enrollment = StudentEnrollment.objects.filter(
+            student=student,
+            assignment__in=assignments,
+            is_active=True
+        ).first()
+        
+        if not enrollment:
+            logger.warning(f"No enrollment found for student {student.user.get_full_name()} in subject {subject.code}")
+            return None
+        
+        # Get category weights for this assignment
         try:
-            weights = CategoryWeights.objects.get(subject=subject)
+            weights = CategoryWeights.objects.get(assignment=enrollment.assignment)
             category_weights = {
                 'Activities': weights.activities_weight,
                 'Quizzes': weights.quizzes_weight,
@@ -2098,12 +2115,15 @@ def calculate_and_update_grade(student, subject, term='Midterm'):
                 'Exams': 30,
             }
         
-        # Get all assessments for this subject and term
-        assessments = Assessment.objects.filter(subject=subject, term=term)
+        # Get all assessments for this assignment and term
+        assessments = Assessment.objects.filter(
+            assignment=enrollment.assignment, 
+            term=term
+        )
         
         if not assessments.exists():
             # No assessments for this term, delete grade if exists
-            Grade.objects.filter(student=student, subject=subject, term=term).delete()
+            Grade.objects.filter(enrollment=enrollment, term=term).delete()
             return None
         
         # Calculate weighted average for each category
@@ -2115,9 +2135,9 @@ def calculate_and_update_grade(student, subject, term='Midterm'):
             if not category_assessments.exists():
                 continue
             
-            # Get all scores for this category
+            # Get all scores for this category for this enrollment
             category_scores = AssessmentScore.objects.filter(
-                student=student,
+                enrollment=enrollment,
                 assessment__in=category_assessments
             )
             
@@ -2142,8 +2162,7 @@ def calculate_and_update_grade(student, subject, term='Midterm'):
             # Update or create Grade record within a transaction
             with transaction.atomic():
                 grade, created = Grade.objects.update_or_create(
-                    student=student,
-                    subject=subject,
+                    enrollment=enrollment,
                     term=term,
                     defaults={'grade': Decimal(str(final_grade))}
                 )
@@ -2156,7 +2175,7 @@ def calculate_and_update_grade(student, subject, term='Midterm'):
             return final_grade
         else:
             # No valid scores, delete grade if exists
-            Grade.objects.filter(student=student, subject=subject, term=term).delete()
+            Grade.objects.filter(enrollment=enrollment, term=term).delete()
             return None
             
     except Exception as e:

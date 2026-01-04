@@ -745,11 +745,15 @@ class Grade(models.Model):
     grade = models.DecimalField(max_digits=5, decimal_places=2)
     
     def clean(self):
-        """Validate grade can be edited"""
+        """Validate grade can be edited and enrollment is set"""
         from django.core.exceptions import ValidationError
         
+        # Require enrollment (except during migration)
         if not self.enrollment:
-            return  # Skip validation if enrollment isn't set yet
+            raise ValidationError(
+                'Grade must be associated with a StudentEnrollment. '
+                'This ensures grades are only recorded for enrolled students.'
+            )
         
         # Validate semester status through enrollment
         if self.enrollment.semester and not self.enrollment.semester.can_edit_grades():
@@ -758,8 +762,10 @@ class Grade(models.Model):
             )
     
     def save(self, *args, **kwargs):
-        """Validate before saving"""
-        self.full_clean()
+        """Validate before saving (unless validate=False is passed)"""
+        validate = kwargs.pop('validate', True)
+        if validate:
+            self.full_clean()
         super().save(*args, **kwargs)
     
     @property

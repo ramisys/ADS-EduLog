@@ -184,23 +184,27 @@ def dashboard(request):
         alerts_badge = "Urgent"
         alerts_badge_class = "bg-danger-subtle text-danger"
     
-    # Get grades by subject
+    # Get grades by subject (filtered by active semester)
     grades_by_subject = {}
     for subject in subjects:
         subject_grades = Grade.objects.filter(enrollment__student=student_profile, enrollment__assignment__subject=subject)
+        if current_semester:
+            subject_grades = subject_grades.filter(enrollment__semester=current_semester)
         if subject_grades.exists():
             grades_by_subject[subject] = {
                 'grades': subject_grades.order_by('term'),
                 'average': subject_grades.aggregate(Avg('grade'))['grade__avg'] or 0
             }
     
-    # Calculate performance distribution
+    # Calculate performance distribution (filtered by active semester)
     excellent_count = 0  # >= 90%
     good_count = 0  # 80-89%
     needs_improvement_count = 0  # < 80%
     
     for subject in subjects:
         subject_grades = Grade.objects.filter(enrollment__student=student_profile, enrollment__assignment__subject=subject)
+        if current_semester:
+            subject_grades = subject_grades.filter(enrollment__semester=current_semester)
         if subject_grades.exists():
             avg_grade = subject_grades.aggregate(Avg('grade'))['grade__avg'] or 0
             if avg_grade >= 90:
@@ -246,10 +250,13 @@ def dashboard(request):
             'rate': round(month_rate, 1),
         })
     
-    # Get grade progress by subject (current vs previous term) for chart
+    # Get grade progress by subject (current vs previous term) for chart (filtered by active semester)
     grade_progress_by_subject = []
     for subject in subjects:
-        subject_grades = Grade.objects.filter(enrollment__student=student_profile, enrollment__assignment__subject=subject).order_by('term')
+        subject_grades = Grade.objects.filter(enrollment__student=student_profile, enrollment__assignment__subject=subject)
+        if current_semester:
+            subject_grades = subject_grades.filter(enrollment__semester=current_semester)
+        subject_grades = subject_grades.order_by('term')
         if subject_grades.exists():
             # Get latest term (current) and previous term
             terms_list = list(subject_grades.values_list('term', flat=True).distinct().order_by('term'))
@@ -279,7 +286,7 @@ def dashboard(request):
                 'previous': round(previous_avg, 2),
             })
     
-    # Calculate performance distribution with more categories
+    # Calculate performance distribution with more categories (filtered by active semester)
     excellent_count = 0  # >= 90%
     good_count = 0  # 80-89%
     average_count = 0  # 70-79%
@@ -287,6 +294,8 @@ def dashboard(request):
     
     for subject in subjects:
         subject_grades = Grade.objects.filter(enrollment__student=student_profile, enrollment__assignment__subject=subject)
+        if current_semester:
+            subject_grades = subject_grades.filter(enrollment__semester=current_semester)
         if subject_grades.exists():
             avg_grade = subject_grades.aggregate(Avg('grade'))['grade__avg'] or 0
             if avg_grade >= 90:

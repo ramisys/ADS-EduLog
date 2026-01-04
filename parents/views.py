@@ -36,24 +36,29 @@ def dashboard(request):
     # Get all children (students) of this parent
     children = StudentProfile.objects.filter(parent=parent_profile)
     
+    # Get current semester
+    current_semester = Semester.get_current()
+    
     # Track selected child from query parameter
     child_id = request.GET.get('child_id')
     
-    # Get grades for all children (recent)
+    # Get grades for all children (recent) - filter by active semester
     children_grades = (
         Grade.objects
         .filter(enrollment__student__in=children)
-        .select_related('enrollment__student', 'enrollment__assignment__subject')
-        .order_by('-id')[:10]
     )
+    if current_semester:
+        children_grades = children_grades.filter(enrollment__semester=current_semester)
+    children_grades = children_grades.select_related('enrollment__student', 'enrollment__assignment__subject').order_by('-id')[:10]
     
-    # Get attendance for all children (recent)
+    # Get attendance for all children (recent) - filter by active semester
     children_attendance = (
         Attendance.objects
         .filter(enrollment__student__in=children)
-        .select_related('enrollment__student', 'enrollment__assignment__subject')
-        .order_by('-date')[:10]
     )
+    if current_semester:
+        children_attendance = children_attendance.filter(enrollment__semester=current_semester)
+    children_attendance = children_attendance.select_related('enrollment__student', 'enrollment__assignment__subject').order_by('-date')[:10]
     
     # Get unread notifications (for alerts widget)
     notifications = Notification.objects.filter(
@@ -73,8 +78,10 @@ def dashboard(request):
             child_avg = gpa_result.get('average_grade', 0)
             grades_count = gpa_result.get('grade_count', 0)
         else:
-            # Fallback to manual calculation
+            # Fallback to manual calculation - filter by active semester
             child_grades = Grade.objects.filter(enrollment__student=child)
+            if current_semester:
+                child_grades = child_grades.filter(enrollment__semester=current_semester)
             child_avg = child_grades.aggregate(Avg('grade'))['grade__avg'] or 0
             grades_count = child_grades.count()
         
@@ -85,8 +92,10 @@ def dashboard(request):
             total_attendance = attendance_result.get('total_count', 0)
             attendance_percentage = attendance_result.get('attendance_rate', 0)
         else:
-            # Fallback to manual calculation
+            # Fallback to manual calculation - filter by active semester
             child_attendance = Attendance.objects.filter(enrollment__student=child)
+            if current_semester:
+                child_attendance = child_attendance.filter(enrollment__semester=current_semester)
             present_count = child_attendance.filter(status='present').count()
             absent_count = child_attendance.filter(status='absent').count()
             late_count = child_attendance.filter(status='late').count()
@@ -107,8 +116,10 @@ def dashboard(request):
             'total_attendance': total_attendance,
         })
     
-    # Overall statistics across all children
+    # Overall statistics across all children - filter by active semester
     all_grades = Grade.objects.filter(enrollment__student__in=children)
+    if current_semester:
+        all_grades = all_grades.filter(enrollment__semester=current_semester)
     overall_avg_value = all_grades.aggregate(avg_grade=Avg('grade'))['avg_grade']
     has_grade_data = overall_avg_value is not None
     overall_avg = round(float(overall_avg_value), 2) if has_grade_data else None
@@ -130,6 +141,8 @@ def dashboard(request):
         grade_a_percent = grade_b_percent = grade_c_percent = grade_d_percent = 0
     
     all_attendance = Attendance.objects.filter(enrollment__student__in=children)
+    if current_semester:
+        all_attendance = all_attendance.filter(enrollment__semester=current_semester)
     total_present = all_attendance.filter(status='present').count()
     total_absent = all_attendance.filter(status='absent').count()
     total_late = all_attendance.filter(status='late').count()
@@ -146,7 +159,6 @@ def dashboard(request):
     progress_width = progress_display
     
     # Calculate progress status text based on actual data
-    current_semester = Semester.get_current()
     if current_semester:
         progress_status_text = f"Current Semester: {current_semester.name} - {current_semester.academic_year}"
     else:
@@ -179,14 +191,13 @@ def dashboard(request):
         attendance_qs = (
             Attendance.objects
             .filter(enrollment__student__in=children, date__gte=month_starts[0])
-            .annotate(month=TruncMonth('date'))
-            .values('month')
-            .annotate(
-                total=Count('id'),
-                present=Count('id', filter=Q(status='present'))
-            )
-            .order_by('month')
         )
+        if current_semester:
+            attendance_qs = attendance_qs.filter(enrollment__semester=current_semester)
+        attendance_qs = attendance_qs.annotate(month=TruncMonth('date')).values('month').annotate(
+            total=Count('id'),
+            present=Count('id', filter=Q(status='present'))
+        ).order_by('month')
         attendance_map = {
             entry['month'].strftime('%Y-%m'): entry
             for entry in attendance_qs
@@ -359,6 +370,7 @@ def dashboard(request):
         'grade_buckets': grade_buckets,
         'grade_labels_json': json.dumps([bucket['label'] for bucket in grade_buckets]),
         'grade_colors_json': json.dumps([bucket['color'] for bucket in grade_buckets]),
+        'current_semester': current_semester,
     }
     
     return render(request, 'parents/dashboard.html', context)

@@ -1000,6 +1000,397 @@ def add_student(request):
 
 @login_required
 @role_required('teacher')
+def enroll_student(request):
+    """
+    Main enrollment flow view - 3-step process:
+    1. Search student
+    2. Select subject & section
+    3. Confirm enrollment
+    """
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        messages.error(request, 'Teacher profile not found.')
+        return redirect('teachers:students')
+    
+    # Get current semester
+    current_semester = Semester.get_current()
+    
+    if not current_semester:
+        messages.error(request, 'No active semester is set. Please contact the administrator.')
+        return redirect('teachers:students')
+    
+    if not current_semester.can_enroll_students():
+        messages.error(
+            request,
+            f'Enrollment is not allowed for {current_semester.get_status_display()} semester.'
+        )
+        return redirect('teachers:students')
+    
+    context = {
+        'teacher_profile': teacher_profile,
+        'current_semester': current_semester,
+    }
+    return render(request, 'teachers/enroll_student.html', context)
+
+
+@login_required
+@role_required('teacher')
+@require_http_methods(["GET"])
+def search_students(request):
+    """
+    AJAX endpoint to search students by ID or Name.
+    Returns only active students.
+    """
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        return JsonResponse({'error': 'Teacher profile not found'}, status=404)
+    
+    query = request.GET.get('q', '').strip()
+    
+    if not query or len(query) < 2:
+        return JsonResponse({'students': []})
+    
+    # Search by student_id or name (first_name, last_name, username)
+    students = StudentProfile.objects.filter(
+        Q(student_id__icontains=query) |
+        Q(user__first_name__icontains=query) |
+        Q(user__last_name__icontains=query) |
+        Q(user__username__icontains=query)
+    ).select_related('user', 'section', 'year_level').order_by('user__last_name', 'user__first_name')[:20]
+    
+    # Format results
+    results = []
+    for student in students:
+        results.append({
+            'id': student.id,
+            'student_id': student.student_id,
+            'name': student.user.get_full_name() or student.user.username,
+            'email': student.user.email or '',
+            'section': student.section.name if student.section else 'No Section',
+            'year_level': student.year_level.name if student.year_level else 'N/A',
+        })
+    
+    return JsonResponse({'students': results})
+
+
+@login_required
+@role_required('teacher')
+@require_http_methods(["GET"])
+def get_eligible_assignments(request):
+    """
+    AJAX endpoint to get eligible assignments for a selected student.
+    Returns only teacher's assignments for current semester, excluding already enrolled.
+    """
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        return JsonResponse({'error': 'Teacher profile not found'}, status=404)
+    
+    # Validate student_id
+    student_id = validate_input(request.GET.get('student_id'), 'integer')
+    if not student_id:
+        return JsonResponse({'error': 'Invalid student ID'}, status=400)
+    
+    try:
+        student = StudentProfile.objects.select_related('user', 'section', 'year_level').get(id=student_id)
+    except StudentProfile.DoesNotExist:
+        return JsonResponse({'error': 'Student not found'}, status=404)
+    
+    # Get current semester
+    current_semester = Semester.get_current()
+    if not current_semester:
+        return JsonResponse({'error': 'No active semester is set'}, status=400)
+    
+    if not current_semester.can_enroll_students():
+        return JsonResponse({
+            'error': f'Enrollment is not allowed for {current_semester.get_status_display()} semester.'
+        }, status=400)
+    
+    # If student has no section, return available sections for their year level
+    if not student.section:
+        if not student.year_level:
+            return JsonResponse({
+                'error': f'Student {student.student_id} does not have a year level assigned.',
+                'needs_section': True,
+                'assignments': []
+            })
+        
+        # Get sections matching student's year level
+        available_sections = ClassSection.objects.filter(
+            year_level=student.year_level
+        ).order_by('name').values('id', 'name')
+        
+        return JsonResponse({
+            'needs_section': True,
+            'student_year_level': student.year_level.name,
+            'sections': list(available_sections),
+            'assignments': []
+        })
+    
+    # 🔒 SECURITY: Validate student's year level matches section's year level
+    if student.year_level != student.section.year_level:
+        return JsonResponse({
+            'error': f"Student's year level ({student.year_level.name}) does not match section's year level ({student.section.year_level.name}).",
+            'assignments': []
+        })
+    
+    # Get teacher's assignments for current semester that match student's section
+    assignments = TeacherSubjectAssignment.objects.filter(
+        teacher=teacher_profile,
+        semester=current_semester,
+        section=student.section  # Only assignments for student's section
+    ).select_related('subject', 'section', 'semester', 'section__year_level').order_by('subject__code', 'section__name')
+    
+    # Debug: Check if teacher has any assignments for this section (even without semester filter)
+    all_teacher_assignments_for_section = TeacherSubjectAssignment.objects.filter(
+        teacher=teacher_profile,
+        section=student.section
+    ).count()
+    
+    # Get already enrolled assignment IDs for this student
+    enrolled_assignment_ids = StudentEnrollment.objects.filter(
+        student=student,
+        assignment__in=assignments,
+        is_active=True
+    ).values_list('assignment_id', flat=True)
+    
+    # Filter out already enrolled assignments
+    eligible_assignments = assignments.exclude(id__in=enrolled_assignment_ids)
+    
+    # Provide helpful error messages if no assignments found
+    if not assignments.exists():
+        if all_teacher_assignments_for_section == 0:
+            return JsonResponse({
+                'error': f'You do not have any subject assignments for section {student.section.name}. Please assign subjects to this section first.',
+                'assignments': []
+            })
+        else:
+            return JsonResponse({
+                'error': f'You have assignments for section {student.section.name}, but none are assigned to the current semester ({current_semester.name} - {current_semester.academic_year}). Please check your subject assignments.',
+                'assignments': []
+            })
+    
+    # Check if all assignments are already enrolled
+    if eligible_assignments.count() == 0 and assignments.count() > 0:
+        enrolled_count = len(enrolled_assignment_ids)
+        return JsonResponse({
+            'error': f'This student is already enrolled in all {enrolled_count} of your subjects for section {student.section.name} in the current semester.',
+            'assignments': []
+        })
+    
+    # Format results
+    results = []
+    for assignment in eligible_assignments:
+        results.append({
+            'id': assignment.id,
+            'subject_code': assignment.subject.code,
+            'subject_name': assignment.subject.name,
+            'section_name': assignment.section.name,
+            'semester_name': assignment.semester.name if assignment.semester else 'N/A',
+            'semester_year': assignment.semester.academic_year if assignment.semester else 'N/A',
+        })
+    
+    return JsonResponse({
+        'assignments': results,
+        'student': {
+            'id': student.id,
+            'student_id': student.student_id,
+            'name': student.user.get_full_name() or student.user.username,
+            'section': student.section.name if student.section else 'No Section',
+        },
+        'debug_info': {
+            'total_assignments_for_section': assignments.count(),
+            'enrolled_count': len(enrolled_assignment_ids),
+            'eligible_count': eligible_assignments.count(),
+            'current_semester': current_semester.name if current_semester else None,
+        }
+    })
+
+
+@login_required
+@role_required('teacher')
+@require_http_methods(["POST"])
+@transaction.atomic
+def assign_student_section(request):
+    """
+    Assign a section to a student. Used when student has no section during enrollment.
+    """
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Teacher profile not found'}, status=404)
+    
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    
+    # Validate input
+    student_id = validate_input(data.get('student_id'), 'integer')
+    section_id = validate_input(data.get('section_id'), 'integer')
+    
+    if not student_id or not section_id:
+        return JsonResponse({
+            'success': False,
+            'error': 'Student ID and Section ID are required'
+        }, status=400)
+    
+    # Get student
+    try:
+        student = StudentProfile.objects.select_related('user', 'section', 'year_level').get(id=student_id)
+    except StudentProfile.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Student not found'}, status=404)
+    
+    # Get section
+    try:
+        section = ClassSection.objects.select_related('year_level').get(id=section_id)
+    except ClassSection.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Section not found'}, status=404)
+    
+    # 🔒 SECURITY: Validate student's year level matches section's year level
+    if student.year_level != section.year_level:
+        return JsonResponse({
+            'success': False,
+            'error': f"Student's year level ({student.year_level.name}) does not match section's year level ({section.year_level.name})"
+        }, status=400)
+    
+    # Assign section
+    try:
+        student.section = section
+        student.full_clean()  # Run model validation
+        student.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully assigned {student.user.get_full_name()} to section {section.name}',
+            'section_name': section.name
+        })
+    except Exception as e:
+        logger.error(f"Error assigning section: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to assign section: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@role_required('teacher')
+@require_http_methods(["POST"])
+@transaction.atomic
+def create_enrollment(request):
+    """
+    Create student enrollment with comprehensive server-side validation.
+    """
+    try:
+        teacher_profile = TeacherProfile.objects.get(user=request.user)
+    except TeacherProfile.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Teacher profile not found'}, status=404)
+    
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    
+    # Validate input
+    student_id = validate_input(data.get('student_id'), 'integer')
+    assignment_id = validate_input(data.get('assignment_id'), 'integer')
+    
+    if not student_id or not assignment_id:
+        return JsonResponse({
+            'success': False,
+            'error': 'Student ID and Assignment ID are required'
+        }, status=400)
+    
+    # Get student
+    try:
+        student = StudentProfile.objects.select_related('user', 'section', 'year_level').get(id=student_id)
+    except StudentProfile.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Student not found'}, status=404)
+    
+    # Get assignment and validate teacher ownership
+    try:
+        assignment = TeacherSubjectAssignment.objects.select_related(
+            'teacher', 'subject', 'section', 'semester'
+        ).get(id=assignment_id)
+    except TeacherSubjectAssignment.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Assignment not found'}, status=404)
+    
+    # 🔒 SECURITY: Validate teacher owns the assignment
+    if assignment.teacher != teacher_profile:
+        return JsonResponse({
+            'success': False,
+            'error': 'You do not have permission to enroll students in this assignment'
+        }, status=403)
+    
+    # 🔒 SECURITY: Validate semester is active
+    if not assignment.semester:
+        return JsonResponse({
+            'success': False,
+            'error': 'Assignment does not have a semester assigned'
+        }, status=400)
+    
+    if not assignment.semester.can_enroll_students():
+        return JsonResponse({
+            'success': False,
+            'error': f'Enrollment is not allowed for {assignment.semester.get_status_display()} semester'
+        }, status=400)
+    
+    # 🔒 SECURITY: Validate student's section matches assignment's section
+    if student.section != assignment.section:
+        return JsonResponse({
+            'success': False,
+            'error': f"Student's section ({student.section.name if student.section else 'None'}) "
+                    f"does not match assignment's section ({assignment.section.name})"
+        }, status=400)
+    
+    # 🔒 SECURITY: Validate student's year level matches section's year level
+    if student.year_level != assignment.section.year_level:
+        return JsonResponse({
+            'success': False,
+            'error': f"Student's year level ({student.year_level.name}) "
+                    f"does not match section's year level ({assignment.section.year_level.name})"
+        }, status=400)
+    
+    # 🔒 SECURITY: Check for duplicate enrollment
+    existing_enrollment = StudentEnrollment.objects.filter(
+        student=student,
+        assignment=assignment,
+        is_active=True
+    ).first()
+    
+    if existing_enrollment:
+        return JsonResponse({
+            'success': False,
+            'error': f'Student is already enrolled in {assignment.subject.code} ({assignment.section.name})'
+        }, status=400)
+    
+    # Create enrollment
+    try:
+        enrollment = StudentEnrollment(
+            student=student,
+            assignment=assignment,
+            semester=assignment.semester  # Explicitly set from assignment
+        )
+        enrollment.full_clean()  # Run model validation
+        enrollment.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully enrolled {student.user.get_full_name()} in {assignment.subject.code} ({assignment.section.name})',
+            'enrollment_id': enrollment.id
+        })
+    except Exception as e:
+        logger.error(f"Error creating enrollment: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': f'Failed to create enrollment: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@role_required('teacher')
 def attendance(request):
     try:
         teacher_profile = TeacherProfile.objects.get(user=request.user)

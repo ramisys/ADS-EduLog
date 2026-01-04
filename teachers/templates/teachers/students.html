@@ -24,21 +24,26 @@
                     <i class="bi bi-x-circle me-2"></i>Clear Filter
                 </a>
             {% else %}
-                <div class="dropdown">
-                    <button class="btn btn-primary d-flex align-items-center dropdown-toggle" type="button" id="addStudentDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-plus-circle me-2"></i>Add Student
-                    </button>
-                    <ul class="dropdown-menu" aria-labelledby="addStudentDropdown">
-                        {% for assignment in all_assignments %}
-                        <li>
-                            <a class="dropdown-item" href="{% url 'teachers:add_student' %}?assignment={{ assignment.id }}">
-                                {{ assignment.subject.code }} - {{ assignment.section.name }}
-                            </a>
-                        </li>
-                        {% empty %}
-                        <li><span class="dropdown-item-text text-muted">No assignments available</span></li>
-                        {% endfor %}
-                    </ul>
+                <div class="btn-group">
+                    <a href="{% url 'teachers:enroll_student' %}" class="btn btn-success d-flex align-items-center">
+                        <i class="bi bi-person-plus me-2"></i>Enroll Student
+                    </a>
+                    <div class="dropdown">
+                        <button class="btn btn-primary d-flex align-items-center dropdown-toggle" type="button" id="addStudentDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-plus-circle me-2"></i>Add to Subject
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="addStudentDropdown">
+                            {% for assignment in all_assignments %}
+                            <li>
+                                <a class="dropdown-item" href="{% url 'teachers:add_student' %}?assignment={{ assignment.id }}">
+                                    {{ assignment.subject.code }} - {{ assignment.section.name }}
+                                </a>
+                            </li>
+                            {% empty %}
+                            <li><span class="dropdown-item-text text-muted">No assignments available</span></li>
+                            {% endfor %}
+                        </ul>
+                    </div>
                 </div>
             {% endif %}
         </div>

@@ -1,0 +1,657 @@
+{% extends "base.html" %}
+{% block title %}Enroll Student | EduLog{% endblock %}
+{% block content %}
+<div class="dashboard-container container py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="text-primary">Enroll Student</h2>
+            <p class="text-muted small">
+                Current Semester: <strong>{{ current_semester.name }} - {{ current_semester.academic_year }}</strong>
+                <span class="badge bg-success-subtle text-success ms-2">{{ current_semester.get_status_display }}</span>
+            </p>
+        </div>
+        <a href="{% url 'teachers:students' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Back to Students
+        </a>
+    </div>
+
+    <!-- Progress Steps -->
+    <div class="card border mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="d-flex align-items-center">
+                        <div class="step-indicator active" id="step1-indicator">
+                            <span class="step-number">1</span>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0">Search Student</h6>
+                            <small class="text-muted">Find student by ID or name</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex align-items-center">
+                        <div class="step-indicator" id="step2-indicator">
+                            <span class="step-number">2</span>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0">Select Subject</h6>
+                            <small class="text-muted">Choose subject & section</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex align-items-center">
+                        <div class="step-indicator" id="step3-indicator">
+                            <span class="step-number">3</span>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0">Confirm</h6>
+                            <small class="text-muted">Review and enroll</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 1: Student Search -->
+    <div class="card border" id="step1-card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-search me-2"></i>Step 1: Search Student</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="student-search" class="form-label fw-semibold">Search by Student ID or Name</label>
+                <input type="text" 
+                       class="form-control form-control-lg" 
+                       id="student-search" 
+                       placeholder="Enter student ID, first name, or last name (minimum 2 characters)"
+                       autocomplete="off">
+                <div class="form-text">Type at least 2 characters to search</div>
+            </div>
+
+            <!-- Search Results -->
+            <div id="search-results" style="display: none;">
+                <h6 class="mb-3">Search Results</h6>
+                <div id="results-list" class="list-group" style="max-height: 400px; overflow-y: auto;">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+
+            <!-- Selected Student Display -->
+            <div id="selected-student" style="display: none;" class="mt-3">
+                <div class="alert alert-success d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>Selected Student:</strong>
+                        <span id="selected-student-name"></span>
+                        <small class="text-muted d-block" id="selected-student-details"></small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-student">
+                        <i class="bi bi-x"></i> Change
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 1.5: Section Selection (if student has no section) -->
+    <div class="card border" id="step1-5-card" style="display: none;">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0"><i class="bi bi-people me-2"></i>Step 1.5: Assign Section</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Section Required</strong>
+                <p class="mb-0">This student needs a section assigned before enrollment. Please select a section that matches their year level: <strong id="student-year-level-display"></strong></p>
+            </div>
+
+            <div class="mb-3">
+                <label for="section-select" class="form-label fw-semibold">Select Section</label>
+                <select class="form-select form-select-lg" id="section-select">
+                    <option value="">Choose a section...</option>
+                </select>
+                <div class="form-text">Select a section that matches the student's year level</div>
+            </div>
+
+            <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-primary" id="assign-section-btn" disabled>
+                    <i class="bi bi-check-circle me-2"></i>Assign Section & Continue
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 2: Subject & Section Selection -->
+    <div class="card border" id="step2-card" style="display: none;">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-book me-2"></i>Step 2: Select Subject & Section</h5>
+        </div>
+        <div class="card-body">
+            <div id="loading-assignments" class="text-center py-4" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted mt-2">Loading available subjects...</p>
+            </div>
+
+            <div id="no-assignments" class="alert alert-warning" style="display: none;">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong id="no-assignments-title">No Available Subjects</strong>
+                <p class="mb-0" id="no-assignments-message">This student is already enrolled in all your subjects for the current semester, or you don't have any assignments for the current semester.</p>
+                <div id="no-assignments-action" class="mt-2" style="display: none;">
+                    <a href="{% url 'teachers:assign_subject' %}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-plus-circle me-1"></i>Assign Subjects to Section
+                    </a>
+                </div>
+            </div>
+
+            <div id="assignments-list" style="display: none;">
+                <h6 class="mb-3">Available Subjects</h6>
+                <div class="list-group" id="assignments-container">
+                    <!-- Assignments will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 3: Confirmation Modal -->
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="confirmModalLabel">
+                        <i class="bi bi-check-circle me-2"></i>Confirm Enrollment
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Please review the enrollment details:</p>
+                    <table class="table table-bordered">
+                        <tr>
+                            <th width="30%">Student:</th>
+                            <td id="confirm-student-name"></td>
+                        </tr>
+                        <tr>
+                            <th>Subject:</th>
+                            <td id="confirm-subject"></td>
+                        </tr>
+                        <tr>
+                            <th>Section:</th>
+                            <td id="confirm-section"></td>
+                        </tr>
+                        <tr>
+                            <th>Semester:</th>
+                            <td id="confirm-semester"></td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" id="confirm-enroll-btn">
+                        <i class="bi bi-check-circle me-2"></i>Enroll Student
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <div id="alert-container" class="mt-3"></div>
+
+</div>
+
+<style>
+.step-indicator {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #e9ecef;
+    transition: all 0.3s;
+}
+
+.step-indicator.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+.step-indicator.completed {
+    background-color: #198754;
+    border-color: #198754;
+    color: white;
+}
+
+.step-number {
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.assignment-item {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.assignment-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+}
+
+.assignment-item.selected {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    let selectedStudent = null;
+    let selectedAssignment = null;
+    let searchTimeout = null;
+
+    // Step 1: Student Search
+    const studentSearchInput = document.getElementById('student-search');
+    const searchResults = document.getElementById('search-results');
+    const resultsList = document.getElementById('results-list');
+    const selectedStudentDiv = document.getElementById('selected-student');
+    const selectedStudentName = document.getElementById('selected-student-name');
+    const selectedStudentDetails = document.getElementById('selected-student-details');
+
+    studentSearchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        
+        if (query.length < 2) {
+            searchResults.style.display = 'none';
+            return;
+        }
+
+        // Debounce search
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            searchStudents(query);
+        }, 300);
+    });
+
+    function searchStudents(query) {
+        fetch(`{% url 'teachers:search_students' %}?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.students && data.students.length > 0) {
+                    displaySearchResults(data.students);
+                } else {
+                    resultsList.innerHTML = '<div class="list-group-item text-muted text-center">No students found</div>';
+                    searchResults.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Error searching students. Please try again.', 'danger');
+            });
+    }
+
+    function displaySearchResults(students) {
+        resultsList.innerHTML = '';
+        students.forEach(student => {
+            const item = document.createElement('div');
+            item.className = 'list-group-item list-group-item-action assignment-item';
+            item.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${escapeHtml(student.name)}</strong>
+                        <br>
+                        <small class="text-muted">
+                            ID: ${escapeHtml(student.student_id)} | 
+                            Section: ${escapeHtml(student.section)} | 
+                            Year: ${escapeHtml(student.year_level)}
+                        </small>
+                    </div>
+                    <button class="btn btn-sm btn-primary" onclick="selectStudent(${student.id}, '${escapeHtml(student.name)}', '${escapeHtml(student.student_id)}', '${escapeHtml(student.section)}')">
+                        Select
+                    </button>
+                </div>
+            `;
+            resultsList.appendChild(item);
+        });
+        searchResults.style.display = 'block';
+    }
+
+    window.selectStudent = function(studentId, name, studentIdStr, section) {
+        selectedStudent = { id: studentId, name: name, student_id: studentIdStr, section: section };
+        
+        // Update UI
+        selectedStudentName.textContent = name;
+        selectedStudentDetails.textContent = `ID: ${studentIdStr} | Section: ${section}`;
+        selectedStudentDiv.style.display = 'block';
+        searchResults.style.display = 'none';
+        studentSearchInput.value = '';
+        
+        // Move to step 2
+        updateStepIndicator(1, true);
+        updateStepIndicator(2, true);
+        document.getElementById('step1-card').classList.remove('border-primary');
+        document.getElementById('step2-card').style.display = 'block';
+        
+        // Load eligible assignments
+        loadEligibleAssignments(studentId);
+    };
+
+    document.getElementById('clear-student').addEventListener('click', function() {
+        selectedStudent = null;
+        selectedAssignment = null;
+        selectedStudentDiv.style.display = 'none';
+        document.getElementById('step1-5-card').style.display = 'none';
+        document.getElementById('step2-card').style.display = 'none';
+        document.getElementById('step3-card').style.display = 'none';
+        updateStepIndicator(2, false);
+        updateStepIndicator(3, false);
+        studentSearchInput.focus();
+    });
+
+    // Step 1.5: Section Selection
+    const sectionSelect = document.getElementById('section-select');
+    const assignSectionBtn = document.getElementById('assign-section-btn');
+    const step1_5Card = document.getElementById('step1-5-card');
+
+    sectionSelect.addEventListener('change', function() {
+        assignSectionBtn.disabled = !this.value;
+    });
+
+    assignSectionBtn.addEventListener('click', function() {
+        const sectionId = sectionSelect.value;
+        if (!sectionId || !selectedStudent) return;
+
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Assigning...';
+
+        fetch('{% url "teachers:assign_student_section" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                student_id: selectedStudent.id,
+                section_id: sectionId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                
+                // Update selected student info
+                selectedStudent.section = data.section_name;
+                selectedStudentDetails.textContent = `ID: ${selectedStudent.student_id} | Section: ${data.section_name}`;
+                
+                // Hide section selection, show step 2
+                step1_5Card.style.display = 'none';
+                document.getElementById('step2-card').style.display = 'block';
+                updateStepIndicator(2, true);
+                
+                // Load eligible assignments
+                loadEligibleAssignments(selectedStudent.id);
+            } else {
+                showAlert(data.error || 'Failed to assign section', 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Assign Section & Continue';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('An error occurred. Please try again.', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Assign Section & Continue';
+        });
+    });
+
+    // Step 2: Load Eligible Assignments
+    function loadEligibleAssignments(studentId) {
+        const loadingDiv = document.getElementById('loading-assignments');
+        const noAssignmentsDiv = document.getElementById('no-assignments');
+        const assignmentsListDiv = document.getElementById('assignments-list');
+        const container = document.getElementById('assignments-container');
+
+        loadingDiv.style.display = 'block';
+        noAssignmentsDiv.style.display = 'none';
+        assignmentsListDiv.style.display = 'none';
+        step1_5Card.style.display = 'none';
+
+        fetch(`{% url 'teachers:get_eligible_assignments' %}?student_id=${studentId}`)
+            .then(response => response.json())
+            .then(data => {
+                loadingDiv.style.display = 'none';
+                
+                // Check if student needs section assignment
+                if (data.needs_section) {
+                    // Show section selection step
+                    document.getElementById('student-year-level-display').textContent = data.student_year_level || 'Unknown';
+                    
+                    // Populate section dropdown
+                    sectionSelect.innerHTML = '<option value="">Choose a section...</option>';
+                    if (data.sections && data.sections.length > 0) {
+                        data.sections.forEach(section => {
+                            const option = document.createElement('option');
+                            option.value = section.id;
+                            option.textContent = section.name;
+                            sectionSelect.appendChild(option);
+                        });
+                    } else {
+                        sectionSelect.innerHTML = '<option value="">No sections available for this year level</option>';
+                    }
+                    
+                    step1_5Card.style.display = 'block';
+                    updateStepIndicator(2, false);
+                    return;
+                }
+                
+                if (data.error) {
+                    // Show specific error message
+                    document.getElementById('no-assignments-title').textContent = 'Cannot Enroll Student';
+                    document.getElementById('no-assignments-message').textContent = data.error;
+                    noAssignmentsDiv.style.display = 'block';
+                    noAssignmentsDiv.className = 'alert alert-danger'; // Change to danger for errors
+                    
+                    // Show action button if it's about missing assignments
+                    const actionDiv = document.getElementById('no-assignments-action');
+                    if (data.error.includes('do not have any subject assignments')) {
+                        actionDiv.style.display = 'block';
+                    } else {
+                        actionDiv.style.display = 'none';
+                    }
+                    
+                    showAlert(data.error, 'danger');
+                    return;
+                }
+
+                if (data.assignments && data.assignments.length > 0) {
+                    displayAssignments(data.assignments);
+                    assignmentsListDiv.style.display = 'block';
+                    noAssignmentsDiv.style.display = 'none';
+                } else {
+                    // Reset to warning style for "no assignments" case
+                    document.getElementById('no-assignments-title').textContent = 'No Available Subjects';
+                    document.getElementById('no-assignments-message').textContent = 'This student is already enrolled in all your subjects for the current semester, or you don\'t have any assignments for the current semester.';
+                    noAssignmentsDiv.className = 'alert alert-warning';
+                    noAssignmentsDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                loadingDiv.style.display = 'none';
+                showAlert('Error loading assignments. Please try again.', 'danger');
+            });
+    }
+
+    function displayAssignments(assignments) {
+        const container = document.getElementById('assignments-container');
+        container.innerHTML = '';
+
+        assignments.forEach(assignment => {
+            const item = document.createElement('div');
+            item.className = 'list-group-item assignment-item';
+            item.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">
+                            <strong>${escapeHtml(assignment.subject_code)}</strong> - ${escapeHtml(assignment.subject_name)}
+                        </h6>
+                        <small class="text-muted">
+                            Section: <strong>${escapeHtml(assignment.section_name)}</strong> | 
+                            Semester: ${escapeHtml(assignment.semester_name)} ${escapeHtml(assignment.semester_year)}
+                        </small>
+                    </div>
+                    <button class="btn btn-sm btn-primary" onclick="selectAssignment(${assignment.id}, '${escapeHtml(assignment.subject_code)}', '${escapeHtml(assignment.subject_name)}', '${escapeHtml(assignment.section_name)}', '${escapeHtml(assignment.semester_name)}', '${escapeHtml(assignment.semester_year)}')">
+                        Select
+                    </button>
+                </div>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    window.selectAssignment = function(assignmentId, subjectCode, subjectName, sectionName, semesterName, semesterYear) {
+        selectedAssignment = {
+            id: assignmentId,
+            subject_code: subjectCode,
+            subject_name: subjectName,
+            section_name: sectionName,
+            semester_name: semesterName,
+            semester_year: semesterYear
+        };
+
+        // Update UI - highlight selected
+        document.querySelectorAll('.assignment-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+        event.target.closest('.assignment-item').classList.add('selected');
+
+        // Show confirmation modal
+        showConfirmationModal();
+    };
+
+    // Step 3: Confirmation Modal
+    function showConfirmationModal() {
+        if (!selectedStudent || !selectedAssignment) return;
+
+        document.getElementById('confirm-student-name').textContent = selectedStudent.name;
+        document.getElementById('confirm-subject').textContent = `${selectedAssignment.subject_code} - ${selectedAssignment.subject_name}`;
+        document.getElementById('confirm-section').textContent = selectedAssignment.section_name;
+        document.getElementById('confirm-semester').textContent = `${selectedAssignment.semester_name} ${selectedAssignment.semester_year}`;
+
+        const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+        modal.show();
+
+        updateStepIndicator(3, true);
+    }
+
+    document.getElementById('confirm-enroll-btn').addEventListener('click', function() {
+        if (!selectedStudent || !selectedAssignment) return;
+
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enrolling...';
+
+        fetch('{% url "teachers:create_enrollment" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                student_id: selectedStudent.id,
+                assignment_id: selectedAssignment.id
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('confirmModal'));
+                modal.hide();
+
+                // Reset form
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                showAlert(data.error || 'Failed to enroll student', 'danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Enroll Student';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('An error occurred. Please try again.', 'danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Enroll Student';
+        });
+    });
+
+    // Helper Functions
+    function updateStepIndicator(step, active) {
+        const indicator = document.getElementById(`step${step}-indicator`);
+        if (active) {
+            indicator.classList.add('active');
+        } else {
+            indicator.classList.remove('active', 'completed');
+        }
+    }
+
+    function showAlert(message, type) {
+        const container = document.getElementById('alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.innerHTML = `
+            ${escapeHtml(message)}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        container.innerHTML = '';
+        container.appendChild(alert);
+
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            alert.remove();
+        }, 5000);
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+})();
+</script>
+{% endblock %}
+
+
+

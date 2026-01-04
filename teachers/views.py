@@ -2599,11 +2599,4 @@ def notifications(request):
         'unread_count': unread_count,
     }
     return render(request, 'teachers/notifications.html', context)
-    if request.user.role != 'teacher':
-        return redirect('dashboard')
-    context = {
-        'page_title': 'Notifications',
-        'page_description': 'View and manage all your notifications and alerts.'
-    }
-    return render(request, 'teachers/notifications.html', context)
     

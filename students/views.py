@@ -376,19 +376,50 @@ def subjects(request):
     except StudentProfile.DoesNotExist:
         return redirect('dashboard')
     
-    # Get student's subjects (based on their section)
-    subjects_list = []
-    if student_profile.section:
-        subjects_list = Subject.objects.filter(section=student_profile.section).select_related('teacher', 'teacher__user', 'section')
+    # Get current semester
+    current_semester = Semester.get_current()
+    
+    # Get student's subjects from enrollments (new architecture)
+    # Get enrollments for the active semester
+    enrollments = StudentEnrollment.objects.filter(
+        student=student_profile,
+        is_active=True
+    )
+    if current_semester:
+        enrollments = enrollments.filter(semester=current_semester)
+    enrollments = enrollments.select_related('assignment__subject', 'assignment__teacher__user', 'assignment__section')
+    
+    # Get unique subjects from enrollments
+    subjects_dict = {}
+    for enrollment in enrollments:
+        if enrollment.assignment and enrollment.assignment.subject:
+            subject = enrollment.assignment.subject
+            if subject.id not in subjects_dict:
+                subjects_dict[subject.id] = {
+                    'subject': subject,
+                    'assignment': enrollment.assignment,
+                    'teacher': enrollment.assignment.teacher if enrollment.assignment else None
+                }
+    
+    subjects_list = [data['subject'] for data in subjects_dict.values()]
     
     # Prepare subjects with detailed statistics
     subjects_with_stats = []
     total_credits = 0  # Placeholder - credits not in model
     pending_tasks_count = 0  # Could be calculated from assessments if needed
     
-    for subject in subjects_list:
-        # Get grades for this subject
-        subject_grades = Grade.objects.filter(enrollment__student=student_profile, enrollment__assignment__subject=subject)
+    for subject_id, subject_data in subjects_dict.items():
+        subject = subject_data['subject']
+        assignment = subject_data['assignment']
+        teacher = subject_data['teacher']
+        
+        # Get grades for this subject - filter by active semester
+        subject_grades = Grade.objects.filter(
+            enrollment__student=student_profile, 
+            enrollment__assignment__subject=subject
+        )
+        if current_semester:
+            subject_grades = subject_grades.filter(enrollment__semester=current_semester)
         average_grade = subject_grades.aggregate(Avg('grade'))['grade__avg'] or 0
         average_grade = round(average_grade, 2)
         
@@ -418,29 +449,39 @@ def subjects(request):
         else:
             grade_letter = "F"
         
-        # Get attendance for this subject
-        subject_attendance = Attendance.objects.filter(enrollment__student=student_profile, enrollment__assignment__subject=subject)
+        # Get attendance for this subject - filter by active semester
+        subject_attendance = Attendance.objects.filter(
+            enrollment__student=student_profile, 
+            enrollment__assignment__subject=subject
+        )
+        if current_semester:
+            subject_attendance = subject_attendance.filter(enrollment__semester=current_semester)
         present_count = subject_attendance.filter(status='present').count()
         total_attendance_count = subject_attendance.count()
         attendance_percentage = (present_count / total_attendance_count * 100) if total_attendance_count > 0 else 0
         attendance_percentage = round(attendance_percentage, 1)
         
-        # Get assessments/tasks for this subject (for pending tasks count)
-        subject_assessments = Assessment.objects.filter(subject=subject)
+        # Get assessments/tasks for this assignment (for pending tasks count)
+        subject_assessments = Assessment.objects.filter(assignment=assignment)
+        if current_semester:
+            subject_assessments = subject_assessments.filter(assignment__semester=current_semester)
         completed_assessments = AssessmentScore.objects.filter(
-            student=student_profile,
-            assessment__subject=subject
-        ).count()
-        pending_assessments = subject_assessments.count() - completed_assessments
+            enrollment__student=student_profile,
+            assessment__assignment=assignment
+        )
+        if current_semester:
+            completed_assessments = completed_assessments.filter(enrollment__semester=current_semester)
+        completed_count = completed_assessments.count()
+        pending_assessments = subject_assessments.count() - completed_count
         pending_tasks_count += max(0, pending_assessments)
         
         # Calculate course progress (simplified - based on assessments completed)
         total_assessments = subject_assessments.count()
-        course_progress = (completed_assessments / total_assessments * 100) if total_assessments > 0 else 0
+        course_progress = (completed_count / total_assessments * 100) if total_assessments > 0 else 0
         course_progress = round(course_progress, 1)
         
-        # Get teacher name
-        teacher_name = subject.teacher.user.get_full_name() if subject.teacher and subject.teacher.user else "TBA"
+        # Get teacher name from assignment
+        teacher_name = teacher.user.get_full_name() if teacher and teacher.user else "TBA"
         
         subjects_with_stats.append({
             'subject': subject,
@@ -448,7 +489,7 @@ def subjects(request):
             'grade_letter': grade_letter,
             'attendance_percentage': attendance_percentage,
             'course_progress': course_progress,
-            'completed_assessments': completed_assessments,
+            'completed_assessments': completed_count,  # Use count instead of QuerySet
             'total_assessments': total_assessments,
             'pending_assessments': pending_assessments,
             'teacher_name': teacher_name,
@@ -871,55 +912,89 @@ def notifications(request):
     
     unread_count = all_notifications.filter(is_read=False).count()
     
-    # Get assessments/tasks for the student
+    # Get assessments/tasks for the student from enrollments
     tasks = []
-    if student_profile.section:
-        subjects = Subject.objects.filter(section=student_profile.section)
-        assessments = Assessment.objects.filter(subject__in=subjects).select_related('subject', 'subject__teacher__user', 'created_by__user').order_by('date')
+    # Get current semester
+    current_semester = Semester.get_current()
+    
+    # Get student's enrollments to find their assignments
+    enrollments = StudentEnrollment.objects.filter(
+        student=student_profile,
+        is_active=True
+    )
+    if current_semester:
+        enrollments = enrollments.filter(semester=current_semester)
+    
+    # Get assessments for student's assignments
+    assignments = TeacherSubjectAssignment.objects.filter(
+        enrollments__in=enrollments
+    ).distinct()
+    
+    assessments = Assessment.objects.filter(
+        assignment__in=assignments
+    ).select_related('assignment__subject', 'assignment__teacher__user', 'created_by__user').order_by('date')
+    
+    from datetime import date
+    today = date.today()
+    
+    for assessment in assessments:
+        # Check if student has completed this assessment
+        # Find the enrollment for this assessment's assignment
+        enrollment = StudentEnrollment.objects.filter(
+            student=student_profile,
+            assignment=assessment.assignment,
+            is_active=True
+        ).first()
+        completed_score = None
+        if enrollment:
+            completed_score = AssessmentScore.objects.filter(
+                enrollment=enrollment,
+                assessment=assessment
+            ).first()
+        is_completed = completed_score is not None
         
-        from datetime import date
-        today = date.today()
+        # Determine status
+        if is_completed:
+            status = 'completed'
+        elif assessment.date < today:
+            status = 'pending'  # Overdue
+        else:
+            status = 'pending'  # Not yet due
         
-        for assessment in assessments:
-            # Check if student has completed this assessment
-            completed_score = AssessmentScore.objects.filter(enrollment__student=student_profile, assessment=assessment).first()
-            is_completed = completed_score is not None
-            
-            # Determine status
-            if is_completed:
-                status = 'completed'
-            elif assessment.date < today:
-                status = 'pending'  # Overdue
-            else:
-                status = 'pending'  # Not yet due
-            
-            # Determine priority based on due date
-            days_until = (assessment.date - today).days
-            if days_until < 0:
-                priority = 'high'  # Overdue
-            elif days_until <= 2:
-                priority = 'high'  # Due soon
-            elif days_until <= 7:
-                priority = 'medium'
-            else:
-                priority = 'low'
-            
-            teacher_name = assessment.subject.teacher.user.get_full_name() if assessment.subject.teacher and assessment.subject.teacher.user else "TBA"
-            
-            tasks.append({
-                'id': assessment.id,
-                'title': assessment.name,
-                'subject': assessment.subject.name,
-                'teacher': teacher_name,
-                'description': f"{assessment.category} - {assessment.subject.code}",
-                'dueDate': assessment.date.strftime('%Y-%m-%d'),
-                'dueTime': '11:59 PM',  # Placeholder
-                'type': assessment.category,
-                'points': int(assessment.max_score),
-                'estimatedTime': '2 hours',  # Placeholder
-                'status': status,
-                'priority': priority,
-                'completedDate': completed_score.created_at.strftime('%Y-%m-%d') if completed_score and completed_score.created_at else None,
+        # Determine priority based on due date
+        days_until = (assessment.date - today).days
+        if days_until < 0:
+            priority = 'high'  # Overdue
+        elif days_until <= 2:
+            priority = 'high'  # Due soon
+        elif days_until <= 7:
+            priority = 'medium'
+        else:
+            priority = 'low'
+        
+        # Get teacher from assignment
+        teacher_name = "TBA"
+        if assessment.assignment and assessment.assignment.teacher and assessment.assignment.teacher.user:
+            teacher_name = assessment.assignment.teacher.user.get_full_name()
+        
+        # Get subject from assignment
+        subject_name = assessment.assignment.subject.name if assessment.assignment and assessment.assignment.subject else "Unknown"
+        subject_code = assessment.assignment.subject.code if assessment.assignment and assessment.assignment.subject else "Unknown"
+        
+        tasks.append({
+            'id': assessment.id,
+            'title': assessment.name,
+            'subject': subject_name,
+            'teacher': teacher_name,
+            'description': f"{assessment.category} - {subject_code}",
+            'dueDate': assessment.date.strftime('%Y-%m-%d'),
+            'dueTime': '11:59 PM',  # Placeholder
+            'type': assessment.category,
+            'points': int(assessment.max_score),
+            'estimatedTime': '2 hours',  # Placeholder
+            'status': status,
+            'priority': priority,
+            'completedDate': completed_score.created_at.strftime('%Y-%m-%d') if completed_score and completed_score.created_at else None,
             })
     
     # Calculate task statistics

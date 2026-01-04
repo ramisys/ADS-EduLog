@@ -1778,20 +1778,35 @@ def grades(request):
     section_ids = list(set([assignment.section.id for assignment in assignments if assignment.section]))
     sections = ClassSection.objects.filter(id__in=section_ids).order_by('name') if section_ids else ClassSection.objects.none()
     
-    # Get all students in teacher's sections
-    students = StudentProfile.objects.filter(
-        section__id__in=section_ids
-    ).select_related('user', 'section').order_by('section__name', 'user__last_name', 'user__first_name') if section_ids else StudentProfile.objects.none()
+    # Get only enrolled students for teacher's assignments in the active semester
+    # This ensures only students who are actually enrolled can have scores entered
+    enrolled_student_ids = StudentEnrollment.objects.filter(
+        assignment__in=assignments,
+        is_active=True
+    )
+    if current_semester:
+        enrolled_student_ids = enrolled_student_ids.filter(semester=current_semester)
+    enrolled_student_ids = enrolled_student_ids.values_list('student_id', flat=True).distinct()
     
-    # Get all assessments for teacher's assignments
+    students = StudentProfile.objects.filter(
+        id__in=enrolled_student_ids
+    ).select_related('user', 'section').order_by('section__name', 'user__last_name', 'user__first_name') if enrolled_student_ids else StudentProfile.objects.none()
+    
+    # Get all assessments for teacher's assignments - filter by active semester
     assessments = Assessment.objects.filter(
         assignment__teacher=teacher_profile
-    ).select_related('assignment__subject', 'created_by').order_by('-date', 'category', 'name')
+    )
+    if current_semester:
+        assessments = assessments.filter(assignment__semester=current_semester)
+    assessments = assessments.select_related('assignment__subject', 'created_by').order_by('-date', 'category', 'name')
     
-    # Get all assessment scores
+    # Get all assessment scores - filter by active semester
     assessment_scores = AssessmentScore.objects.filter(
         assessment__assignment__teacher=teacher_profile
-    ).select_related('enrollment__student', 'assessment', 'recorded_by')
+    )
+    if current_semester:
+        assessment_scores = assessment_scores.filter(enrollment__semester=current_semester)
+    assessment_scores = assessment_scores.select_related('enrollment__student', 'assessment', 'recorded_by')
     
     # Get category weights for each assignment
     category_weights_dict = {}
@@ -1867,12 +1882,14 @@ def grades(request):
     
     for assessment in assessments:
         subject = assessment.assignment.subject if assessment.assignment else assessment.subject
+        section = assessment.assignment.section if assessment.assignment and assessment.assignment.section else None
         assessments_data.append({
             'id': assessment.id,
             'name': assessment.name,
             'category': assessment.category,
             'subject': subject.code,  # Use code instead of name for consistency
             'subjectId': subject.id,
+            'section': section.name if section else None,  # Add section information
             'maxScore': float(assessment.max_score),
             'date': assessment.date.strftime('%Y-%m-%d'),
             'term': assessment.term,
@@ -1941,25 +1958,41 @@ def add_assessment(request):
         
         subject = subject_or_error
         
-        # Get the assignment for this subject
+        # Get the assignment for this subject and section
+        # Filter by section if provided to ensure we get the correct assignment
         assignment = TeacherSubjectAssignment.objects.filter(
             teacher=teacher_profile,
             subject=subject
-        ).first()
+        )
+        
+        # Filter by section if provided (section name from frontend)
+        section_name = data.get('section')
+        if section_name and section_name != 'all':
+            assignment = assignment.filter(section__name=section_name)
+        
+        # Filter by current semester if available
+        current_semester = Semester.get_current()
+        if current_semester:
+            assignment = assignment.filter(semester=current_semester)
+        
+        assignment = assignment.first()
         
         if not assignment:
-            return JsonResponse({'success': False, 'error': 'Assignment not found for this subject'}, status=404)
+            section_info = f" in section {section_name}" if section_name and section_name != 'all' else ""
+            return JsonResponse({'success': False, 'error': f'Assignment not found for this subject{section_info}'}, status=404)
         
         # Validate assessment name
         assessment_name = validate_input(data.get('name'), 'string', max_length=200)
         if not assessment_name:
             return JsonResponse({'success': False, 'error': 'Invalid assessment name'}, status=400)
         
-        # Check for duplicate assessment name in the same assignment
+        # Check for duplicate assessment name in the same assignment (subject + section combination)
+        # This allows the same assessment name in different sections
         if Assessment.objects.filter(assignment=assignment, name=assessment_name).exists():
+            section_name = assignment.section.name if assignment.section else 'this section'
             return JsonResponse({
                 'success': False,
-                'error': f'An assessment with the name "{assessment_name}" already exists for this subject.'
+                'error': f'An assessment with the name "{assessment_name}" already exists for {subject.code} in {section_name}. Please use a different name.'
             }, status=400)
         
         # Validate category
@@ -2181,14 +2214,94 @@ def update_score(request):
                 }, status=400)
         
         # Get enrollment for this student and assignment
+        # First try to find enrollment matching assignment and semester
         enrollment = StudentEnrollment.objects.filter(
             student=student,
             assignment=assessment.assignment,
             is_active=True
-        ).first()
+        )
+        
+        # If assignment has a semester, prefer enrollment with matching semester
+        # but also allow enrollment without semester (will be auto-synced)
+        if assessment.assignment.semester:
+            enrollment = enrollment.filter(
+                Q(semester=assessment.assignment.semester) | Q(semester__isnull=True)
+            )
+        
+        enrollment = enrollment.first()
+        
+        # If no enrollment found, try without semester filter (for backward compatibility)
+        if not enrollment:
+            enrollment = StudentEnrollment.objects.filter(
+                student=student,
+                assignment=assessment.assignment,
+                is_active=True
+            ).first()
         
         if not enrollment:
-            return JsonResponse({'success': False, 'error': 'Student is not enrolled in this subject'}, status=400)
+            # Provide more detailed error message with logging
+            assignment_info = f"{assessment.assignment.subject.code} ({assessment.assignment.section.name if assessment.assignment.section else 'No Section'})"
+            semester_info = f" for {assessment.assignment.semester}" if assessment.assignment.semester else ""
+            
+            # Check all possible enrollments for debugging
+            all_enrollments = StudentEnrollment.objects.filter(
+                student=student,
+                assignment=assessment.assignment
+            ).select_related('assignment__section', 'semester')
+            
+            # Check if student has enrollments for this assignment but different status/semester
+            if all_enrollments.exists():
+                inactive_enrollments = all_enrollments.filter(is_active=False)
+                if inactive_enrollments.exists():
+                    return JsonResponse({
+                        'success': False, 
+                        'error': f'Student has an inactive enrollment in {assignment_info}. Please reactivate the enrollment first.'
+                    }, status=400)
+                
+                # Check for enrollments with different semester
+                if assessment.assignment.semester:
+                    different_semester = all_enrollments.exclude(semester=assessment.assignment.semester).exclude(semester__isnull=True)
+                    if different_semester.exists():
+                        diff_sem = different_semester.first().semester
+                        return JsonResponse({
+                            'success': False, 
+                            'error': f'Student is enrolled in {assignment_info} but for a different semester ({diff_sem}). Please enroll the student for {assessment.assignment.semester} first.'
+                        }, status=400)
+            
+            # Check if student is enrolled in the same subject but different section
+            student_enrollments = StudentEnrollment.objects.filter(
+                student=student,
+                assignment__subject=assessment.assignment.subject,
+                is_active=True
+            ).select_related('assignment__section', 'semester')
+            
+            if student_enrollments.exists():
+                enrolled_sections = [e.assignment.section.name for e in student_enrollments if e.assignment.section]
+                if enrolled_sections:
+                    sections_str = ', '.join(set(enrolled_sections))
+                    return JsonResponse({
+                        'success': False, 
+                        'error': f'Student is enrolled in {assessment.assignment.subject.code} but in different section(s): {sections_str}. The assessment is for {assessment.assignment.section.name}. Please enroll the student in {assessment.assignment.section.name} first.'
+                    }, status=400)
+            
+            # Log for debugging
+            logger.error(
+                f"Enrollment not found for student_id={student_id}, assessment_id={assessment_id}, "
+                f"assignment_id={assessment.assignment.id}, semester={assessment.assignment.semester}, "
+                f"student_section={student.section.name if student.section else None}, "
+                f"assignment_section={assessment.assignment.section.name if assessment.assignment.section else None}"
+            )
+            
+            return JsonResponse({
+                'success': False, 
+                'error': f'Student is not enrolled in {assignment_info}{semester_info}. Please enroll the student first.'
+            }, status=400)
+        
+        # Auto-sync enrollment semester if it doesn't match assignment semester
+        if assessment.assignment.semester and enrollment.semester != assessment.assignment.semester:
+            enrollment.semester = assessment.assignment.semester
+            enrollment.save()
+            logger.info(f"Auto-synced enrollment {enrollment.id} semester to {assessment.assignment.semester}")
         
         # Handle score deletion or update/create
         try:

@@ -846,11 +846,12 @@
         // Filter students by section
         filteredStudents = allStudents.filter(s => s.section === selectedSectionFilter);
         
-        // Filter assessments by subject and term
+        // Filter assessments by section, subject and term
         filteredAssessments = allAssessments.filter(a => {
+            const matchesSection = a.section === selectedSectionFilter;
             const matchesSubject = a.subject === selectedSubject;
             const matchesTerm = !selectedTerm || a.term === selectedTerm;
-            return matchesSubject && matchesTerm;
+            return matchesSection && matchesSubject && matchesTerm;
         });
         
         // Refresh displays
@@ -882,7 +883,7 @@
 
         // Add event listeners
         document.getElementById('term-selector').addEventListener('change', function(e) {
-            selectedTerm = e.target.value;
+            selectedTerm = e.target.value || '';  // Ensure empty string if "Overall" is selected
             applyFilters();
         });
 
@@ -1158,11 +1159,18 @@
     }
 
     function getCategoryAverage(studentId, category, subject) {
+        // Use filteredAssessments which is already filtered by term, section, and subject
         let categoryAssessments = filteredAssessments.filter(a => a.category === category);
         
         // Filter by subject if provided
         if (subject) {
             categoryAssessments = categoryAssessments.filter(a => a.subject === subject);
+        }
+        
+        // Ensure we only use assessments from the selected term (filteredAssessments already handles this)
+        // But add explicit term filter for clarity
+        if (selectedTerm) {
+            categoryAssessments = categoryAssessments.filter(a => a.term === selectedTerm);
         }
         
         if (categoryAssessments.length === 0) return null;
@@ -1179,19 +1187,21 @@
     }
 
     function getTermGrade(studentId, term) {
+        // Only calculate if filters are applied (section and subject must be selected)
+        if (!areFiltersApplied()) {
+            return null;
+        }
+        
         const categoryWeights = getCategoryWeights();
         let totalWeighted = 0;
         let totalWeight = 0;
         
-        // Use allAssessments (not filtered) to ensure we get all assessments for the term
-        // Filter by subject if a specific subject is selected
-        let assessmentsToUse = allAssessments;
-        if (selectedSubject !== 'all' && selectedSubject) {
-            assessmentsToUse = allAssessments.filter(a => a.subject === selectedSubject);
-        }
-        
-        // Filter assessments by term
-        const termAssessments = assessmentsToUse.filter(a => a.term === term);
+        // Use filteredAssessments which are already filtered by section and subject
+        // Then filter by the specific term
+        const termAssessments = filteredAssessments.filter(a => {
+            // Ensure exact match (case-sensitive) for the specific term
+            return a.term === term;
+        });
         
         Object.keys(categoryWeights).forEach(category => {
             // Get category average for this specific term
@@ -1228,14 +1238,16 @@
     }
     
     function getOverallGrade(studentId) {
-        // If a specific term is selected, return that term's grade
+        // If a specific term is selected, return ONLY that term's grade (not the average)
         if (selectedTerm === 'Midterm') {
-            return getMidtermGrade(studentId);
+            const midtermGrade = getMidtermGrade(studentId);
+            return midtermGrade;  // Return only Midterm grade, not overall
         } else if (selectedTerm === 'Final') {
-            return getFinalGrade(studentId);
+            const finalGrade = getFinalGrade(studentId);
+            return finalGrade;  // Return only Final grade, not overall
         }
         
-        // If no term filter or "all", return average of midterm and final
+        // If no term filter or "Overall" is selected, return average of midterm and final
         const midtermGrade = getMidtermGrade(studentId);
         const finalGrade = getFinalGrade(studentId);
         
@@ -1570,7 +1582,14 @@
             // Category columns
             const categories = ['Activities', 'Quizzes', 'Projects', 'Exams'];
             categories.forEach(category => {
-                const categoryAssessments = filteredAssessments.filter(a => a.category === category);
+                // Filter and sort assessments by date (newest first) then by name
+                let categoryAssessments = filteredAssessments.filter(a => a.category === category);
+                categoryAssessments.sort((a, b) => {
+                    // Sort by date (newest first), then by name
+                    const dateCompare = new Date(b.date) - new Date(a.date);
+                    if (dateCompare !== 0) return dateCompare;
+                    return a.name.localeCompare(b.name);
+                });
                 // Show category even if no assessments
                 const isCollapsed = collapsedCategories[category] || categoryAssessments.length === 0;
                 const categoryAvg = getCategoryAverage(student.id, category, selectedSubject === 'all' ? null : selectedSubject);
@@ -1862,13 +1881,16 @@
             return;
         }
         
-        // Check for duplicate assessment name in the same subject
+        // Check for duplicate assessment name in the same assignment (subject + section)
+        // Only check within the currently selected section to allow same name in different sections
         const trimmedName = name.trim();
-        const duplicateAssessment = allAssessments.find(a => 
-            a.subject === subject && a.name.toLowerCase().trim() === trimmedName.toLowerCase()
+        const duplicateAssessment = filteredAssessments.find(a => 
+            a.subject === subject && 
+            a.section === selectedSectionFilter &&
+            a.name.toLowerCase().trim() === trimmedName.toLowerCase()
         );
         if (duplicateAssessment) {
-            showToast(`An assessment with the name "${trimmedName}" already exists for ${subject}. Please use a different name.`, 'warning');
+            showToast(`An assessment with the name "${trimmedName}" already exists for ${subject} in ${selectedSectionFilter}. Please use a different name.`, 'warning');
             document.getElementById('assessmentName').focus();
             return;
         }
@@ -1888,6 +1910,7 @@
                 name: name,
                 category: category,
                 subject_id: subjectId,
+                section: selectedSectionFilter,  // Send section name to ensure correct assignment lookup
                 max_score: maxScore,
                 date: date,
                 term: term
@@ -1900,17 +1923,25 @@
             submitBtn.innerHTML = originalBtnText;
             
             if (data.success) {
-                // Add new assessment to allAssessments
-                allAssessments.push({
+                // Add new assessment to allAssessments with all required properties
+                // Note: Assessment can only be added when section and subject are selected (filters applied)
+                const newAssessment = {
                     id: data.assessment_id,
                     name: name,
                     category: category,
-                    subject: subject,
+                    subject: subject,  // Subject code (e.g., "IT101")
                     subjectId: subjectId,
-                    maxScore: maxScore,
+                    section: selectedSectionFilter,  // Section name (should not be 'all' when adding assessment)
+                    maxScore: parseFloat(maxScore),
                     date: date,
                     term: term
-                });
+                };
+                allAssessments.push(newAssessment);
+                
+                // Debug: Log the new assessment
+                console.log('New assessment added:', newAssessment);
+                console.log('Current filters - Section:', selectedSectionFilter, 'Subject:', selectedSubject, 'Term:', selectedTerm);
+                console.log('All assessments count:', allAssessments.length);
                 
                 // Add to audit logs
                 auditLogs.unshift({
@@ -1921,16 +1952,23 @@
                     timestamp: new Date().toLocaleString()
                 });
                 
-                // Refresh displays
-                applyFilters();
-                renderAuditLog();
-                
-                // Close modal
+                // Close modal first
                 const modal = bootstrap.Modal.getInstance(document.getElementById('addAssessmentModal'));
                 modal.hide();
                 
                 // Reset form
                 e.target.reset();
+                
+                // Refresh displays immediately - this will update filteredAssessments and re-render the table
+                // The new assessment should now match the filters (section, subject, term)
+                applyFilters();
+                renderAuditLog();
+                
+                // Debug: Check if assessment appears in filtered list
+                setTimeout(() => {
+                    const filtered = filteredAssessments.filter(a => a.id === data.assessment_id);
+                    console.log('Assessment in filtered list:', filtered.length > 0 ? 'YES' : 'NO', filtered);
+                }, 50);
                 
                 showToast('Assessment added successfully!', 'success');
             } else {

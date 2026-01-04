@@ -16,6 +16,8 @@ from core.models import (
     Subject,
     Assessment,
     AssessmentScore,
+    StudentEnrollment,
+    TeacherSubjectAssignment,
 )
 from core.db_functions import calculate_student_gpa, calculate_attendance_rate, get_student_performance_summary
 
@@ -146,7 +148,7 @@ def dashboard(request):
 
     # Number of distinct subjects across all children
     subjects_count = (
-        all_grades.values('subject')
+        all_grades.values('enrollment__assignment__subject')
         .distinct()
         .count()
         if children.exists() else 0
@@ -199,28 +201,28 @@ def dashboard(request):
     # Subject performance data for charts
     subject_avg_qs = (
         all_grades
-        .values('subject__name')
+        .values('enrollment__assignment__subject__name')
         .annotate(avg_grade=Avg('grade'))
-        .order_by('subject__name')
+        .order_by('enrollment__assignment__subject__name')
     )
 
     subject_labels = []
     subject_values = []
     for item in subject_avg_qs:
-        subject_name = item['subject__name'] or 'Subject'
+        subject_name = item['enrollment__assignment__subject__name'] or 'Subject'
         subject_labels.append(subject_name)
         subject_values.append(round(float(item['avg_grade']), 2) if item['avg_grade'] is not None else 0)
 
     subject_term_qs = (
         all_grades
-        .values('subject__name', 'term')
+        .values('enrollment__assignment__subject__name', 'term')
         .annotate(avg_grade=Avg('grade'))
     )
 
     subject_term_map = {}
     terms_present = set()
     for entry in subject_term_qs:
-        subject_name = entry['subject__name'] or 'Subject'
+        subject_name = entry['enrollment__assignment__subject__name'] or 'Subject'
         term_name = entry['term'] or 'Term'
         subject_term_map.setdefault(subject_name, {})[term_name] = round(float(entry['avg_grade']), 2)
         terms_present.add(term_name)
@@ -370,10 +372,27 @@ def child_subjects(request):
     # Process subjects for the selected child(ren) - should be only one now
     children_subjects = []
     for child in children:
-        subjects_qs = Subject.objects.filter(section=child.section).select_related('teacher__user')
-
+        # Get subjects from child's enrollments
+        enrollments = StudentEnrollment.objects.filter(
+            student=child,
+            is_active=True
+        ).select_related('assignment__subject', 'assignment__teacher__user').distinct()
+        
+        # Get unique subjects from enrollments
+        subject_dict = {}
+        for enrollment in enrollments:
+            if enrollment.assignment and enrollment.assignment.subject:
+                subject = enrollment.assignment.subject
+                if subject.id not in subject_dict:
+                    subject_dict[subject.id] = {
+                        'subject': subject,
+                        'teacher': enrollment.assignment.teacher if enrollment.assignment else None
+                    }
+        
         subject_cards = []
-        for subject in subjects_qs:
+        for subject_id, subject_data in subject_dict.items():
+            subject = subject_data['subject']
+            teacher = subject_data['teacher']
             avg_grade = (
                 Grade.objects
                 .filter(enrollment__student=child, enrollment__assignment__subject=subject)
@@ -400,8 +419,8 @@ def child_subjects(request):
                 if total_assessments > 0 else "No assessments yet"
             )
 
-            teacher_name = subject.teacher.user.get_full_name() if subject.teacher and subject.teacher.user else "N/A"
-            teacher_email = subject.teacher.user.email if subject.teacher and subject.teacher.user else ""
+            teacher_name = teacher.user.get_full_name() if teacher and teacher.user else "N/A"
+            teacher_email = teacher.user.email if teacher and teacher.user else ""
 
             subject_cards.append({
                 'subject': subject,
@@ -488,9 +507,26 @@ def attendance(request):
         }
         
         # Subject-wise attendance
-        subjects_qs = Subject.objects.filter(section=child.section).select_related('teacher__user')
+        # Get subjects from child's enrollments
+        enrollments = StudentEnrollment.objects.filter(
+            student=child,
+            is_active=True
+        ).select_related('assignment__subject', 'assignment__teacher__user').distinct()
         
-        for subject in subjects_qs:
+        # Get unique subjects from enrollments
+        subject_dict = {}
+        for enrollment in enrollments:
+            if enrollment.assignment and enrollment.assignment.subject:
+                subject = enrollment.assignment.subject
+                if subject.id not in subject_dict:
+                    subject_dict[subject.id] = {
+                        'subject': subject,
+                        'teacher': enrollment.assignment.teacher if enrollment.assignment else None
+                    }
+        
+        for subject_id, subject_data in subject_dict.items():
+            subject = subject_data['subject']
+            teacher = subject_data['teacher']
             subject_attendance_qs = Attendance.objects.filter(enrollment__student=child, enrollment__assignment__subject=subject)
             subject_total = subject_attendance_qs.count()
             subject_present = subject_attendance_qs.filter(status='present').count()
@@ -499,7 +535,7 @@ def attendance(request):
                 if subject_total > 0 else 0
             )
             
-            teacher_name = subject.teacher.user.get_full_name() if subject.teacher and subject.teacher.user else "N/A"
+            teacher_name = teacher.user.get_full_name() if teacher and teacher.user else "N/A"
             
             subject_attendance.append({
                 'subject': subject,
@@ -568,9 +604,26 @@ def grades(request):
     
     if child:
         # Get subject-wise average grades
-        subjects_qs = Subject.objects.filter(section=child.section).select_related('teacher__user')
+        # Get subjects from child's enrollments
+        enrollments = StudentEnrollment.objects.filter(
+            student=child,
+            is_active=True
+        ).select_related('assignment__subject', 'assignment__teacher__user').distinct()
         
-        for subject in subjects_qs:
+        # Get unique subjects from enrollments
+        subject_dict = {}
+        for enrollment in enrollments:
+            if enrollment.assignment and enrollment.assignment.subject:
+                subject = enrollment.assignment.subject
+                if subject.id not in subject_dict:
+                    subject_dict[subject.id] = {
+                        'subject': subject,
+                        'teacher': enrollment.assignment.teacher if enrollment.assignment else None
+                    }
+        
+        for subject_id, subject_data in subject_dict.items():
+            subject = subject_data['subject']
+            teacher = subject_data['teacher']
             # Get average grade for this subject (across all terms or latest term)
             grade_qs = Grade.objects.filter(enrollment__student=child, enrollment__assignment__subject=subject)
             avg_grade = grade_qs.aggregate(avg_value=Avg('grade'))['avg_value']
@@ -583,7 +636,7 @@ def grades(request):
             else:
                 avg_grade = None
             
-            teacher_name = subject.teacher.user.get_full_name() if subject.teacher and subject.teacher.user else "N/A"
+            teacher_name = teacher.user.get_full_name() if teacher and teacher.user else "N/A"
             
             subject_grades.append({
                 'subject': subject,
@@ -606,8 +659,10 @@ def grades(request):
             percentage = round(float(score.percentage), 2) if score.percentage else 0
             
             teacher_name = "N/A"
-            if assessment.subject.teacher and assessment.subject.teacher.user:
-                teacher_name = assessment.subject.teacher.user.get_full_name()
+            # Get teacher from assessment's assignment
+            teacher = assessment.assignment.teacher if assessment.assignment else None
+            if teacher and teacher.user:
+                teacher_name = teacher.user.get_full_name()
             elif score.recorded_by and score.recorded_by.user:
                 teacher_name = score.recorded_by.user.get_full_name()
             
@@ -690,13 +745,24 @@ def reports(request):
             # Build subject performance from function results
             subject_performance = []
             concern_subjects = []
-            subjects_qs = Subject.objects.filter(section=child.section).select_related('teacher__user')
+            # Get subjects from enrollments to get teacher info
+            enrollments = StudentEnrollment.objects.filter(
+                student=child,
+                is_active=True
+            ).select_related('assignment__subject', 'assignment__teacher__user').distinct()
+            
+            # Build subject to teacher mapping
+            subject_teacher_map = {}
+            for enrollment in enrollments:
+                if enrollment.assignment and enrollment.assignment.subject:
+                    subject_teacher_map[enrollment.assignment.subject.id] = enrollment.assignment.teacher
             
             for perf_data in performance_summary.get('subject_performance', []):
                 try:
                     subject = Subject.objects.get(id=perf_data['subject_id'])
-                    teacher_name = subject.teacher.user.get_full_name() if subject.teacher and subject.teacher.user else "N/A"
-                    teacher_email = subject.teacher.user.email if subject.teacher and subject.teacher.user else ""
+                    teacher = subject_teacher_map.get(subject.id)
+                    teacher_name = teacher.user.get_full_name() if teacher and teacher.user else "N/A"
+                    teacher_email = teacher.user.email if teacher and teacher.user else ""
                     
                     subject_avg_grade = perf_data.get('average_grade')
                     subject_attendance_rate = perf_data.get('attendance_rate')
@@ -748,11 +814,29 @@ def reports(request):
             if total_attendance > 0:
                 overall_attendance = round((present_count / total_attendance) * 100, 1)
             
-            # Get subject-wise performance
-            subjects_qs = Subject.objects.filter(section=child.section).select_related('teacher__user')
-            subjects_count = subjects_qs.count()
+            # Get subject-wise performance - get subjects from enrollments
+            enrollments = StudentEnrollment.objects.filter(
+                student=child,
+                is_active=True
+            ).select_related('assignment__subject', 'assignment__teacher__user').distinct()
             
-            for subject in subjects_qs:
+            # Get unique subjects from enrollments
+            subject_dict = {}
+            for enrollment in enrollments:
+                if enrollment.assignment and enrollment.assignment.subject:
+                    subject = enrollment.assignment.subject
+                    if subject.id not in subject_dict:
+                        subject_dict[subject.id] = {
+                            'subject': subject,
+                            'teacher': enrollment.assignment.teacher if enrollment.assignment else None
+                        }
+            
+            subjects_count = len(subject_dict)
+            
+            for subject_id, subject_data in subject_dict.items():
+                subject = subject_data['subject']
+                teacher = subject_data['teacher']
+                
                 # Get grade for this subject
                 subject_grades = Grade.objects.filter(enrollment__student=child, enrollment__assignment__subject=subject)
                 subject_avg_grade = None
@@ -769,8 +853,8 @@ def reports(request):
                 if subject_total > 0:
                     subject_attendance_rate = round((subject_present / subject_total) * 100, 1)
                 
-                teacher_name = subject.teacher.user.get_full_name() if subject.teacher and subject.teacher.user else "N/A"
-                teacher_email = subject.teacher.user.email if subject.teacher and subject.teacher.user else ""
+                teacher_name = teacher.user.get_full_name() if teacher and teacher.user else "N/A"
+                teacher_email = teacher.user.email if teacher and teacher.user else ""
                 
                 # Calculate improvement (compare latest term with previous term if available)
                 improvement = None

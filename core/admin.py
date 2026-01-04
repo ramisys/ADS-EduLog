@@ -83,10 +83,76 @@ class UserAdmin(admin.ModelAdmin):
     list_filter = ['role', 'is_active', 'is_staff']
 
 
+class StudentProfileInline(admin.TabularInline):
+    """Inline admin for managing children linked to a parent"""
+    model = StudentProfile
+    fk_name = 'parent'
+    extra = 0
+    fields = ['student_id', 'user', 'course', 'year_level', 'section']
+    readonly_fields = ['student_id']
+    autocomplete_fields = ['user', 'year_level', 'section']
+    show_change_link = True
+    
+    def get_queryset(self, request):
+        """Optimize queryset with select_related"""
+        qs = super().get_queryset(request)
+        return qs.select_related('user', 'year_level', 'section')
+
+
 @admin.register(ParentProfile)
 class ParentProfileAdmin(admin.ModelAdmin):
-    list_display = ['parent_id', 'user', 'contact_number']
+    list_display = ['parent_id', 'user', 'contact_number', 'children_count', 'get_children_list']
     search_fields = ['parent_id', 'user__username', 'user__first_name', 'user__last_name', 'user__email', 'contact_number']
+    readonly_fields = ['parent_id', 'children_count_display']
+    inlines = [StudentProfileInline]
+    
+    fieldsets = (
+        ('Parent Information', {
+            'fields': ('user', 'parent_id', 'contact_number')
+        }),
+        ('Children Information', {
+            'fields': ('children_count_display',),
+            'description': 'Manage linked children using the "Children" section below. You can add, remove, or modify child links.'
+        }),
+    )
+    
+    def children_count(self, obj):
+        """Display the number of children linked to this parent"""
+        if obj.pk:
+            count = StudentProfile.objects.filter(parent=obj).count()
+            return count
+        return 0
+    children_count.short_description = 'Children'
+    
+    def get_children_list(self, obj):
+        """Display a list of linked children in the list view"""
+        if obj.pk:
+            children = StudentProfile.objects.filter(parent=obj).select_related('user')[:5]
+            if children:
+                children_list = ', '.join([f"{child.student_id} ({child.user.get_full_name()})" for child in children])
+                remaining = StudentProfile.objects.filter(parent=obj).count() - 5
+                if remaining > 0:
+                    children_list += f" ... and {remaining} more"
+                return children_list
+        return "No children linked"
+    get_children_list.short_description = 'Linked Children'
+    
+    def children_count_display(self, obj):
+        """Display children count in the detail view"""
+        if obj.pk:
+            count = StudentProfile.objects.filter(parent=obj).count()
+            children = StudentProfile.objects.filter(parent=obj).select_related('user', 'section')
+            if children.exists():
+                children_info = "<ul>"
+                for child in children:
+                    section_name = child.section.name if child.section else "No section"
+                    children_info += f"<li><strong>{child.student_id}</strong> - {child.user.get_full_name()} ({section_name})</li>"
+                children_info += "</ul>"
+                return f"<p><strong>Total: {count} child(ren)</strong></p>{children_info}"
+            return f"<p><strong>No children linked yet.</strong> Use the 'Children' section below to link students to this parent.</p>"
+        return "Save the parent profile first to link children."
+    children_count_display.allow_html = True
+    children_count_display.short_description = 'Children Summary'
 
 
 @admin.register(TeacherProfile)

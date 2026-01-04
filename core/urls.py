@@ -20,4 +20,8 @@ urlpatterns = [
     path('semesters/<int:semester_id>/set-active/', views.semester_set_active, name='semester_set_active'),
     path('semesters/<int:semester_id>/close/', views.semester_close, name='semester_close'),
     path('semesters/<int:semester_id>/archive/', views.semester_archive, name='semester_archive'),
+    # Parent Management
+    path('parents/', views.parent_management, name='parent_management'),
+    path('parents/link-child/', views.link_child_to_parent, name='link_child_to_parent'),
+    path('parents/unlink-child/', views.unlink_child_from_parent, name='unlink_child_from_parent'),
 ]

@@ -4,7 +4,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Avg
+from django.db.models import Avg, Q
 from django.core.exceptions import ValidationError
 from datetime import datetime
 from .models import TeacherProfile, StudentProfile, ParentProfile, User, Subject, Attendance, Grade, Notification, ClassSection, Feedback, Semester
@@ -699,6 +699,131 @@ def semester_archive(request, semester_id):
         messages.error(request, f'Error archiving semester: {str(e)}')
     
     return redirect('semester_management')
+
+
+@login_required
+@role_required('admin')
+def parent_management(request):
+    """Admin view for managing parents and linking children"""
+    # Get all parents with their children count
+    parents = ParentProfile.objects.select_related('user').prefetch_related('studentprofile_set').all()
+    
+    # Get search query
+    search_query = request.GET.get('search', '').strip()
+    if search_query:
+        parents = parents.filter(
+            Q(user__first_name__icontains=search_query) |
+            Q(user__last_name__icontains=search_query) |
+            Q(user__email__icontains=search_query) |
+            Q(parent_id__icontains=search_query) |
+            Q(contact_number__icontains=search_query)
+        )
+    
+    # Get parent_id for detail view
+    parent_id = request.GET.get('parent_id')
+    selected_parent = None
+    unlinked_students = []
+    student_search_query = request.GET.get('student_search', '').strip()
+    
+    if parent_id:
+        try:
+            selected_parent = parents.get(id=parent_id)
+            # Get students not linked to any parent or linked to this parent
+            all_students = StudentProfile.objects.select_related('user', 'section', 'year_level').all()
+            linked_student_ids = StudentProfile.objects.filter(parent__isnull=False).exclude(parent=selected_parent).values_list('id', flat=True)
+            unlinked_students = all_students.exclude(id__in=linked_student_ids)
+            
+            # Apply student search filter if provided
+            if student_search_query:
+                unlinked_students = unlinked_students.filter(
+                    Q(user__first_name__icontains=student_search_query) |
+                    Q(user__last_name__icontains=student_search_query) |
+                    Q(user__username__icontains=student_search_query) |
+                    Q(user__email__icontains=student_search_query) |
+                    Q(student_id__icontains=student_search_query) |
+                    Q(course__icontains=student_search_query) |
+                    Q(section__name__icontains=student_search_query)
+                )
+        except ParentProfile.DoesNotExist:
+            messages.error(request, 'Parent not found.')
+            return redirect('parent_management')
+    
+    context = {
+        'parents': parents,
+        'selected_parent': selected_parent,
+        'unlinked_students': unlinked_students,
+        'search_query': search_query,
+        'student_search_query': student_search_query,
+    }
+    return render(request, 'parent_management.html', context)
+
+
+@login_required
+@role_required('admin')
+def link_child_to_parent(request):
+    """Link a student to a parent"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        parent_id = request.POST.get('parent_id')
+        student_id = request.POST.get('student_id')
+        
+        if not parent_id or not student_id:
+            messages.error(request, 'Parent ID and Student ID are required.')
+            return redirect('parent_management')
+        
+        parent = get_object_or_404(ParentProfile, pk=parent_id)
+        student = get_object_or_404(StudentProfile, pk=student_id)
+        
+        # Check if student is already linked to another parent
+        if student.parent and student.parent != parent:
+            messages.warning(request, f'Student {student.student_id} is already linked to another parent. Unlinking first.')
+        
+        # Link student to parent
+        student.parent = parent
+        student.save()
+        
+        messages.success(request, f'Successfully linked {student.student_id} ({student.user.get_full_name()}) to {parent.parent_id} ({parent.user.get_full_name()}).')
+    except Exception as e:
+        messages.error(request, f'Error linking child to parent: {str(e)}')
+    
+    if parent_id:
+        from django.urls import reverse
+        return redirect(reverse('parent_management') + f'?parent_id={parent_id}')
+    return redirect('parent_management')
+
+
+@login_required
+@role_required('admin')
+def unlink_child_from_parent(request):
+    """Unlink a student from a parent"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        student_id = request.POST.get('student_id')
+        parent_id = request.POST.get('parent_id')
+        
+        if not student_id:
+            messages.error(request, 'Student ID is required.')
+            return redirect('parent_management')
+        
+        student = get_object_or_404(StudentProfile, pk=student_id)
+        parent_name = student.parent.user.get_full_name() if student.parent else 'Unknown'
+        
+        # Unlink student from parent
+        student.parent = None
+        student.save()
+        
+        messages.success(request, f'Successfully unlinked {student.student_id} ({student.user.get_full_name()}) from parent {parent_name}.')
+    except Exception as e:
+        messages.error(request, f'Error unlinking child from parent: {str(e)}')
+    
+    if parent_id:
+        from django.urls import reverse
+        return redirect(reverse('parent_management') + f'?parent_id={parent_id}')
+    return redirect('parent_management')
 
 
 @login_required

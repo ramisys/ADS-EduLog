@@ -691,6 +691,7 @@ def semester_archive(request, semester_id):
             return redirect('semester_management')
         
         semester.status = 'archived'
+        semester.is_current = False  # Explicitly ensure archived semesters are not current
         semester.save()
         
         messages.success(request, f'{semester} has been archived.')

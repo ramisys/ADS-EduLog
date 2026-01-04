@@ -519,6 +519,10 @@ class TeacherSubjectAssignment(models.Model):
             current_semester = Semester.get_current()
             if current_semester:
                 self.semester = current_semester
+        
+        # Note: Semester status validation is handled at the view level to prevent duplicate error messages
+        # The view will redirect with an error if semester is not active before save() is called
+        
         self.full_clean()
         super().save(*args, **kwargs)
     

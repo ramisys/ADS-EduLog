@@ -133,16 +133,11 @@
       </a>
     </div>
     <p class="text-muted small">Select one or more subjects and a section to create assignments</p>
-    {% if current_semester %}
+    {% if current_semester and current_semester.status == 'active' %}
     <div class="alert alert-info d-inline-flex align-items-center gap-2 py-2 px-3 mt-2">
       <i class="bi bi-calendar-check"></i>
       <span><strong>Current Semester:</strong> {{ current_semester.name }} - {{ current_semester.academic_year }}</span>
       <span class="badge bg-{{ current_semester.status_badge_class }}">{{ current_semester.get_status_display }}</span>
-    </div>
-    {% else %}
-    <div class="alert alert-warning d-inline-flex align-items-center gap-2 py-2 px-3 mt-2">
-      <i class="bi bi-exclamation-triangle"></i>
-      <span><strong>Warning:</strong> No active semester is set. Please contact the administrator to set a current semester.</span>
     </div>
     {% endif %}
   </div>

@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Avg, Count, Q
 from django.db import transaction, IntegrityError
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.urls import reverse
 from datetime import timedelta
@@ -416,9 +417,9 @@ def subjects(request):
     if current_semester:
         assignments = assignments.filter(semester=current_semester)
     else:
-        # If no active semester, show empty list with warning
+        # If no active semester, show empty list
         assignments = assignments.none()
-        messages.warning(request, 'No active semester is set. Please contact the administrator.')
+        # Note: Removed automatic warning message to prevent duplicate toasts
     
     assignments = assignments.select_related('subject', 'section', 'semester').order_by('section__name', 'subject__code')
     
@@ -499,6 +500,20 @@ def assign_subject(request):
         messages.error(request, 'Teacher profile not found.')
         return redirect('teachers:subjects')
     
+    # Get current semester and validate it's active
+    current_semester = Semester.get_current()
+    if not current_semester:
+        messages.error(request, 'No active semester is set. Please contact the administrator.')
+        return redirect('teachers:subjects')
+    
+    if current_semester.status != 'active':
+        messages.error(
+            request,
+            f'Cannot assign subjects when semester is {current_semester.get_status_display()}. '
+            f'Only active semesters allow subject assignments.'
+        )
+        return redirect('teachers:subjects')
+    
     if request.method == 'POST':
         # Check if subjects were selected
         selected_subjects = request.POST.getlist('subjects')
@@ -564,6 +579,14 @@ def assign_subject(request):
                         f'Successfully assigned {len(valid_assignments)} subjects ({subject_names}) to section {section_name}.'
                     )
                 return redirect('teachers:subjects')
+            except ValidationError as e:
+                # ValidationError from model - semester status check
+                # This should not happen if view-level check works, but handle it gracefully
+                # Don't add duplicate message - view already checked and redirected
+                error_msg = str(e)
+                logger.warning(f"ValidationError caught in assign_subject (should not happen): {error_msg}")
+                # Don't add message - view already handled it
+                return redirect('teachers:subjects')
             except Exception as e:
                 logger.error(f"Error creating subject assignment: {str(e)}", exc_info=True)
                 messages.error(request, f'An error occurred while creating the assignment: {str(e)}')
@@ -573,9 +596,6 @@ def assign_subject(request):
             logger.warning(f"Form validation failed: {form.errors}")
     else:
         form = TeacherSubjectAssignmentForm(teacher=teacher_profile)
-    
-    # Get current semester for display
-    current_semester = Semester.get_current()
     
     context = {
         'form': form,
@@ -819,7 +839,7 @@ def students(request):
         assignments = assignments.filter(semester=current_semester)
     else:
         assignments = assignments.none()
-        messages.warning(request, 'No active semester is set. Please contact the administrator.')
+        # Note: Removed automatic warning message to prevent duplicate toasts
     
     assignments = assignments.select_related('subject', 'section').order_by('subject__code', 'subject__name')
     
@@ -1273,6 +1293,20 @@ def assign_student_section(request):
         return JsonResponse({
             'success': False,
             'error': 'Student ID and Section ID are required'
+        }, status=400)
+    
+    # Get current semester and validate it's active
+    current_semester = Semester.get_current()
+    if not current_semester:
+        return JsonResponse({
+            'success': False,
+            'error': 'No active semester is set. Please contact the administrator.'
+        }, status=400)
+    
+    if current_semester.status != 'active':
+        return JsonResponse({
+            'success': False,
+            'error': f'Cannot assign sections when semester is {current_semester.get_status_display()}. Only active semesters allow section assignments.'
         }, status=400)
     
     # Get student

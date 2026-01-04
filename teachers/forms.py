@@ -122,6 +122,9 @@ class TeacherSubjectAssignmentForm(forms.ModelForm):
                 raise forms.ValidationError("Please select at least one subject.")
             return cleaned_data
         
+        # Note: Semester validation is handled at the view level to prevent duplicate error messages
+        # The view will redirect with an error if semester is not active before form validation runs
+        
         # Ensure all subjects are Subject instances
         valid_subjects = []
         for subject in subjects:

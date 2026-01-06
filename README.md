@@ -9,8 +9,16 @@ EduLog is a comprehensive educational management system designed to streamline s
 - [Installation](#installation)
 - [Setup](#setup)
 - [Usage](#usage)
+- [Semester Management](#semester-management)
+- [Assessment System](#assessment-system)
+- [Feedback System](#feedback-system)
 - [Project Structure](#project-structure)
 - [User Roles](#user-roles)
+- [Security Notes](#security-notes)
+- [Troubleshooting](#troubleshooting)
+- [Additional Notes](#additional-notes)
+- [Contributing](#contributing)
+- [License](#license)
 - [Authors](#authors)
 
 ## ✨ Features
@@ -25,8 +33,12 @@ EduLog is a comprehensive educational management system designed to streamline s
 ### For Teachers
 - **Teaching Dashboard**: Manage subjects, classes, and student records
 - **Subject Management**: View and manage assigned subjects
+- **Student Enrollment**: Enroll students in your subject offerings
 - **Attendance Recording**: Track student attendance for your subjects
 - **Grade Management**: Record and view student grades
+- **Assessment Management**: Create and manage assessments (Activities, Quizzes, Projects, Exams)
+- **Assessment Scoring**: Record student scores for assessments with automatic grade calculation
+- **Category Weights**: Configure weight percentages for different assessment categories
 - **Class Adviser**: Manage advised sections/classes
 - **Performance Analytics**: View average grades and attendance statistics
 - **Notifications**: Receive and send important notifications
@@ -42,9 +54,17 @@ EduLog is a comprehensive educational management system designed to streamline s
 ### General Features
 - **Role-Based Access Control**: Separate dashboards and permissions for each user type
 - **Secure Authentication**: Custom authentication system with role-based login
+- **Password Recovery**: Forgot password functionality for account recovery
+- **Semester Management**: Comprehensive semester system with status tracking (Upcoming, Active, Closed, Archived)
+- **Student Enrollment**: Students enroll in subject offerings per semester
+- **Assessment System**: Create assessments with categories (Activities, Quizzes, Projects, Exams) and terms (Midterm, Final)
+- **Grade Calculation**: Automatic grade calculation based on assessment scores and category weights
+- **Feedback System**: Submit feedback, bug reports, feature requests, and improvement suggestions
+- **Audit Logging**: Track system changes and user actions
 - **Auto-Dismissing Alerts**: User-friendly notification system
 - **Responsive Design**: Modern, mobile-friendly interface
 - **Custom ID Generation**: Automatic generation of Student, Teacher, and Parent IDs
+- **Year Level Normalization**: Normalized year level management for better data integrity
 
 ## 🛠 Technologies Used
 
@@ -221,6 +241,17 @@ You can log in using:
 You can log in using:
 - Email
 
+### Password Recovery
+
+If you forget your password:
+
+1. Go to the Login page
+2. Click "Forgot Password?" link
+3. Enter your email address
+4. Follow the instructions sent to your email to reset your password
+
+**Note**: Password recovery is available for all user types (Students, Teachers, Parents).
+
 ### Using the Dashboards
 
 #### Student Dashboard
@@ -235,17 +266,27 @@ After logging in as a student, you can:
 
 2. **View Grades**:
    - Recent grades in all subjects
-   - Grades by subject with term-wise breakdown
+   - Grades by subject with term-wise breakdown (Midterm, Final)
    - Subject averages
+   - Assessment scores and breakdowns
 
 3. **View Attendance**:
    - Recent attendance records
    - Attendance statistics (Present, Absent, Late)
    - Attendance percentage
 
-4. **View Notifications**:
+4. **View Subjects**:
+   - View all enrolled subjects
+   - Subject details and information
+
+5. **View Notifications**:
    - See unread notifications
    - Stay updated with important information
+
+6. **Submit Feedback**:
+   - Submit feedback, bug reports, or feature requests
+   - Rate the system (1-5 stars)
+   - Submit anonymously if desired
 
 #### Teacher Dashboard
 
@@ -259,20 +300,43 @@ After logging in as a teacher, you can:
 
 2. **Manage Subjects**:
    - View all assigned subjects
+   - Assign subjects to sections
    - See sections for each subject
    - View subject statistics
 
-3. **Manage Classes**:
+3. **Student Enrollment**:
+   - Enroll students in your subject offerings
+   - View enrolled students per subject
+   - Manage student enrollments
+
+4. **Manage Assessments**:
+   - Create assessments (Activities, Quizzes, Projects, Exams)
+   - Set assessment dates and maximum scores
+   - Organize by term (Midterm, Final)
+   - Record student scores for assessments
+
+5. **Category Weights**:
+   - Configure weight percentages for assessment categories
+   - Set custom weights per subject offering
+   - Automatic grade calculation based on weights
+
+6. **Manage Classes**:
    - View advised sections (if class adviser)
    - See student counts per section
 
-4. **View Attendance**:
+7. **View Attendance**:
    - Recent attendance records for your subjects
    - Attendance overview (Present, Absent, Late counts)
+   - Record attendance for enrolled students
 
-5. **View Grades**:
+8. **View Grades**:
    - Grade statistics for your subjects
    - Average grades per subject
+   - View individual student grades and assessment scores
+
+9. **Submit Feedback**:
+   - Submit feedback, bug reports, or feature requests
+   - Rate the system (1-5 stars)
 
 #### Parent Dashboard
 
@@ -299,6 +363,11 @@ After logging in as a parent, you can:
    - Recent attendance records for all children
    - Overall attendance statistics
 
+5. **Submit Feedback**:
+   - Submit feedback about the system
+   - Rate the system (1-5 stars)
+   - Submit anonymously if desired
+
 ### Admin Panel
 
 Access the Django admin panel at `http://127.0.0.1:8000/admin/` using your superuser credentials to:
@@ -306,10 +375,50 @@ Access the Django admin panel at `http://127.0.0.1:8000/admin/` using your super
 - Manage users (Students, Teachers, Parents)
 - Create and manage subjects
 - Create and manage class sections
+- Manage semesters (create, activate, close, archive)
+- Manage year levels
 - Record attendance
 - Record grades
+- Manage assessments and assessment scores
+- Configure category weights
+- Manage student enrollments
 - Send notifications
+- View and respond to feedback
+- View audit logs
 - Manage all database records
+
+### Semester Management
+
+The system includes comprehensive semester management:
+
+- **Create Semesters**: Set up new academic semesters with start/end dates
+- **Semester Status**: Track semester status (Upcoming, Active, Closed, Archived)
+- **Current Semester**: Mark one semester as current for active operations
+- **Status Transitions**: Enforce proper status transitions (Upcoming → Active → Closed → Archived)
+- **Data Protection**: Prevent modifications to closed/archived semesters
+- **Semester-Scoped Data**: All academic data (enrollments, attendance, grades, assessments) is tied to specific semesters
+
+Access semester management through the admin panel or dedicated management interface.
+
+### Assessment System
+
+Teachers can create and manage assessments:
+
+- **Assessment Categories**: Activities, Quizzes, Projects, Exams
+- **Terms**: Organize assessments by Midterm or Final term
+- **Scoring**: Record student scores with automatic percentage calculation
+- **Grade Calculation**: Automatic grade calculation based on category weights
+- **Flexible Weights**: Configure custom weight percentages per subject offering
+
+### Feedback System
+
+All users can submit feedback:
+
+- **Feedback Types**: General Feedback, Bug Report, Feature Request, Improvement Suggestion, Compliment
+- **Rating System**: Rate the system from 1-5 stars
+- **Anonymous Option**: Submit feedback anonymously
+- **Admin Response**: Admins can view and respond to feedback
+- **Feedback Management**: Track read/unread status and archive old feedback
 
 ## 📁 Project Structure
 
@@ -317,11 +426,19 @@ Access the Django admin panel at `http://127.0.0.1:8000/admin/` using your super
 ADS-EduLog/
 │
 ├── core/                   # Core application
-│   ├── models.py          # Database models (User, StudentProfile, TeacherProfile, etc.)
-│   ├── views.py           # Core views (login, signup, dashboard routing)
+│   ├── models.py          # Database models (User, StudentProfile, TeacherProfile, Semester, Assessment, Feedback, etc.)
+│   ├── views.py           # Core views (login, signup, dashboard routing, semester management, feedback)
 │   ├── urls.py            # Core URL routing
-│   ├── templates/         # Core templates (base, login, signup, etc.)
-│   └── admin.py           # Admin configuration
+│   ├── admin.py           # Admin configuration
+│   ├── backends.py        # Custom authentication backend
+│   ├── middleware.py      # Custom middleware
+│   ├── notifications.py   # Notification utilities
+│   ├── permissions.py     # Permission utilities
+│   ├── db_functions.py    # Database utility functions
+│   ├── templates/         # Core templates (base, login, signup, feedback, semester management, etc.)
+│   ├── static/            # Static files (CSS, JS, images)
+│   └── management/        # Custom management commands
+│       └── commands/      # Django management commands
 │
 ├── students/              # Student application
 │   ├── views.py           # Student dashboard view
@@ -329,9 +446,11 @@ ADS-EduLog/
 │   └── templates/         # Student templates
 │
 ├── teachers/              # Teacher application
-│   ├── views.py           # Teacher dashboard view
+│   ├── views.py           # Teacher dashboard views (subjects, students, attendance, grades, assessments)
 │   ├── urls.py            # Teacher URL routing
-│   └── templates/         # Teacher templates
+│   ├── forms.py           # Teacher forms
+│   ├── models.py          # Teacher-specific models (if any)
+│   └── templates/         # Teacher templates (dashboard, subjects, students, attendance, grades, assessments, etc.)
 │
 ├── parents/               # Parent application
 │   ├── views.py           # Parent dashboard view
@@ -355,23 +474,37 @@ ADS-EduLog/
 
 ### Student
 - View personal grades and attendance
+- View assessment scores and breakdowns
 - Access subject information
+- View enrolled subjects
 - Receive notifications
+- Submit feedback
 
 ### Teacher
 - Manage subjects and classes
+- Enroll students in subject offerings
+- Create and manage assessments
+- Record assessment scores
+- Configure category weights
 - Record attendance and grades
 - View student performance
 - Send notifications
+- Submit feedback
 
 ### Parent
 - Monitor children's academic progress
 - View grades and attendance for all children
+- View assessment scores for all children
 - Receive notifications about children
+- Submit feedback
 
 ### Admin
 - Full access to admin panel
 - Manage all users and data
+- Manage semesters and year levels
+- Manage subjects and class sections
+- View and respond to feedback
+- View audit logs
 - System configuration
 
 ## 🔒 Security Notes
@@ -412,6 +545,11 @@ ADS-EduLog/
 - **Auto-Dismissing Alerts**: Alert messages on the login page automatically disappear after 5 seconds
 - **Role-Based Redirects**: Users are automatically redirected to their role-specific dashboard after login
 - **Database Seeding**: Use `seed_data.py` to quickly populate the database with test data for development and testing purposes
+- **Semester-Based Operations**: All academic operations (enrollments, attendance, grades, assessments) are scoped to specific semesters
+- **Assessment Categories**: Default category weights are Activities (20%), Quizzes (20%), Projects (30%), Exams (30%) - can be customized per subject
+- **Grade Calculation**: Final grades are automatically calculated based on assessment scores and their category weights
+- **Data Integrity**: The system enforces data integrity through foreign key relationships and validation rules
+- **Audit Trail**: System changes are logged in the audit log for tracking and compliance
 
 ## 🤝 Contributing
 
